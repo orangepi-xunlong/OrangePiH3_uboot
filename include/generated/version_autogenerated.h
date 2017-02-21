@@ -1,4 +1,4 @@
-#define PLAIN_VERSION "2016.09-gf9e6c78-dirty"
+#define PLAIN_VERSION "2016.09-g909b140-dirty"
 #define U_BOOT_VERSION "U-Boot " PLAIN_VERSION
-#define CC_VERSION_STRING "arm-linux-gnueabi-gcc (Ubuntu/Linaro 4.7.3-12ubuntu1) 4.7.3"
-#define LD_VERSION_STRING "GNU ld (GNU Binutils for Ubuntu) 2.24"
+#define CC_VERSION_STRING "arm-linux-gnueabi-gcc (crosstool-NG linaro-1.13.1-2012.02-20120222 - Linaro GCC 2012.02) 4.6.3 20120201 (prerelease)"
+#define LD_VERSION_STRING "GNU ld (crosstool-NG linaro-1.13.1-2012.02-20120222 - Linaro GCC 2012.02) 2.22"
