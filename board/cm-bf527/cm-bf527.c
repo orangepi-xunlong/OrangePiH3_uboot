@@ -1,5 +1,5 @@
 /*
- * U-Boot - main board file
+ * U-boot - main board file
  *
  * Copyright (c) 2005-2009 Analog Devices Inc.
  *
@@ -11,6 +11,7 @@
 #include <net.h>
 #include <netdev.h>
 #include <asm/blackfin.h>
+#include <asm/net.h>
 #include <asm/mach-common/bits/otp.h>
 #include "../cm-bf537e/gpio_cfi_flash.h"
 
@@ -26,6 +27,8 @@ int checkboard(void)
 #ifdef CONFIG_BFIN_MAC
 static void board_init_enetaddr(uchar *mac_addr)
 {
+	bool valid_mac = false;
+
 	/* the MAC is stored in OTP memory page 0xDF */
 	uint32_t ret;
 	uint64_t otp_mac;
@@ -37,9 +40,16 @@ static void board_init_enetaddr(uchar *mac_addr)
 		for (ret = 0; ret < 6; ++ret)
 			mac_addr[ret] = otp_mac_p[5 - ret];
 
-		if (is_valid_ethaddr(mac_addr))
-			eth_setenv_enetaddr("ethaddr", mac_addr);
+		if (is_valid_ether_addr(mac_addr))
+			valid_mac = true;
 	}
+
+	if (!valid_mac) {
+		puts("Warning: Generating 'random' MAC address\n");
+		bfin_gen_rand_mac(mac_addr);
+	}
+
+	eth_setenv_enetaddr("ethaddr", mac_addr);
 }
 
 int board_eth_init(bd_t *bis)

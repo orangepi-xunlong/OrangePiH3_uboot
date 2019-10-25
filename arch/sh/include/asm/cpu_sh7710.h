@@ -51,7 +51,10 @@
 #define SCIF1_BASE	SCSMR_1
 
 /* Timer */
-#define TMU_BASE	0xA412FE90
+#define TSTR0		0xA412FE92
+#define TSTR		TSTR0
+#define TCNT0		0xa412FE98
+#define TCR0		0xa412FE9C
 
 /* On chip oscillator circuits */
 #define FRQCR		0xA415FF80

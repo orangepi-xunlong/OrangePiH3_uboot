@@ -2,25 +2,48 @@
  * (C) Copyright 2002-2010
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef	__ASM_GBL_DATA_H
 #define __ASM_GBL_DATA_H
+/*
+ * The following data structure is placed in some memory which is
+ * available very early after boot (like DPRAM on MPC8xx/MPC82xx, or
+ * some locked parts of the data cache) to allow for a minimum set of
+ * global variables during system initialization (until we have set
+ * up the memory controller so that we can use RAM).
+ *
+ * Keep it *SMALL* and remember to set GENERATED_GBL_DATA_SIZE > sizeof(gd_t)
+ */
 
-/* Architecture-specific global data */
-struct arch_global_data {
-#if defined(CONFIG_FSL_ESDHC)
-	u32 sdhc_clk;
+typedef	struct	global_data {
+	bd_t		*bd;
+	unsigned long	flags;
+	unsigned long	baudrate;
+	unsigned long	have_console;	/* serial_init() was called */
+	unsigned long	env_addr;	/* Address  of Environment struct */
+	unsigned long	env_valid;	/* Checksum of Environment valid? */
+	unsigned long	fb_base;	/* base address of frame buffer */
+#ifdef CONFIG_FSL_ESDHC
+	unsigned long	sdhc_clk;
 #endif
-
-#if defined(CONFIG_U_QE)
-	u32 qe_clk;
-	u32 brg_clk;
-	uint mp_alloc_base;
-	uint mp_alloc_top;
-#endif /* CONFIG_U_QE */
-
 #ifdef CONFIG_AT91FAMILY
 	/* "static data" needed by at91's clock.c */
 	unsigned long	cpu_clk_rate_hz;
@@ -30,77 +53,71 @@ struct arch_global_data {
 	unsigned long	pllb_rate_hz;
 	unsigned long	at91_pllb_usb_init;
 #endif
+#ifdef CONFIG_ARM
 	/* "static data" needed by most of timer.c on ARM platforms */
-	unsigned long timer_rate_hz;
-	unsigned long tbu;
-	unsigned long tbl;
-	unsigned long lastinc;
-	unsigned long long timer_reset_value;
+	unsigned long	timer_rate_hz;
+	unsigned long	tbl;
+	unsigned long	tbu;
+	unsigned long long	timer_reset_value;
+	unsigned long	lastinc;
+#endif
+#ifdef CONFIG_IXP425
+	unsigned long	timestamp;
+#endif
+	unsigned long	relocaddr;	/* Start address of U-Boot in RAM */
+	phys_size_t	ram_size;	/* RAM size */
+        unsigned long   ram_size_mb;    /* RAM size MB*/
+	unsigned long	mon_len;	/* monitor len */
+	unsigned long	irq_sp;		/* irq stack pointer */
+	unsigned long	start_addr_sp;	/* start_addr_stackpointer */
+	unsigned long	reloc_off;
 #if !(defined(CONFIG_SYS_ICACHE_OFF) && defined(CONFIG_SYS_DCACHE_OFF))
-	unsigned long tlb_addr;
-	unsigned long tlb_size;
-#if defined(CONFIG_ARM64)
-	unsigned long tlb_fillptr;
-	unsigned long tlb_emerg;
+	unsigned long	tlb_addr;
 #endif
+#if defined(CONFIG_ALLWINNER)
+	int             uart_console;
+    int             boot_card_num;
+	unsigned int    layer_para;
+    unsigned int    layer_hd;
+	int             key_pressd_value;
+    int             axp_power_soft_id;
+	int             power_step_level;
+	int             pmu_suspend_chgcur;
+	int             pmu_runtime_chgcur;
+	int             limit_vol;
+	int             limit_cur;
+	int             limit_pcvol;
+	int             limit_pccur;
+	int				power_main_id;
+	int				power_slave_id;
+	char            *script_mod_buf;
+	int             script_main_key_count;
+	int             force_shell;
+	uint            malloc_noncache_start;
+	int             lockflag;
+	uint            chargemode;
+    uint            force_download_uboot;
+    int             securemode;
+    int             bootfile_mode;
+	uint            vbus_status;		//0: 未知；1：存在；2：不存在
+        uint            debug_mode;
 #endif
-#ifdef CONFIG_SYS_MEM_RESERVE_SECURE
-#define MEM_RESERVE_SECURE_SECURED	0x1
-#define MEM_RESERVE_SECURE_MAINTAINED	0x2
-#define MEM_RESERVE_SECURE_ADDR_MASK	(~0x3)
-	/*
-	 * Secure memory addr
-	 * This variable needs maintenance if the RAM base is not zero,
-	 * or if RAM splits into non-consecutive banks. It also has a
-	 * flag indicating the secure memory is marked as secure by MMU.
-	 * Flags used: 0x1 secured
-	 *             0x2 maintained
-	 */
-	phys_addr_t secure_ram;
-	unsigned long tlb_allocated;
-#endif
+	void		**jt;		/* jump table */
+	char		env_buf[32];	/* buffer for getenv() before reloc. */
+} gd_t;
 
-#ifdef CONFIG_OMAP_COMMON
-	u32 omap_boot_device;
-	u32 omap_boot_mode;
-	u8 omap_ch_flags;
-#endif
-#if defined(CONFIG_FSL_LSCH3) && defined(CONFIG_SYS_FSL_HAS_DP_DDR)
-	unsigned long mem2_clk;
-#endif
-};
+/*
+ * Global Data Flags
+ */
+#define	GD_FLG_RELOC		0x00001	/* Code was relocated to RAM		*/
+#define	GD_FLG_DEVINIT		0x00002	/* Devices have been initialized	*/
+#define	GD_FLG_SILENT		0x00004	/* Silent mode				*/
+#define	GD_FLG_POSTFAIL		0x00008	/* Critical POST test failed		*/
+#define	GD_FLG_POSTSTOP		0x00010	/* POST seqeunce aborted		*/
+#define	GD_FLG_LOGINIT		0x00020	/* Log Buffer has been initialized	*/
+#define GD_FLG_DISABLE_CONSOLE	0x00040	/* Disable console (in & out)		*/
+#define GD_FLG_ENV_READY	0x00080	/* Environment imported into hash table	*/
 
-#include <asm-generic/global_data.h>
-
-#ifdef __clang__
-
-#define DECLARE_GLOBAL_DATA_PTR
-#define gd	get_gd()
-
-static inline gd_t *get_gd(void)
-{
-	gd_t *gd_ptr;
-
-#ifdef CONFIG_ARM64
-	/*
-	 * Make will already error that reserving x18 is not supported at the
-	 * time of writing, clang: error: unknown argument: '-ffixed-x18'
-	 */
-	__asm__ volatile("mov %0, x18\n" : "=r" (gd_ptr));
-#else
-	__asm__ volatile("mov %0, r9\n" : "=r" (gd_ptr));
-#endif
-
-	return gd_ptr;
-}
-
-#else
-
-#ifdef CONFIG_ARM64
-#define DECLARE_GLOBAL_DATA_PTR		register volatile gd_t *gd asm ("x18")
-#else
-#define DECLARE_GLOBAL_DATA_PTR		register volatile gd_t *gd asm ("r9")
-#endif
-#endif
+#define DECLARE_GLOBAL_DATA_PTR     register volatile gd_t *gd asm ("r8")
 
 #endif /* __ASM_GBL_DATA_H */

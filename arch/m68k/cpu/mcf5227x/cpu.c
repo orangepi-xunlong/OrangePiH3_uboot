@@ -3,10 +3,26 @@
  * (C) Copyright 2000-2003
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * Copyright (C) 2004-2007, 2012 Freescale Semiconductor, Inc.
+ * Copyright (C) 2004-2007 Freescale Semiconductor, Inc.
  * TsiChung Liew (Tsi-Chung.Liew@freescale.com)
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -14,15 +30,14 @@
 #include <command.h>
 
 #include <asm/immap.h>
-#include <asm/io.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
 int do_reset(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
-	rcm_t *rcm = (rcm_t *) (MMAP_RCM);
+	volatile rcm_t *rcm = (rcm_t *) (MMAP_RCM);
 	udelay(1000);
-	setbits_8(&rcm->rcr, RCM_RCR_SOFTRST);
+	rcm->rcr |= RCM_RCR_SOFTRST;
 
 	/* we don't return! */
 	return 0;
@@ -30,14 +45,14 @@ int do_reset(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 
 int checkcpu(void)
 {
-	ccm_t *ccm = (ccm_t *) MMAP_CCM;
+	volatile ccm_t *ccm = (ccm_t *) MMAP_CCM;
 	u16 msk;
 	u16 id = 0;
 	u8 ver;
 
 	puts("CPU:   ");
-	msk = (in_be16(&ccm->cir) >> 6);
-	ver = (in_be16(&ccm->cir) & 0x003f);
+	msk = (ccm->cir >> 6);
+	ver = (ccm->cir & 0x003f);
 	switch (msk) {
 	case 0x6c:
 		id = 52277;
@@ -52,10 +67,10 @@ int checkcpu(void)
 		printf("       CPU CLK %s MHz BUS CLK %s MHz FLB CLK %s MHz\n",
 		       strmhz(buf1, gd->cpu_clk),
 		       strmhz(buf2, gd->bus_clk),
-		       strmhz(buf3, gd->arch.flb_clk));
+		       strmhz(buf3, gd->flb_clk));
 		printf("       INP CLK %s MHz VCO CLK %s MHz\n",
-		       strmhz(buf1, gd->arch.inp_clk),
-		       strmhz(buf2, gd->arch.vco_clk));
+		       strmhz(buf1, gd->inp_clk),
+		       strmhz(buf2, gd->vco_clk));
 	}
 
 	return 0;

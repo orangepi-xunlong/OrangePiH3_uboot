@@ -2,7 +2,23 @@
  * (C) Copyright 2000-2007
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -63,7 +79,7 @@ static int pci_async_enabled(void)
 #endif
 #endif /* CONFIG_PCI */
 
-#if defined(CONFIG_PCI) && \
+#if defined(CONFIG_PCI) && !defined(CONFIG_IOP480) && \
     !defined(CONFIG_405) && !defined(CONFIG_405EX)
 int pci_arbiter_enabled(void)
 {
@@ -234,6 +250,20 @@ static char *bootstrap_str[] = {
 };
 static char bootstrap_char[] = { 'A', 'B', 'C', 'D', 'E', 'G', 'F', 'H' };
 #endif
+#if defined(CONFIG_APM821XX)
+#define SDR0_PINSTP_SHIFT       29
+static char *bootstrap_str[] = {
+	"RESERVED",
+	"RESERVED",
+	"RESERVED",
+	"NAND (8 bits)",
+	"NOR  (8 bits)",
+	"NOR  (8 bits) w/PLL Bypassed",
+	"I2C (Addr 0x54)",
+	"I2C (Addr 0x52)",
+};
+static char bootstrap_char[] = { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H' };
+#endif
 
 #if defined(SDR0_PINSTP_SHIFT)
 static int bootstrap_option(void)
@@ -273,6 +303,7 @@ int checkcpu (void)
 	u32 reg;
 #endif
 
+#if !defined(CONFIG_IOP480)
 	char addstr[64] = "";
 	sys_info_t sys_info;
 	int cpu_num;
@@ -306,9 +337,25 @@ int checkcpu (void)
 		puts("405GP Rev. D");
 		break;
 
-	case PVR_405GP_RE:
+#ifdef CONFIG_405GP
+	case PVR_405GP_RE: /* 405GP rev E and 405CR rev C have same PVR */
 		puts("405GP Rev. E");
 		break;
+#endif
+
+	case PVR_405CR_RA:
+		puts("405CR Rev. A");
+		break;
+
+	case PVR_405CR_RB:
+		puts("405CR Rev. B");
+		break;
+
+#ifdef CONFIG_405CR
+	case PVR_405CR_RC: /* 405GP rev E and 405CR rev C have same PVR */
+		puts("405CR Rev. C");
+		break;
+#endif
 
 	case PVR_405GPR_RB:
 		puts("405GPr Rev. B");
@@ -593,6 +640,9 @@ int checkcpu (void)
 #if defined(SDR0_PINSTP_SHIFT)
 	printf ("       Bootstrap Option %c - ", bootstrap_char[bootstrap_option()]);
 	printf ("Boot ROM Location %s", bootstrap_str[bootstrap_option()]);
+#ifdef CONFIG_NAND_U_BOOT
+	puts(", booting from NAND");
+#endif /* CONFIG_NAND_U_BOOT */
 	putc('\n');
 #endif	/* SDR0_PINSTP_SHIFT */
 
@@ -614,12 +664,20 @@ int checkcpu (void)
 #endif
 
 #if defined(CONFIG_405EP) || defined(CONFIG_405EZ) || defined(CONFIG_405EX)
-	printf("       16 KiB I-Cache 16 KiB D-Cache");
+	printf ("       16 kB I-Cache 16 kB D-Cache");
 #elif defined(CONFIG_440)
-	printf("       32 KiB I-Cache 32 KiB D-Cache");
+	printf ("       32 kB I-Cache 32 kB D-Cache");
 #else
-	printf("       16 KiB I-Cache %d KiB D-Cache",
-	       ((pvr | 0x00000001) == PVR_405GPR_RB) ? 16 : 8);
+	printf ("       16 kB I-Cache %d kB D-Cache",
+		((pvr | 0x00000001) == PVR_405GPR_RB) ? 16 : 8);
+#endif
+#endif /* !defined(CONFIG_IOP480) */
+
+#if defined(CONFIG_IOP480)
+	printf ("PLX IOP480 (PVR=%08x)", pvr);
+	printf (" at %s MHz:", strmhz(buf, clock));
+	printf (" %u kB I-Cache", 4);
+	printf (" %u kB D-Cache", 2);
 #endif
 
 #endif /* !defined(CONFIG_405) */
@@ -665,10 +723,15 @@ int do_reset (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
  */
 unsigned long get_tbclk (void)
 {
+#if !defined(CONFIG_IOP480)
 	sys_info_t  sys_info;
 
 	get_sys_info(&sys_info);
 	return (sys_info.freqProcessor);
+#else
+	return (66000000);
+#endif
+
 }
 
 

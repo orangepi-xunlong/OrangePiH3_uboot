@@ -1,5 +1,5 @@
 /*
- * U-Boot uImage source file with multiple kernels, ramdisks and FDT blobs
+ * U-boot uImage source file with multiple kernels, ramdisks and FDT blobs
  */
 
 /dts-v1/;

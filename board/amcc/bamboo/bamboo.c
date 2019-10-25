@@ -2,7 +2,23 @@
  * (C) Copyright 2005-2007
  * Stefan Roese, DENX Software Engineering, sr@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -16,6 +32,7 @@ void ext_bus_cntlr_init(void);
 void configure_ppc440ep_pins(void);
 int is_nand_selected(void);
 
+#if !(defined(CONFIG_NAND_U_BOOT) || defined(CONFIG_NAND_SPL))
 /*************************************************************************
  *
  * Bamboo has one bank onboard sdram (plus DIMM)
@@ -177,6 +194,7 @@ const unsigned char cfg_simulate_spd_eeprom[128] = {
 	0,
 	0
 };
+#endif
 
 #if 0
 {	   /* GPIO   Alternate1	      Alternate2	Alternate3 */
@@ -438,11 +456,15 @@ int checkboard(void)
 
 phys_size_t initdram (int board_type)
 {
+#if !(defined(CONFIG_NAND_U_BOOT) || defined(CONFIG_NAND_SPL))
 	long dram_size;
 
 	dram_size = spd_sdram();
 
 	return dram_size;
+#else
+	return CONFIG_SYS_MBYTES_SDRAM << 20;
+#endif
 }
 
 /*----------------------------------------------------------------------------+
@@ -455,16 +477,16 @@ int is_powerpc440ep_pass1(void)
 	pvr = get_pvr();
 
 	if (pvr == PVR_POWERPC_440EP_PASS1)
-		return true;
+		return TRUE;
 	else if (pvr == PVR_POWERPC_440EP_PASS2)
-		return false;
+		return FALSE;
 	else {
 		printf("brdutil error 3\n");
 		for (;;)
 			;
 	}
 
-	return false;
+	return(FALSE);
 }
 
 /*----------------------------------------------------------------------------+
@@ -473,9 +495,9 @@ int is_powerpc440ep_pass1(void)
 int is_nand_selected(void)
 {
 #ifdef CONFIG_BAMBOO_NAND
-	return true;
+	return TRUE;
 #else
-	return false;
+	return FALSE;
 #endif
 }
 
@@ -485,7 +507,7 @@ int is_nand_selected(void)
 unsigned char config_on_ebc_cs4_is_small_flash(void)
 {
 	/* Not implemented yet => returns constant value */
-	return true;
+	return TRUE;
 }
 
 /*----------------------------------------------------------------------------+
@@ -539,7 +561,7 @@ void ext_bus_cntlr_init(void)
 	/*-------------------------------------------------------------------------+
 	  |  PPC440EP Pass1
 	  +-------------------------------------------------------------------------*/
-	if (is_powerpc440ep_pass1() == true) {
+	if (is_powerpc440ep_pass1() == TRUE) {
 		switch(bootstrap_settings) {
 		case SDR0_PSTRP0_BOOTSTRAP_SETTINGS0:
 			/* Default Strap Settings 0 : CPU 400 - PLB 133 - Boot EBC 8 bit 33MHz */
@@ -716,7 +738,7 @@ void ext_bus_cntlr_init(void)
 		/*------------------------------------------------------------------------- */
 		ebc0_cs0_bnap_value = EBC0_BNAP_SMALL_FLASH;
 		ebc0_cs0_bncr_value = EBC0_BNCR_SMALL_FLASH_CS0;
-		if ((is_nand_selected()) == true) {
+		if ((is_nand_selected()) == TRUE) {
 			/* NAND Flash */
 			ebc0_cs1_bnap_value = EBC0_BNAP_NAND_FLASH;
 			ebc0_cs1_bncr_value = EBC0_BNCR_NAND_FLASH_CS1;
@@ -743,7 +765,7 @@ void ext_bus_cntlr_init(void)
 		/*------------------------------------------------------------------------- */
 		ebc0_cs0_bnap_value = EBC0_BNAP_LARGE_FLASH_OR_SRAM;
 		ebc0_cs0_bncr_value = EBC0_BNCR_LARGE_FLASH_OR_SRAM_CS0;
-		if ((is_nand_selected()) == true) {
+		if ((is_nand_selected()) == TRUE) {
 			/* NAND Flash */
 			ebc0_cs1_bnap_value = EBC0_BNAP_NAND_FLASH;
 			ebc0_cs1_bncr_value = EBC0_BNCR_NAND_FLASH_CS1;
@@ -790,7 +812,7 @@ void ext_bus_cntlr_init(void)
 		ebc0_cs0_bnap_value = 0;
 		ebc0_cs0_bncr_value = 0;
 
-		if ((is_nand_selected()) == true) {
+		if ((is_nand_selected()) == TRUE) {
 			/* NAND Flash */
 			ebc0_cs1_bnap_value = EBC0_BNAP_NAND_FLASH;
 			ebc0_cs1_bncr_value = EBC0_BNCR_NAND_FLASH_CS1;
@@ -808,7 +830,7 @@ void ext_bus_cntlr_init(void)
 			ebc0_cs3_bncr_value = 0;
 		}
 
-		if ((config_on_ebc_cs4_is_small_flash()) == true) {
+		if ((config_on_ebc_cs4_is_small_flash()) == TRUE) {
 			/* Small Flash */
 			ebc0_cs4_bnap_value = EBC0_BNAP_SMALL_FLASH;
 			ebc0_cs4_bncr_value = EBC0_BNCR_SMALL_FLASH_CS4;
@@ -1788,12 +1810,23 @@ void configure_ppc440ep_pins(void)
 	if (ppc440ep_core_selection[NAND_FLASH] == CORE_SELECTED)
 	{
 		update_ndfc_ios(gpio_tab);
+
+#if !(defined(CONFIG_NAND_U_BOOT) || defined(CONFIG_NAND_SPL))
 		mtsdr(SDR0_CUST0, SDR0_CUST0_MUX_NDFC_SEL   |
 		      SDR0_CUST0_NDFC_ENABLE	|
 		      SDR0_CUST0_NDFC_BW_8_BIT	|
 		      SDR0_CUST0_NDFC_ARE_MASK	|
 		      SDR0_CUST0_CHIPSELGAT_EN1 |
 		      SDR0_CUST0_CHIPSELGAT_EN2);
+#else
+		mtsdr(SDR0_CUST0, SDR0_CUST0_MUX_NDFC_SEL   |
+		      SDR0_CUST0_NDFC_ENABLE	|
+		      SDR0_CUST0_NDFC_BW_8_BIT	|
+		      SDR0_CUST0_NDFC_ARE_MASK	|
+		      SDR0_CUST0_CHIPSELGAT_EN0 |
+		      SDR0_CUST0_CHIPSELGAT_EN2);
+#endif
+
 		ndfc_selection_in_fpga();
 	}
 	else

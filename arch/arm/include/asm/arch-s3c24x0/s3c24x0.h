@@ -2,7 +2,23 @@
  * (C) Copyright 2003
  * David Müller ELSOFT AG Switzerland. d.mueller@elsoft.ch
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /************************************************
@@ -135,33 +151,34 @@ struct s3c24x0_lcd {
 };
 
 
-/* NAND FLASH (see manual chapter 6) */
-struct s3c24x0_nand {
+#ifdef CONFIG_S3C2410
+/* NAND FLASH (see S3C2410 manual chapter 6) */
+struct s3c2410_nand {
 	u32	nfconf;
-#ifndef CONFIG_S3C2410
-	u32	nfcont;
-#endif
 	u32	nfcmd;
 	u32	nfaddr;
 	u32	nfdata;
-#ifndef CONFIG_S3C2410
+	u32	nfstat;
+	u32	nfecc;
+};
+#endif
+#ifdef CONFIG_S3C2440
+/* NAND FLASH (see S3C2440 manual chapter 6) */
+struct s3c2440_nand {
+	u32	nfconf;
+	u32	nfcont;
+	u32	nfcmd;
+	u32	nfaddr;
+	u32	nfdata;
 	u32	nfeccd0;
 	u32	nfeccd1;
 	u32	nfeccd;
-#endif
 	u32	nfstat;
-#ifdef CONFIG_S3C2410
-	u32	nfecc;
-#else
 	u32	nfstat0;
 	u32	nfstat1;
-	u32	nfmecc0;
-	u32	nfmecc1;
-	u32	nfsecc;
-	u32	nfsblk;
-	u32	nfeblk;
-#endif
 };
+#endif
+
 
 /* UART (see manual chapter 11) */
 struct s3c24x0_uart {
@@ -325,6 +342,16 @@ struct s3c24x0_watchdog {
 	u32	wtdat;
 	u32	wtcnt;
 };
+
+
+/* IIC (see manual chapter 20) */
+struct s3c24x0_i2c {
+	u32	iiccon;
+	u32	iicstat;
+	u32	iicadd;
+	u32	iicds;
+};
+
 
 /* IIS (see manual chapter 21) */
 struct s3c24x0_i2s {
@@ -674,7 +701,7 @@ struct s3c2400_mmc {
 
 
 /* SD INTERFACE (see S3C2410 manual chapter 19) */
-struct s3c24x0_sdi {
+struct s3c2410_sdi {
 	u32	sdicon;
 	u32	sdipre;
 	u32	sdicarg;
@@ -690,19 +717,14 @@ struct s3c24x0_sdi {
 	u32	sdidcnt;
 	u32	sdidsta;
 	u32	sdifsta;
-#ifdef CONFIG_S3C2410
-	u32	sdidat;
-	u32	sdiimsk;
+#ifdef __BIG_ENDIAN
+	u8	res[3];
+	u8	sdidat;
 #else
+	u8	sdidat;
+	u8	res[3];
+#endif
 	u32	sdiimsk;
-	u32	sdidat;
-#endif
 };
-
-#ifdef CONFIG_CMD_MMC
-#include <mmc.h>
-int s3cmmc_initialize(bd_t *bis, int (*getcd)(struct mmc *),
-		      int (*getwp)(struct mmc *));
-#endif
 
 #endif /*__S3C24X0_H__*/

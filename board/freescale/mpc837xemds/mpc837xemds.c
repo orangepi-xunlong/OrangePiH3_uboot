@@ -2,7 +2,12 @@
  * Copyright (C) 2007,2010 Freescale Semiconductor, Inc.
  * Dave Liu <daveliu@freescale.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * CREDITS: Kim Phillips contribute to LIBFDT code
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
  */
 
 #include <common.h>
@@ -10,6 +15,7 @@
 #include <i2c.h>
 #include <asm/io.h>
 #include <asm/fsl_mpc83xx_serdes.h>
+#include <asm/fsl_enet.h>
 #include <spd_sdram.h>
 #include <tsec.h>
 #include <libfdt.h>
@@ -328,7 +334,7 @@ static void ft_pci_fixup(void *blob, bd_t *bd)
 #endif
 
 #if defined(CONFIG_OF_BOARD_SETUP)
-int ft_board_setup(void *blob, bd_t *bd)
+void ft_board_setup(void *blob, bd_t *bd)
 {
 	ft_cpu_setup(blob, bd);
 	ft_tsec_fixup(blob, bd);
@@ -340,7 +346,5 @@ int ft_board_setup(void *blob, bd_t *bd)
 		ft_pci_fixup(blob, bd);
 	ft_pcie_fixup(blob, bd);
 #endif
-
-	return 0;
 }
 #endif /* CONFIG_OF_BOARD_SETUP */

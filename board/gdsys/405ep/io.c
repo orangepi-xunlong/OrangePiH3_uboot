@@ -2,7 +2,23 @@
  * (C) Copyright 2010
  * Dirk Eibach,  Guntermann & Drunck GmbH, eibach@gdsys.de
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -11,15 +27,9 @@
 #include <asm/io.h>
 #include <asm/ppc4xx-gpio.h>
 
-#include <dtt.h>
 #include <miiphy.h>
 
-#include "405ep.h"
 #include <gdsys_fpga.h>
-
-#define LATCH0_BASE (CONFIG_SYS_LATCH_BASE)
-#define LATCH1_BASE (CONFIG_SYS_LATCH_BASE + 0x100)
-#define LATCH2_BASE (CONFIG_SYS_LATCH_BASE + 0x200)
 
 #define PHYREG_CONTROL				0
 #define PHYREG_PAGE_ADDRESS			22
@@ -36,16 +46,6 @@ enum {
 	HWVER_121 = 2,
 	HWVER_122 = 3,
 };
-
-struct ihs_fpga *fpga_ptr[] = CONFIG_SYS_FPGA_PTR;
-
-int misc_init_r(void)
-{
-	/* startup fans */
-	dtt_init();
-
-	return 0;
-}
 
 int configure_gbit_phy(unsigned char addr)
 {
@@ -87,40 +87,31 @@ err_out:
  */
 int checkboard(void)
 {
-	char *s = getenv("serial#");
-
-	puts("Board: CATCenter Io");
-
-	if (s != NULL) {
-		puts(", serial# ");
-		puts(s);
-	}
-
-	puts("\n");
-
-	return 0;
-}
-
-static void print_fpga_info(void)
-{
-	u16 versions;
-	u16 fpga_version;
-	u16 fpga_features;
+	char buf[64];
+	int i = getenv_f("serial#", buf, sizeof(buf));
+	ihs_fpga_t *fpga = (ihs_fpga_t *) CONFIG_SYS_FPGA_BASE(0);
+	u16 versions = in_le16(&fpga->versions);
+	u16 fpga_version = in_le16(&fpga->fpga_version);
+	u16 fpga_features = in_le16(&fpga->fpga_features);
 	unsigned unit_type;
 	unsigned hardware_version;
 	unsigned feature_channels;
 	unsigned feature_expansion;
-
-	FPGA_GET_REG(0, versions, &versions);
-	FPGA_GET_REG(0, fpga_version, &fpga_version);
-	FPGA_GET_REG(0, fpga_features, &fpga_features);
 
 	unit_type = (versions & 0xf000) >> 12;
 	hardware_version = versions & 0x000f;
 	feature_channels = fpga_features & 0x007f;
 	feature_expansion = fpga_features & (1<<15);
 
-	puts("FPGA:  ");
+	printf("Board: ");
+
+	printf("CATCenter Io");
+
+	if (i > 0) {
+		puts(", serial# ");
+		puts(buf);
+	}
+	puts("\n       ");
 
 	switch (unit_type) {
 	case UNITTYPE_CCD_SWITCH:
@@ -161,6 +152,8 @@ static void print_fpga_info(void)
 	printf(" %d channel(s)", feature_channels);
 
 	printf(", expansion %ssupported\n", feature_expansion ? "" : "un");
+
+	return 0;
 }
 
 /*
@@ -168,56 +161,17 @@ static void print_fpga_info(void)
  */
 int last_stage_init(void)
 {
+	ihs_fpga_t *fpga = (ihs_fpga_t *) CONFIG_SYS_FPGA_BASE(0);
 	unsigned int k;
 
-	print_fpga_info();
-
-	int retval;
-	struct mii_dev *mdiodev = mdio_alloc();
-	if (!mdiodev)
-		return -ENOMEM;
-	strncpy(mdiodev->name, CONFIG_SYS_GBIT_MII_BUSNAME, MDIO_NAME_LEN);
-	mdiodev->read = bb_miiphy_read;
-	mdiodev->write = bb_miiphy_write;
-
-	retval = mdio_register(mdiodev);
-	if (retval < 0)
-		return retval;
+	miiphy_register(CONFIG_SYS_GBIT_MII_BUSNAME,
+		bb_miiphy_read, bb_miiphy_write);
 
 	for (k = 0; k < 32; ++k)
 		configure_gbit_phy(k);
 
 	/* take fpga serdes blocks out of reset */
-	FPGA_SET_REG(0, quad_serdes_reset, 0);
+	out_le16(&fpga->quad_serdes_reset, 0);
 
 	return 0;
-}
-
-void gd405ep_init(void)
-{
-}
-
-void gd405ep_set_fpga_reset(unsigned state)
-{
-	if (state) {
-		out_le16((void *)LATCH0_BASE, CONFIG_SYS_LATCH0_RESET);
-		out_le16((void *)LATCH1_BASE, CONFIG_SYS_LATCH1_RESET);
-	} else {
-		out_le16((void *)LATCH0_BASE, CONFIG_SYS_LATCH0_BOOT);
-		out_le16((void *)LATCH1_BASE, CONFIG_SYS_LATCH1_BOOT);
-	}
-}
-
-void gd405ep_setup_hw(void)
-{
-	/*
-	 * set "startup-finished"-gpios
-	 */
-	gpio_write_bit(21, 0);
-	gpio_write_bit(22, 1);
-}
-
-int gd405ep_get_fpga_done(unsigned fpga)
-{
-	return in_le16((void *)LATCH2_BASE) & CONFIG_SYS_FPGA_DONE(fpga);
 }

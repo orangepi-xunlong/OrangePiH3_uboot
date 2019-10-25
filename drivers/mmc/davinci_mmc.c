@@ -3,13 +3,24 @@
  *
  * Copyright (C) 2010 Texas Instruments Incorporated
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
 #include <config.h>
 #include <common.h>
 #include <command.h>
-#include <errno.h>
 #include <mmc.h>
 #include <part.h>
 #include <malloc.h>
@@ -31,10 +42,10 @@ static void dmmc_set_clock(struct mmc *mmc, uint clock)
 	struct davinci_mmc_regs *regs = host->reg_base;
 	uint clkrt, sysclk2, act_clock;
 
-	if (clock < mmc->cfg->f_min)
-		clock = mmc->cfg->f_min;
-	if (clock > mmc->cfg->f_max)
-		clock = mmc->cfg->f_max;
+	if (clock < mmc->f_min)
+		clock = mmc->f_min;
+	if (clock > mmc->f_max)
+		clock = mmc->f_max;
 
 	set_val(&regs->mmcclk, 0);
 	sysclk2 = host->input_clk;
@@ -58,8 +69,8 @@ static void dmmc_set_clock(struct mmc *mmc, uint clock)
 static int
 dmmc_wait_fifo_status(volatile struct davinci_mmc_regs *regs, uint status)
 {
-	uint wdog = WATCHDOG_COUNT;
-
+	uint mmcstatus1, wdog = WATCHDOG_COUNT;
+	mmcstatus1 = get_val(&regs->mmcst1);
 	while (--wdog && ((get_val(&regs->mmcst1) & status) != status))
 		udelay(10);
 
@@ -67,7 +78,7 @@ dmmc_wait_fifo_status(volatile struct davinci_mmc_regs *regs, uint status)
 		udelay(100);
 
 	if (wdog == 0)
-		return -ECOMM;
+		return COMM_ERR;
 
 	return 0;
 }
@@ -75,13 +86,14 @@ dmmc_wait_fifo_status(volatile struct davinci_mmc_regs *regs, uint status)
 /* Busy bit wait loop for MMCST1 */
 static int dmmc_busy_wait(volatile struct davinci_mmc_regs *regs)
 {
-	uint wdog = WATCHDOG_COUNT;
+	uint mmcstatus1, wdog = WATCHDOG_COUNT;
 
+	mmcstatus1 = get_val(&regs->mmcst1);
 	while (--wdog && (get_val(&regs->mmcst1) & MMCST1_BUSY))
 		udelay(10);
 
 	if (wdog == 0)
-		return -ECOMM;
+		return COMM_ERR;
 
 	return 0;
 }
@@ -100,7 +112,7 @@ static int dmmc_check_status(volatile struct davinci_mmc_regs *regs,
 			return 0;
 		} else if (mmcstatus & st_error) {
 			if (mmcstatus & MMCST0_TOUTRS)
-				return -ETIMEDOUT;
+				return TIMEOUT;
 			printf("[ ST0 ERROR %x]\n", mmcstatus);
 			/*
 			 * Ignore CRC errors as some MMC cards fail to
@@ -108,7 +120,7 @@ static int dmmc_check_status(volatile struct davinci_mmc_regs *regs,
 			 */
 			if (mmcstatus & MMCST0_CRCRS)
 				return 0;
-			return -ECOMM;
+			return COMM_ERR;
 		}
 		udelay(10);
 
@@ -117,7 +129,7 @@ static int dmmc_check_status(volatile struct davinci_mmc_regs *regs,
 
 	printf("Status %x Timeout ST0:%x ST1:%x\n", st_ready, mmcstatus,
 			get_val(&regs->mmcst1));
-	return -ECOMM;
+	return COMM_ERR;
 }
 
 /*
@@ -274,11 +286,8 @@ dmmc_send_cmd(struct mmc *mmc, struct mmc_cmd *cmd, struct mmc_data *data)
 			 */
 			if (bytes_left > fifo_bytes)
 				dmmc_wait_fifo_status(regs, 0x4a);
-			else if (bytes_left == fifo_bytes) {
+			else if (bytes_left == fifo_bytes)
 				dmmc_wait_fifo_status(regs, 0x40);
-				if (cmd->cmdidx == MMC_CMD_SEND_EXT_CSD)
-					udelay(600);
-			}
 
 			for (i = 0; bytes_left && (i < fifo_words); i++) {
 				cmddata = get_val(&regs->mmcdrr);
@@ -364,27 +373,30 @@ static void dmmc_set_ios(struct mmc *mmc)
 		dmmc_set_clock(mmc, mmc->clock);
 }
 
-static const struct mmc_ops dmmc_ops = {
-	.send_cmd	= dmmc_send_cmd,
-	.set_ios	= dmmc_set_ios,
-	.init		= dmmc_init,
-};
-
 /* Called from board_mmc_init during startup. Can be called multiple times
  * depending on the number of slots available on board and controller
  */
 int davinci_mmc_init(bd_t *bis, struct davinci_mmc *host)
 {
-	host->cfg.name = "davinci";
-	host->cfg.ops = &dmmc_ops;
-	host->cfg.f_min = 200000;
-	host->cfg.f_max = 25000000;
-	host->cfg.voltages = host->voltages;
-	host->cfg.host_caps = host->host_caps;
+	struct mmc *mmc;
 
-	host->cfg.b_max = DAVINCI_MAX_BLOCKS;
+	mmc = malloc(sizeof(struct mmc));
+	memset(mmc, 0, sizeof(struct mmc));
 
-	mmc_create(&host->cfg, host);
+	sprintf(mmc->name, "davinci");
+	mmc->priv = host;
+	mmc->send_cmd = dmmc_send_cmd;
+	mmc->set_ios = dmmc_set_ios;
+	mmc->init = dmmc_init;
+
+	mmc->f_min = 200000;
+	mmc->f_max = 25000000;
+	mmc->voltages = host->voltages;
+	mmc->host_caps = host->host_caps;
+
+	mmc->b_max = DAVINCI_MAX_BLOCKS;
+
+	mmc_register(mmc);
 
 	return 0;
 }

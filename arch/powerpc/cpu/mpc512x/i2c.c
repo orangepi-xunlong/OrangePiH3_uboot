@@ -2,7 +2,23 @@
  * (C) Copyright 2003 - 2009
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  *
  * Based on the MPC5xxx code.
  */
@@ -62,8 +78,9 @@ static int wait_for_bb (void)
 	status = mpc_reg_in (&regs->msr);
 
 	while (timeout-- && (status & I2C_BB)) {
+		volatile int temp;
 		mpc_reg_out (&regs->mcr, I2C_STA, I2C_STA);
-		(void)mpc_reg_in(&regs->mdr);
+		temp = mpc_reg_in (&regs->mdr);
 		mpc_reg_out (&regs->mcr, 0, I2C_STA);
 		mpc_reg_out (&regs->mcr, 0, 0);
 		mpc_reg_out (&regs->mcr, I2C_EN, 0);
@@ -234,7 +251,7 @@ static int mpc_get_fdr (int speed)
 			{126, 128}
 		};
 
-		ips = gd->arch.ips_clk;
+		ips = gd->ips_clk;
 		for (i = 7; i >= 0; i--) {
 			for (j = 7; j >= 0; j--) {
 				scl = 2 * (scltap[j].scl2tap +

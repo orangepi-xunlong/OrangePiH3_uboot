@@ -39,12 +39,11 @@
 
 #include <stdarg.h>
 #include <common.h>
-#include <linux/ctype.h>
 #include "x86emu/x86emui.h"
 
 /*----------------------------- Implementation ----------------------------*/
 
-#ifdef CONFIG_X86EMU_DEBUG
+#ifdef DEBUG
 
 static void print_encoded_bytes(u16 s, u16 o);
 static void print_decoded_instruction(void);
@@ -211,7 +210,9 @@ void X86EMU_dump_memory(u16 seg, u16 off, u32 amt)
 	u32 start = off & 0xfffffff0;
 	u32 end = (off + 16) & 0xfffffff0;
 	u32 i;
+	u32 current;
 
+	current = start;
 	while (end <= off + amt) {
 		printk("%04x:%04x ", seg, start);
 		for (i = start; i < off; i++)
@@ -227,7 +228,7 @@ void X86EMU_dump_memory(u16 seg, u16 off, u32 amt)
 void x86emu_single_step(void)
 {
 	char s[1024];
-	 int ps[10];
+	int ps[10];
 	int ntok;
 	int cmd;
 	int done;
@@ -235,6 +236,8 @@ void x86emu_single_step(void)
 	int offset;
 	static int breakpoint;
 	static int noDecode = 1;
+
+	char *p;
 
 	if (DEBUG_BREAK()) {
 		if (M.x86.saved_ip != breakpoint) {
@@ -251,8 +254,6 @@ void x86emu_single_step(void)
 	offset = M.x86.saved_ip;
 	while (!done) {
 		printk("-");
-		ps[1] = 0; /* Avoid dodgy compiler warnings */
-		ps[2] = 0;
 		cmd = x86emu_parse_line(s, ps, &ntok);
 		switch (cmd) {
 		case 'u':
@@ -307,7 +308,7 @@ void x86emu_single_step(void)
 		case 'P':
 			noDecode = (noDecode) ? 0 : 1;
 			printk("Toggled decoding to %s\n",
-			       (noDecode) ? "false" : "true");
+			       (noDecode) ? "FALSE" : "TRUE");
 			break;
 		case 't':
 		case 0:
@@ -332,7 +333,7 @@ static int x86emu_parse_line(char *s, int *ps, int *n)
 	int cmd;
 
 	*n = 0;
-	while (isblank(*s))
+	while (*s == ' ' || *s == '\t')
 		s++;
 	ps[*n] = *s;
 	switch (*s) {
@@ -345,13 +346,13 @@ static int x86emu_parse_line(char *s, int *ps, int *n)
 	}
 
 	while (1) {
-		while (!isblank(*s) && *s != '\n')
+		while (*s != ' ' && *s != '\t' && *s != '\n')
 			s++;
 
 		if (*s == '\n')
 			return cmd;
 
-		while (isblank(*s))
+		while (*s == ' ' || *s == '\t')
 			s++;
 
 		*n += 1;

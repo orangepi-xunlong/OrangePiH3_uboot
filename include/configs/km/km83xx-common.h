@@ -2,30 +2,26 @@
  * (C) Copyright 2010
  * Heiko Schocher, DENX Software Engineering, hs@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
  */
 
 #ifndef __CONFIG_KM83XX_H
 #define __CONFIG_KM83XX_H
 
-#define CONFIG_DISPLAY_BOARDINFO
-
 /* include common defines/options for all Keymile boards */
 #include "keymile-common.h"
 #include "km-powerpc.h"
 
-#ifndef MTDIDS_DEFAULT
-# define MTDIDS_DEFAULT	"nor0=boot"
-#endif /* MTDIDS_DEFAULT */
-
-#ifndef MTDPARTS_DEFAULT
-# define MTDPARTS_DEFAULT	"mtdparts="			\
+#define MTDIDS_DEFAULT		"nor0=boot"
+#define MTDPARTS_DEFAULT	"mtdparts="			\
 	"boot:"							\
 		"768k(u-boot),"					\
 		"128k(env),"					\
 		"128k(envred),"					\
-		"-(" CONFIG_KM_UBI_PARTITION_NAME_BOOT ");"
-#endif /* MTDPARTS_DEFAULT */
+		"-(" CONFIG_KM_UBI_PARTITION_NAME ")"
 
 #define CONFIG_MISC_INIT_R
 /*
@@ -53,8 +49,6 @@
  */
 #define CONFIG_SYS_DDR_BASE		0x00000000 /* DDR is system memory */
 #define CONFIG_SYS_SDRAM_BASE		CONFIG_SYS_DDR_BASE
-#define CONFIG_SYS_SDRAM_BASE2	(CONFIG_SYS_SDRAM_BASE + 0x10000000) /* +256M */
-
 #define CONFIG_SYS_DDR_SDRAM_BASE	CONFIG_SYS_DDR_BASE
 #define CONFIG_SYS_DDR_SDRAM_CLK_CNTL	(DDR_SDRAM_CLK_CNTL_SS_EN | \
 					DDR_SDRAM_CLK_CNTL_CLK_ADJUST_05)
@@ -86,6 +80,7 @@
 #define CONFIG_SYS_INIT_RAM_LOCK
 #define CONFIG_SYS_INIT_RAM_ADDR	0xE6000000 /* Initial RAM address */
 #define CONFIG_SYS_INIT_RAM_SIZE	0x1000 /* End of used area in RAM */
+#define CONFIG_SYS_GBL_DATA_SIZE	0x100 /* num bytes initial data */
 #define CONFIG_SYS_GBL_DATA_OFFSET	(CONFIG_SYS_INIT_RAM_SIZE - \
 						GENERATED_GBL_DATA_SIZE)
 
@@ -108,17 +103,16 @@
 #define CONFIG_SYS_FLASH_USE_BUFFER_WRITE
 
 #define CONFIG_SYS_LBLAWBAR0_PRELIM	CONFIG_SYS_FLASH_BASE
-#define CONFIG_SYS_LBLAWAR0_PRELIM	(LBLAWAR_EN | LBLAWAR_256MB)
+#define CONFIG_SYS_LBLAWAR0_PRELIM	0x8000001b /* 256MB window size */
 
 #define CONFIG_SYS_BR0_PRELIM	(CONFIG_SYS_FLASH_BASE | \
-				BR_PS_16 | /* 16 bit port size */ \
-				BR_MS_GPCM | /* MSEL = GPCM */ \
+				(2 << BR_PS_SHIFT) | /* 16 bit port size */ \
 				BR_V)
 
 #define CONFIG_SYS_OR0_PRELIM	(MEG_TO_AM(CONFIG_SYS_FLASH_SIZE) | \
 				OR_GPCM_CSNT | OR_GPCM_ACS_DIV2 | \
 				OR_GPCM_SCY_5 | \
-				OR_GPCM_TRLX_SET | OR_GPCM_EAD)
+				OR_GPCM_TRLX | OR_GPCM_EAD)
 
 #define CONFIG_SYS_MAX_FLASH_BANKS	1   /* max num of flash banks	*/
 #define CONFIG_SYS_MAX_FLASH_SECT	512 /* max num of sects on one chip */
@@ -129,21 +123,21 @@
  */
 /* Window base at flash base */
 #define CONFIG_SYS_LBLAWBAR1_PRELIM	CONFIG_SYS_KMBEC_FPGA_BASE
-#define CONFIG_SYS_LBLAWAR1_PRELIM	(LBLAWAR_EN | LBLAWAR_128MB)
+#define CONFIG_SYS_LBLAWAR1_PRELIM	0x8000001A /* 128MB window size */
 
 #define CONFIG_SYS_BR1_PRELIM	(CONFIG_SYS_KMBEC_FPGA_BASE | \
-				BR_PS_8 | /* 8 bit port size */ \
-				BR_MS_GPCM | /* MSEL = GPCM */ \
+				(1 << BR_PS_SHIFT) | /* 8 bit port size */ \
 				BR_V)
 #define CONFIG_SYS_OR1_PRELIM	(MEG_TO_AM(CONFIG_SYS_KMBEC_FPGA_SIZE) | \
 				OR_GPCM_CSNT | OR_GPCM_ACS_DIV2 | \
 				OR_GPCM_SCY_2 | \
-				OR_GPCM_TRLX_SET | OR_GPCM_EAD)
+				OR_GPCM_TRLX | OR_GPCM_EAD)
 
 /*
  * Serial Port
  */
 #define CONFIG_CONS_INDEX	1
+#define CONFIG_SYS_NS16550
 #define CONFIG_SYS_NS16550_SERIAL
 #define CONFIG_SYS_NS16550_REG_SIZE	1
 #define CONFIG_SYS_NS16550_CLK		get_bus_freq(0)
@@ -151,16 +145,22 @@
 #define CONFIG_SYS_NS16550_COM1	(CONFIG_SYS_IMMR+0x4500)
 #define CONFIG_SYS_NS16550_COM2	(CONFIG_SYS_IMMR+0x4600)
 
+/* Pass open firmware flat tree */
+#define CONFIG_OF_LIBFDT
+#define CONFIG_OF_BOARD_SETUP
+#define CONFIG_OF_STDOUT_VIA_ALIAS
+
+#ifndef CONFIG_NET_MULTI
+#define CONFIG_NET_MULTI
+#endif
 /*
  * QE UEC ethernet configuration
  */
 #define CONFIG_UEC_ETH
 #define CONFIG_ETHPRIME		"UEC0"
 
-#if !defined(CONFIG_MPC8309)
 #define CONFIG_UEC_ETH1		/* GETH1 */
 #define UEC_VERBOSE_DEBUG	1
-#endif
 
 #ifdef CONFIG_UEC_ETH1
 #define CONFIG_SYS_UEC1_UCC_NUM	3	/* UCC4 */
@@ -178,14 +178,10 @@
 
 #ifndef CONFIG_SYS_RAMBOOT
 #define CONFIG_ENV_IS_IN_FLASH
-#ifndef CONFIG_ENV_ADDR
 #define CONFIG_ENV_ADDR		(CONFIG_SYS_MONITOR_BASE + \
 					CONFIG_SYS_MONITOR_LEN)
-#endif
 #define CONFIG_ENV_SECT_SIZE	0x20000 /* 128K(one sector) for env */
-#ifndef CONFIG_ENV_OFFSET
 #define CONFIG_ENV_OFFSET	(CONFIG_SYS_MONITOR_LEN)
-#endif
 
 /* Address and size of Redundant Environment Sector	*/
 #define CONFIG_ENV_OFFSET_REDUND	(CONFIG_ENV_OFFSET + \
@@ -200,30 +196,19 @@
 #endif /* CFG_SYS_RAMBOOT */
 
 /* I2C */
-#define CONFIG_SYS_I2C
-#define CONFIG_SYS_NUM_I2C_BUSES	4
-#define CONFIG_SYS_I2C_MAX_HOPS		1
-#define CONFIG_SYS_I2C_FSL
-#define CONFIG_SYS_FSL_I2C_SPEED	200000
-#define CONFIG_SYS_FSL_I2C_SLAVE	0x7F
-#define CONFIG_SYS_FSL_I2C_OFFSET	0x3000
-#define CONFIG_SYS_I2C_OFFSET		0x3000
-#define CONFIG_SYS_FSL_I2C2_SPEED	200000
-#define CONFIG_SYS_FSL_I2C2_SLAVE	0x7F
-#define CONFIG_SYS_FSL_I2C2_OFFSET	0x3100
-#define CONFIG_SYS_I2C_BUSES	{{0, {I2C_NULL_HOP} }, \
-		{0, {{I2C_MUX_PCA9547, 0x70, 2} } }, \
-		{0, {{I2C_MUX_PCA9547, 0x70, 1} } }, \
-		{1, {I2C_NULL_HOP} } }
-
-#define CONFIG_KM_IVM_BUS		2	/* I2C2 (Mux-Port 1)*/
+#define CONFIG_HARD_I2C		/* I2C with hardware support */
+#define CONFIG_FSL_I2C
+#define CONFIG_SYS_I2C_SPEED	200000	/* I2C speed and slave address */
+#define CONFIG_SYS_I2C_SLAVE	0x7F
+#define CONFIG_SYS_I2C_OFFSET	0x3000
 
 /* I2C SYSMON (LM75, AD7414 is almost compatible) */
 #define CONFIG_DTT_LM75		/* ON Semi's LM75 */
 #define CONFIG_DTT_SENSORS	{0, 1, 2, 3}	/* Sensor addresses */
 #define CONFIG_SYS_DTT_MAX_TEMP	70
+#define CONFIG_SYS_DTT_LOW_TEMP	-30
 #define CONFIG_SYS_DTT_HYSTERESIS	3
-#define CONFIG_SYS_DTT_BUS_NUM		1
+#define CONFIG_SYS_DTT_BUS_NUM		(CONFIG_SYS_MAX_I2C_BUS)
 
 #if defined(CONFIG_CMD_NAND)
 #define CONFIG_NAND_KMETER1
@@ -257,7 +242,7 @@
 #define CONFIG_HIGH_BATS	1	/* High BATs supported */
 
 /* DDR: cache cacheable */
-#define CONFIG_SYS_IBAT0L	(CONFIG_SYS_SDRAM_BASE | BATL_PP_RW | \
+#define CONFIG_SYS_IBAT0L	(CONFIG_SYS_SDRAM_BASE | BATL_PP_10 | \
 				BATL_CACHEINHIBIT | BATL_GUARDEDSTORAGE)
 #define CONFIG_SYS_IBAT0U	(CONFIG_SYS_SDRAM_BASE | BATU_BL_256M | \
 					BATU_VS | BATU_VP)
@@ -265,7 +250,7 @@
 #define CONFIG_SYS_DBAT0U	CONFIG_SYS_IBAT0U
 
 /* IMMRBAR & PCI IO: cache-inhibit and guarded */
-#define CONFIG_SYS_IBAT1L	(CONFIG_SYS_IMMR | BATL_PP_RW | \
+#define CONFIG_SYS_IBAT1L	(CONFIG_SYS_IMMR | BATL_PP_10 | \
 				BATL_CACHEINHIBIT | BATL_GUARDEDSTORAGE)
 #define CONFIG_SYS_IBAT1U	(CONFIG_SYS_IMMR | BATU_BL_4M | BATU_VS \
 					| BATU_VP)
@@ -273,25 +258,25 @@
 #define CONFIG_SYS_DBAT1U	CONFIG_SYS_IBAT1U
 
 /* PRIO1, PIGGY:  icache cacheable, but dcache-inhibit and guarded */
-#define CONFIG_SYS_IBAT2L	(CONFIG_SYS_KMBEC_FPGA_BASE | BATL_PP_RW | \
+#define CONFIG_SYS_IBAT2L	(CONFIG_SYS_KMBEC_FPGA_BASE | BATL_PP_10 | \
 				BATL_MEMCOHERENCE)
 #define CONFIG_SYS_IBAT2U	(CONFIG_SYS_KMBEC_FPGA_BASE | BATU_BL_128M | \
 				BATU_VS | BATU_VP)
-#define CONFIG_SYS_DBAT2L	(CONFIG_SYS_KMBEC_FPGA_BASE | BATL_PP_RW | \
+#define CONFIG_SYS_DBAT2L	(CONFIG_SYS_KMBEC_FPGA_BASE | BATL_PP_10 | \
 				 BATL_CACHEINHIBIT | BATL_GUARDEDSTORAGE)
 #define CONFIG_SYS_DBAT2U	CONFIG_SYS_IBAT2U
 
 /* FLASH: icache cacheable, but dcache-inhibit and guarded */
-#define CONFIG_SYS_IBAT3L	(CONFIG_SYS_FLASH_BASE | BATL_PP_RW | \
+#define CONFIG_SYS_IBAT3L	(CONFIG_SYS_FLASH_BASE | BATL_PP_10 | \
 					BATL_MEMCOHERENCE)
 #define CONFIG_SYS_IBAT3U	(CONFIG_SYS_FLASH_BASE | BATU_BL_256M | \
 					BATU_VS | BATU_VP)
-#define CONFIG_SYS_DBAT3L	(CONFIG_SYS_FLASH_BASE | BATL_PP_RW | \
+#define CONFIG_SYS_DBAT3L	(CONFIG_SYS_FLASH_BASE | BATL_PP_10 | \
 				 BATL_CACHEINHIBIT | BATL_GUARDEDSTORAGE)
 #define CONFIG_SYS_DBAT3U	CONFIG_SYS_IBAT3U
 
 /* Stack in dcache: cacheable, no memory coherence */
-#define CONFIG_SYS_IBAT4L	(CONFIG_SYS_INIT_RAM_ADDR | BATL_PP_RW)
+#define CONFIG_SYS_IBAT4L	(CONFIG_SYS_INIT_RAM_ADDR | BATL_PP_10)
 #define CONFIG_SYS_IBAT4U	(CONFIG_SYS_INIT_RAM_ADDR | BATU_BL_128K | \
 					BATU_VS | BATU_VP)
 #define CONFIG_SYS_DBAT4L	CONFIG_SYS_IBAT4L
@@ -299,7 +284,12 @@
 
 /*
  * Internal Definitions
+ *
+ * Boot Flags
  */
+#define BOOTFLAG_COLD	0x01 /* Normal Power-On: Boot from FLASH */
+#define BOOTFLAG_WARM	0x02 /* Software reboot */
+
 #define BOOTFLASH_START	0xF0000000
 
 #define CONFIG_KM_CONSOLE_TTY	"ttyS0"
@@ -319,9 +309,11 @@
 #define CONFIG_EXTRA_ENV_SETTINGS \
 	CONFIG_KM_DEF_ENV						\
 	CONFIG_KM_DEF_ARCH						\
+	"dtt_bus=pca9547:70:a\0"					\
+	"EEprom_ivm=pca9547:70:9\0"					\
 	"newenv="							\
-		"prot off "__stringify(CONFIG_ENV_ADDR)" +0x40000 && "	\
-		"era "__stringify(CONFIG_ENV_ADDR)" +0x40000\0"		\
+		"prot off 0xF00C0000 +0x40000 && "			\
+		"era 0xF00C0000 +0x40000\0"				\
 	"unlock=yes\0"							\
 	""
 

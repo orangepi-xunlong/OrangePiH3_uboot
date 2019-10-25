@@ -1,14 +1,16 @@
 /*
  * Copyright 2008 Freescale Semiconductor, Inc.
  *
- * SPDX-License-Identifier:	GPL-2.0
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * Version 2 as published by the Free Software Foundation.
  */
 
 #include <common.h>
 #include <i2c.h>
 
-#include <fsl_ddr_sdram.h>
-#include <fsl_ddr_dimm_params.h>
+#include <asm/fsl_ddr_sdram.h>
+#include <asm/fsl_ddr_dimm_params.h>
 
 void get_spd(ddr2_spd_eeprom_t *spd, unsigned char i2c_address)
 {

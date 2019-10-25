@@ -5,7 +5,23 @@
  * (C) Copyright 2007 Freescale Semiconductor, Inc.
  * TsiChung Liew (Tsi-Chung.Liew@freescale.com)
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -79,6 +95,7 @@ struct fec_info_s fec_info[] = {
 #endif
 };
 
+int fec_send(struct eth_device *dev, volatile void *packet, int length);
 int fec_recv(struct eth_device *dev);
 int fec_init(struct eth_device *dev, bd_t * bd);
 void fec_halt(struct eth_device *dev);
@@ -117,7 +134,7 @@ void setFecDuplexSpeed(volatile fec_t * fecp, bd_t * bd, int dup_spd)
 	}
 }
 
-static int fec_send(struct eth_device *dev, void *packet, int length)
+int fec_send(struct eth_device *dev, volatile void *packet, int length)
 {
 	struct fec_info_s *info = dev->priv;
 	volatile fec_t *fecp = (fec_t *) (info->iobase);
@@ -219,8 +236,7 @@ int fec_recv(struct eth_device *dev)
 
 			length -= 4;
 			/* Pass the packet up to the protocol layers. */
-			net_process_received_packet(net_rx_packets[info->rxIdx],
-						    length);
+			NetReceive(NetRxPackets[info->rxIdx], length);
 
 			fecp->eir |= FEC_EIR_RXF;
 		}
@@ -478,7 +494,7 @@ int fec_init(struct eth_device *dev, bd_t * bd)
 	for (i = 0; i < PKTBUFSRX; i++) {
 		info->rxbd[i].cbd_sc = BD_ENET_RX_EMPTY;
 		info->rxbd[i].cbd_datlen = 0;	/* Reset */
-		info->rxbd[i].cbd_bufaddr = (uint) net_rx_packets[i];
+		info->rxbd[i].cbd_bufaddr = (uint) NetRxPackets[i];
 	}
 	info->rxbd[PKTBUFSRX - 1].cbd_sc |= BD_ENET_RX_WRAP;
 
@@ -544,7 +560,7 @@ int mcffec_initialize(bd_t * bis)
 	u32 tmp = CONFIG_SYS_INIT_RAM_ADDR + 0x1000;
 #endif
 
-	for (i = 0; i < ARRAY_SIZE(fec_info); i++) {
+	for (i = 0; i < sizeof(fec_info) / sizeof(fec_info[0]); i++) {
 
 		dev =
 		    (struct eth_device *)memalign(CONFIG_SYS_CACHELINE_SIZE,
@@ -595,17 +611,8 @@ int mcffec_initialize(bd_t * bis)
 		eth_register(dev);
 
 #if defined(CONFIG_MII) || defined(CONFIG_CMD_MII)
-		int retval;
-		struct mii_dev *mdiodev = mdio_alloc();
-		if (!mdiodev)
-			return -ENOMEM;
-		strncpy(mdiodev->name, dev->name, MDIO_NAME_LEN);
-		mdiodev->read = mcffec_miiphy_read;
-		mdiodev->write = mcffec_miiphy_write;
-
-		retval = mdio_register(mdiodev);
-		if (retval < 0)
-			return retval;
+		miiphy_register(dev->name,
+				mcffec_miiphy_read, mcffec_miiphy_write);
 #endif
 		if (i > 0)
 			fec_info[i - 1].next = &fec_info[i];

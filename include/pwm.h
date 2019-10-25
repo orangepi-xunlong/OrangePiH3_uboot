@@ -1,71 +1,39 @@
 /*
- * header file for pwm driver.
+ * (C) Copyright 2012
+ *     tyle@allwinnertech.com
  *
- * Copyright 2016 Google Inc.
- * Copyright (c) 2011 samsung electronics
- * Donghwa Lee <dh09.lee@samsung.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program;
+ *
  */
+#ifndef _pwm_pub_h_
+#define _pwm_pub_h_
 
-#ifndef _pwm_h_
-#define _pwm_h_
+//int	pwm_init		(int pwm_id, int div, int invert);
+//int	pwm_config		(int pwm_id, int duty_ns, int period_ns);
+//int	pwm_enable		(int pwm_id);
+//void	pwm_disable		(int pwm_id);
 
-/* struct pwm_ops: Operations for the PWM uclass */
-struct pwm_ops {
-	/**
-	 * set_config() - Set the PWM configuration
-	 *
-	 * @dev:	PWM device to update
-	 * @channel:	PWM channel to update
-	 * @period_ns:	PWM period in nanoseconds
-	 * @duty_ns:	PWM duty period in nanoseconds
-	 * @return 0 if OK, -ve on error
-	 */
-	int (*set_config)(struct udevice *dev, uint channel, uint period_ns,
-			  uint duty_ns);
-
-	/**
-	 * set_enable() - Enable or disable the PWM
-	 *
-	 * @dev:	PWM device to update
-	 * @channel:	PWM channel to update
-	 * @enable:	true to enable, false to disable
-	 * @return 0 if OK, -ve on error
-	 */
-	int (*set_enable)(struct udevice *dev, uint channel, bool enable);
+enum pwm_polarity {
+	PWM_POLARITY_NORMAL,
+	PWM_POLARITY_INVERSED,
 };
 
-#define pwm_get_ops(dev)	((struct pwm_ops *)(dev)->driver->ops)
+int sunxi_pwm_set_polarity(int pwm, enum pwm_polarity polarity);
+int sunxi_pwm_config      (int pwm, int duty_ns, int period_ns);
+int sunxi_pwm_enable      (int pwm);
+void sunxi_pwm_disable    (int pwm);
+void sunxi_pwm_init       (void);
 
-/**
- * pwm_set_config() - Set the PWM configuration
- *
- * @dev:	PWM device to update
- * @channel:	PWM channel to update
- * @period_ns:	PWM period in nanoseconds
- * @duty_ns:	PWM duty period in nanoseconds
- * @return 0 if OK, -ve on error
- */
-int pwm_set_config(struct udevice *dev, uint channel, uint period_ns,
-		   uint duty_ns);
-
-/**
- * pwm_set_enable() - Enable or disable the PWM
- *
- * @dev:	PWM device to update
- * @channel:	PWM channel to update
- * @enable:	true to enable, false to disable
- * @return 0 if OK, -ve on error
- */
-int pwm_set_enable(struct udevice *dev, uint channel, bool enable);
-
-/* Legacy interface */
-#ifndef CONFIG_DM_PWM
-int	pwm_init		(int pwm_id, int div, int invert);
-int	pwm_config		(int pwm_id, int duty_ns, int period_ns);
-int	pwm_enable		(int pwm_id);
-void	pwm_disable		(int pwm_id);
-#endif
-
-#endif /* _pwm_h_ */
+#endif /* _pwm_pub_h_ */

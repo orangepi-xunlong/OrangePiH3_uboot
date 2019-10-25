@@ -2,7 +2,24 @@
  * (C) Copyright 2001
  * Denis Peter, MPL AG Switzerland, d.peter@mpl.ch
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
  *
  * TODO: clean-up
  */
@@ -18,6 +35,9 @@
 DECLARE_GLOBAL_DATA_PTR;
 
 #undef SDRAM_DEBUG
+
+#define FALSE           0
+#define TRUE            1
 
 /* stdlib.h causes some compatibility problems; should fixe these! -- wd */
 #ifndef __ldiv_t_defined
@@ -159,6 +179,7 @@ void write_4hex (unsigned long val)
 
 int board_early_init_f (void)
 {
+	unsigned char dataout[1];
 	unsigned char datain[128];
 	unsigned long sdram_size = 0;
 	SDRAM_SETUP *t = (SDRAM_SETUP *) sdram_setup_table;
@@ -168,13 +189,9 @@ int board_early_init_f (void)
 	unsigned short i;
 	unsigned char rows, cols, banks, sdram_banks, density;
 	unsigned char supported_cal, trp_clocks, trcd_clocks, tras_clocks,
-		trc_clocks;
+			trc_clocks, tctp_clocks;
 	unsigned char cal_index, cal_val, spd_version, spd_chksum;
 	unsigned char buf[8];
-#ifdef SDRAM_DEBUG
-	unsigned char tctp_clocks;
-#endif
-
 	/* set up the config port */
 	mtdcr (EBC0_CFGADDR, PB7AP);
 	mtdcr (EBC0_CFGDATA, CONFIG_PORT_AP);
@@ -192,7 +209,8 @@ int board_early_init_f (void)
 #endif
 
 	/* Read Serial Presence Detect Information */
-	i2c_set_bus_num(0);
+	i2c_init (CONFIG_SYS_I2C_SPEED, CONFIG_SYS_I2C_SLAVE);
+	dataout[0] = 0;
 	for (i = 0; i < 128; i++)
 		datain[i] = 127;
 	i2c_read(SPD_EEPROM_ADDRESS,0,1,datain,128);
@@ -289,13 +307,12 @@ int board_early_init_f (void)
 
 	/* trc_clocks is sum of trp_clocks + tras_clocks */
 	trc_clocks = trp_clocks + tras_clocks;
-
-#ifdef SDRAM_DEBUG
 	/* ctp = ((trp + tras) - trp - trcd) => tras - trcd */
 	tctp_clocks =
 			((NSto10PS (datain[30]) - NSto10PS (datain[29])) +
 			 (tmemclk - 1)) / tmemclk;
 
+#ifdef SDRAM_DEBUG
 	serial_puts ("c_RP: ");
 	write_hex (trp_clocks);
 	serial_puts ("\nc_RCD: ");
@@ -546,27 +563,7 @@ int board_early_init_f (void)
 	return 0;
 }
 
-int board_early_init_r(void)
-{
-	int mode;
 
-	/*
-	 * since we are relocated, we can finally enable i-cache
-	 * and set up the flash CS correctly
-	 */
-	icache_enable();
-	setup_cs_reloc();
-	/* get and display boot mode */
-	mode = get_boot_mode();
-	if (mode & BOOT_PCI)
-		printf("PCI Boot %s Map\n", (mode & BOOT_MPS) ?
-			"MPS" : "Flash");
-	else
-		printf("%s Boot\n", (mode & BOOT_MPS) ?
-			"MPS" : "Flash");
-
-	return 0;
-}
 /* ------------------------------------------------------------------------- */
 
 /*
@@ -660,6 +657,9 @@ static int test_dram (unsigned long ramsize)
 	return (1);
 }
 
+
+extern flash_info_t flash_info[];	/* info for FLASH chips */
+
 int misc_init_r (void)
 {
 	/* adjust flash start and size as well as the offset */
@@ -680,8 +680,7 @@ int misc_init_r (void)
 
 int overwrite_console (void)
 {
-	/* return true if console should be overwritten */
-	return in8(CONFIG_PORT_ADDR) & 0x1;
+	return (in8 (CONFIG_PORT_ADDR) & 0x1);	/* return TRUE if console should be overwritten */
 }
 
 
@@ -777,7 +776,7 @@ void print_pip405_info (void)
 			((sysman & 0x10) == 0x10) ? "" : "not ");
 	printf ("INIT asserts %sINT1# (NMI)\n",
 			((sysman & 0x20) == 0x20) ? "" : "not ");
-	printf ("INIT occurred %d\n", (sysman >> 6) & 0x1);
+	printf ("INIT occured %d\n", (sysman >> 6) & 0x1);
 	printf ("SER1 is routed to %s\n",
 			((flashcom & 0x1) == 0x1) ? "RS485" : "RS232");
 	printf ("COM2 is routed to %s\n",
@@ -926,7 +925,7 @@ void print_pip405_info (void)
 
 void user_led0 (unsigned char on)
 {
-	if (on == true)
+	if (on == TRUE)
 		out8 (PLD_LED_USER_REG, (in8 (PLD_LED_USER_REG) | 0x1));
 	else
 		out8 (PLD_LED_USER_REG, (in8 (PLD_LED_USER_REG) & 0xfe));
@@ -934,7 +933,7 @@ void user_led0 (unsigned char on)
 
 void user_led1 (unsigned char on)
 {
-	if (on == true)
+	if (on == TRUE)
 		out8 (PLD_LED_USER_REG, (in8 (PLD_LED_USER_REG) | 0x2));
 	else
 		out8 (PLD_LED_USER_REG, (in8 (PLD_LED_USER_REG) & 0xfd));

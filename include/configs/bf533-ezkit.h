@@ -1,5 +1,5 @@
 /*
- * U-Boot - Configuration file for BF533 EZKIT board
+ * U-boot - Configuration file for BF533 EZKIT board
  */
 
 #ifndef __CONFIG_BF533_EZKIT_H__
@@ -7,11 +7,13 @@
 
 #include <asm/config-pre.h>
 
+
 /*
  * Processor Settings
  */
 #define CONFIG_BFIN_CPU             bf533-0.3
 #define CONFIG_BFIN_BOOT_MODE       BFIN_BOOT_BYPASS
+
 
 /*
  * Clock Settings
@@ -36,6 +38,7 @@
 /* Values can range from 1-15						*/
 #define CONFIG_SCLK_DIV			5
 
+
 /*
  * Memory Settings
  */
@@ -57,10 +60,12 @@
 #define CONFIG_SYS_MONITOR_LEN	(256 * 1024)
 #define CONFIG_SYS_MALLOC_LEN	(128 * 1024)
 
+
 /*
  * Network Settings
  */
 #define ADI_CMDS_NETWORK	1
+#define CONFIG_NET_MULTI
 #define CONFIG_SMC91111	1
 #define CONFIG_SMC91111_BASE	0x20310300
 #define SMC91111_EEPROM_INIT() \
@@ -71,6 +76,9 @@
 		SSYNC(); \
 	} while (0)
 #define CONFIG_HOSTNAME		bf533-ezkit
+/* Uncomment next line to use fixed MAC address */
+/* #define CONFIG_ETHADDR	02:80:ad:20:31:e8 */
+
 
 /*
  * Flash Settings
@@ -83,18 +91,14 @@
 #define CONFIG_ENV_SECT_SIZE	0x10000
 #define FLASH_TOT_SECT		40
 
+
 /*
  * I2C Settings
  */
-#define CONFIG_SYS_I2C_SOFT
-#ifdef CONFIG_SYS_I2C_SOFT
-#define CONFIG_SYS_I2C
+#define CONFIG_SOFT_I2C
 #define CONFIG_SOFT_I2C_GPIO_SCL GPIO_PF0
 #define CONFIG_SOFT_I2C_GPIO_SDA GPIO_PF1
-#define CONFIG_SYS_I2C_SOFT_SPEED	50000
-#define CONFIG_SYS_I2C_SOFT_SLAVE	0
-#define I2C_DELAY              udelay(5)       /* 1/4 I2C clock duration */
-#endif
+
 
 /*
  * Misc Settings
@@ -102,6 +106,7 @@
 #define CONFIG_MISC_INIT_R
 #define CONFIG_RTC_BFIN
 #define CONFIG_UART_CONSOLE	0
+
 
 /*
  * Pull in common ADI header for remaining command/environment setup

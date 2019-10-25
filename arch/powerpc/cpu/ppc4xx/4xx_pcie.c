@@ -5,7 +5,19 @@
  * Copyright (c) 2005 Cisco Systems.  All rights reserved.
  * Roland Dreier <rolandd@cisco.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
  */
 
 /* define DEBUG for debugging output (obviously ;-)) */
@@ -215,6 +227,7 @@ static void pcie_dmer_enable(void)
 static int pcie_read_config(struct pci_controller *hose, unsigned int devfn,
 	int offset, int len, u32 *val) {
 
+	u8 *address;
 	*val = 0;
 
 	if (validate_endpoint(hose))
@@ -242,7 +255,7 @@ static int pcie_read_config(struct pci_controller *hose, unsigned int devfn,
 		((PCI_BUS(devfn) == 0) || (PCI_BUS(devfn) == 1)))
 		return 0;
 
-	pcie_get_base(hose, devfn);
+	address = pcie_get_base(hose, devfn);
 	offset += devfn << 4;
 
 	/*
@@ -252,8 +265,7 @@ static int pcie_read_config(struct pci_controller *hose, unsigned int devfn,
 	 */
 	pcie_dmer_disable ();
 
-	debug("%s: cfg_data=%p offset=%08x\n", __func__,
-		hose->cfg_data, offset);
+	debug("%s: cfg_data=%08x offset=%08x\n", __func__, hose->cfg_data, offset);
 	switch (len) {
 	case 1:
 		*val = in_8(hose->cfg_data + offset);
@@ -274,6 +286,8 @@ static int pcie_read_config(struct pci_controller *hose, unsigned int devfn,
 static int pcie_write_config(struct pci_controller *hose, unsigned int devfn,
 	int offset, int len, u32 val) {
 
+	u8 *address;
+
 	if (validate_endpoint(hose))
 		return 0;		/* No upstream config access */
 
@@ -292,7 +306,7 @@ static int pcie_write_config(struct pci_controller *hose, unsigned int devfn,
 		((PCI_BUS(devfn) == 0) || (PCI_BUS(devfn) == 1)))
 		return 0;
 
-	pcie_get_base(hose, devfn);
+	address = pcie_get_base(hose, devfn);
 	offset += devfn << 4;
 
 	/*
@@ -1048,6 +1062,7 @@ int ppc4xx_init_pcie_endport(int port)
 void ppc4xx_setup_pcie_rootpoint(struct pci_controller *hose, int port)
 {
 	volatile void *mbase = NULL;
+	volatile void *rmbase = NULL;
 
 	pci_set_ops(hose,
 		    pcie_read_config_byte,
@@ -1060,15 +1075,18 @@ void ppc4xx_setup_pcie_rootpoint(struct pci_controller *hose, int port)
 	switch (port) {
 	case 0:
 		mbase = (u32 *)CONFIG_SYS_PCIE0_XCFGBASE;
+		rmbase = (u32 *)CONFIG_SYS_PCIE0_CFGBASE;
 		hose->cfg_data = (u8 *)CONFIG_SYS_PCIE0_CFGBASE;
 		break;
 	case 1:
 		mbase = (u32 *)CONFIG_SYS_PCIE1_XCFGBASE;
+		rmbase = (u32 *)CONFIG_SYS_PCIE1_CFGBASE;
 		hose->cfg_data = (u8 *)CONFIG_SYS_PCIE1_CFGBASE;
 		break;
 #if CONFIG_SYS_PCIE_NR_PORTS > 2
 	case 2:
 		mbase = (u32 *)CONFIG_SYS_PCIE2_XCFGBASE;
+		rmbase = (u32 *)CONFIG_SYS_PCIE2_CFGBASE;
 		hose->cfg_data = (u8 *)CONFIG_SYS_PCIE2_CFGBASE;
 		break;
 #endif

@@ -5,7 +5,46 @@
  * (C) Copyright 2010
  * Stefan Roese, DENX Software Engineering, sr@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0	IBM-pibs
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ */
+
+/*
+ * This source code is dual-licensed.  You may use it under the terms of the
+ * GNU General Public License version 2, or under the license below.
+ *
+ * This source code has been made available to you by IBM on an AS-IS
+ * basis.  Anyone receiving this source is licensed under IBM
+ * copyrights to use it in any way he or she deems fit, including
+ * copying it, modifying it, compiling it, and redistributing it either
+ * with or without modifications.  No license under IBM patents or
+ * patent applications is to be implied by the copyright license.
+ *
+ * Any user of this software should understand that IBM cannot provide
+ * technical support for this software and will not be responsible for
+ * any consequences resulting from the use of this software.
+ *
+ * Any person who transfers this source code or any derivative work
+ * must include the IBM copyright notice, this paragraph, and the
+ * preceding two paragraphs in the transferred software.
+ *
+ * COPYRIGHT   I B M   CORPORATION 1995
+ * LICENSED MATERIAL  -  PROGRAM PROPERTY OF I B M
  */
 
 #include <common.h>
@@ -17,7 +56,7 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-#if defined(CONFIG_405GP) || \
+#if defined(CONFIG_405GP) || defined(CONFIG_405CR) || \
     defined(CONFIG_405EP) || defined(CONFIG_405EZ) || \
     defined(CONFIG_405EX) || defined(CONFIG_440)
 
@@ -68,7 +107,7 @@ DECLARE_GLOBAL_DATA_PTR;
 #define UDIV_SUBTRACT	0
 #define UART0_SDR	SDR0_UART0
 #define UART1_SDR	SDR0_UART1
-#else /* CONFIG_405GP */
+#else /* CONFIG_405GP || CONFIG_405CR */
 #define CR0_MASK        0x00001fff
 #define CR0_EXTCLK_ENA  0x000000c0
 #define CR0_UDIV_POS    1
@@ -161,6 +200,9 @@ int get_serial_clock(void)
 {
 	u32 clk;
 	u32 udiv;
+#if defined(CONFIG_405CR) || defined(CONFIG_405EP) || defined(CONFIG_405GP)
+	u32 tmp;
+#endif
 #if !defined(CONFIG_405EZ)
 	u32 reg;
 #endif
@@ -173,7 +215,8 @@ int get_serial_clock(void)
 	 * Let's handle this in some #ifdef's for the SoC's.
 	 */
 
-#if defined(CONFIG_405GP)
+#if defined(CONFIG_405CR) || defined(CONFIG_405GP)
+	tmp = 0;
 	reg = mfdcr(CPC0_CR0) & ~CR0_MASK;
 #ifdef CONFIG_SYS_EXT_SERIAL_CLOCK
 	clk = CONFIG_SYS_EXT_SERIAL_CLOCK;
@@ -184,11 +227,8 @@ int get_serial_clock(void)
 #ifdef CONFIG_SYS_405_UART_ERRATA_59
 	udiv = 31;			/* Errata 59: stuck at 31 */
 #else /* CONFIG_SYS_405_UART_ERRATA_59 */
-	{
-		u32 tmp = CONFIG_SYS_BASE_BAUD * 16;
-
-		udiv = (clk + tmp / 2) / tmp;
-	}
+	tmp = CONFIG_SYS_BASE_BAUD * 16;
+	udiv = (clk + tmp / 2) / tmp;
 	if (udiv > UDIV_MAX)                    /* max. n bits for udiv */
 		udiv = UDIV_MAX;
 #endif /* CONFIG_SYS_405_UART_ERRATA_59 */
@@ -200,18 +240,15 @@ int get_serial_clock(void)
 #else
 	clk = CONFIG_SYS_BASE_BAUD * 16;
 #endif
-#endif
+#endif /* CONFIG_405CR */
 
 #if defined(CONFIG_405EP)
-	{
-		u32 tmp = CONFIG_SYS_BASE_BAUD * 16;
-
-		reg = mfdcr(CPC0_UCR) & ~(UCR0_MASK | UCR1_MASK);
-		clk = gd->cpu_clk;
-		udiv = (clk + tmp / 2) / tmp;
-		if (udiv > UDIV_MAX)                    /* max. n bits for udiv */
-			udiv = UDIV_MAX;
-	}
+	reg = mfdcr(CPC0_UCR) & ~(UCR0_MASK | UCR1_MASK);
+	clk = gd->cpu_clk;
+	tmp = CONFIG_SYS_BASE_BAUD * 16;
+	udiv = (clk + tmp / 2) / tmp;
+	if (udiv > UDIV_MAX)                    /* max. n bits for udiv */
+		udiv = UDIV_MAX;
 	reg |= udiv << UCR0_UDIV_POS;	        /* set the UART divisor */
 	reg |= udiv << UCR1_UDIV_POS;	        /* set the UART divisor */
 	mtdcr(CPC0_UCR, reg);
@@ -257,12 +294,12 @@ int get_serial_clock(void)
 	 * the UART divisor is available
 	 */
 #ifdef CONFIG_SYS_EXT_SERIAL_CLOCK
-	gd->arch.uart_clk = CONFIG_SYS_EXT_SERIAL_CLOCK;
+	gd->uart_clk = CONFIG_SYS_EXT_SERIAL_CLOCK;
 #else
 	get_sys_info(&sys_info);
-	gd->arch.uart_clk = sys_info.freqUART / udiv;
+	gd->uart_clk = sys_info.freqUART / udiv;
 #endif
 
 	return clk;
 }
-#endif	/* CONFIG_405GP */
+#endif	/* CONFIG_405GP || CONFIG_405CR */

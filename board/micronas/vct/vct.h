@@ -3,7 +3,20 @@
  *
  * Copyright (C) 2006 Micronas GmbH
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <asm/io.h>
@@ -80,14 +93,12 @@ void vct_pin_mux_initialize(void);
  */
 static inline void reg_write(u32 addr, u32 data)
 {
-	void *reg = (void *)(addr + REG_GLOBAL_START_ADDR);
-	__raw_writel(data, reg);
+	__raw_writel(data, addr + REG_GLOBAL_START_ADDR);
 }
 
 static inline u32 reg_read(u32 addr)
 {
-	const void *reg = (const void *)(addr + REG_GLOBAL_START_ADDR);
-	return __raw_readl(reg);
+	return __raw_readl(addr + REG_GLOBAL_START_ADDR);
 }
 
 #endif /* _VCT_H */

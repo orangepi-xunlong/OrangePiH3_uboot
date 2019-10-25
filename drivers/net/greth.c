@@ -5,14 +5,29 @@
  * (C) Copyright 2007
  * Daniel Hellstrom, Gaisler Research, daniel@gaisler.com
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /* #define DEBUG */
 
 #include <common.h>
 #include <command.h>
-#include <errno.h>
 #include <net.h>
 #include <netdev.h>
 #include <malloc.h>
@@ -20,7 +35,7 @@
 #include <ambapp.h>
 #include <asm/leon.h>
 
-#include <grlib/greth.h>
+#include "greth.h"
 
 /* Default to 3s timeout on autonegotiation */
 #ifndef GRETH_PHY_TIMEOUT_MS
@@ -32,13 +47,6 @@
 #define GRETH_PHY_ADR_DEFAULT CONFIG_SYS_GRLIB_GRETH_PHYADDR
 #else
 #define GRETH_PHY_ADR_DEFAULT 0
-#endif
-
-/* Let board select which GRETH to use as network interface, set
- * this to zero if only one GRETH is available.
- */
-#ifndef CONFIG_SYS_GRLIB_GRETH_INDEX
-#define CONFIG_SYS_GRLIB_GRETH_INDEX 0
 #endif
 
 /* ByPass Cache when reading regs */
@@ -245,7 +253,7 @@ int greth_init_phy(greth_priv * dev, bd_t * bis)
 	debug("GRETH PHY ADDRESS: %d\n", phyaddr);
 
 	/* X msecs to ticks */
-	timeout = GRETH_PHY_TIMEOUT_MS * 1000;
+	timeout = usec2ticks(GRETH_PHY_TIMEOUT_MS * 1000);
 
 	/* Get system timer0 current value
 	 * Total timeout is 5s
@@ -395,7 +403,7 @@ void greth_halt(struct eth_device *dev)
 	}
 }
 
-int greth_send(struct eth_device *dev, void *eth_data, int data_length)
+int greth_send(struct eth_device *dev, volatile void *eth_data, int data_length)
 {
 	greth_priv *greth = dev->priv;
 	greth_regs *regs = greth->regs;
@@ -475,7 +483,7 @@ int greth_recv(struct eth_device *dev)
 	greth_regs *regs = greth->regs;
 	greth_bd *rxbd;
 	unsigned int status, len = 0, bad;
-	char *d;
+	unsigned char *d;
 	int enable = 0;
 	int i;
 
@@ -496,7 +504,7 @@ int greth_recv(struct eth_device *dev)
 			goto done;
 		}
 
-		debug("greth_recv: packet 0x%x, 0x%x, len: %d\n",
+		debug("greth_recv: packet 0x%lx, 0x%lx, len: %d\n",
 		       (unsigned int)rxbd, status, status & GRETH_BD_LEN);
 
 		/* Check status for errors.
@@ -541,7 +549,7 @@ int greth_recv(struct eth_device *dev)
 			sparc_dcache_flush_all();
 
 			/* pass packet on to network subsystem */
-			net_process_received_packet((void *)d, len);
+			NetReceive((void *)d, len);
 
 			/* bump stats counters */
 			greth->stats.rx_packets++;
@@ -600,12 +608,8 @@ int greth_initialize(bd_t * bis)
 
 	debug("Scanning for GRETH\n");
 
-	/* Find Device & IRQ via AMBA Plug&Play information,
-	 * CONFIG_SYS_GRLIB_GRETH_INDEX select which GRETH if multiple
-	 * GRETHs in system.
-	 */
-	if (ambapp_apb_find(&ambapp_plb, VENDOR_GAISLER, GAISLER_ETHMAC,
-			CONFIG_SYS_GRLIB_GRETH_INDEX, &apbdev) != 1) {
+	/* Find Device & IRQ via AMBA Plug&Play information */
+	if (ambapp_apb_first(VENDOR_GAISLER, GAISLER_ETHMAC, &apbdev) != 1) {
 		return -1;	/* GRETH not found */
 	}
 
@@ -616,7 +620,7 @@ int greth_initialize(bd_t * bis)
 
 	greth->regs = (greth_regs *) apbdev.address;
 	greth->irq = apbdev.irq;
-	debug("Found GRETH at %p, irq %d\n", greth->regs, greth->irq);
+	debug("Found GRETH at 0x%lx, irq %d\n", greth->regs, greth->irq);
 	dev->priv = (void *)greth;
 	dev->iobase = (unsigned int)greth->regs;
 	dev->init = greth_init;
@@ -640,15 +644,15 @@ int greth_initialize(bd_t * bis)
 
 	/* Make descriptor string */
 	if (greth->gbit_mac) {
-		strcpy(dev->name, "GRETH_10/100/GB");
+		sprintf(dev->name, "GRETH_10/100/GB");
 	} else {
-		strcpy(dev->name, "GRETH_10/100");
+		sprintf(dev->name, "GRETH_10/100");
 	}
 
 	/* initiate PHY, select speed/duplex depending on connected PHY */
 	if (greth_init_phy(greth, bis)) {
 		/* Failed to init PHY (timedout) */
-		debug("GRETH[%p]: Failed to init PHY\n", greth->regs);
+		debug("GRETH[0x%08x]: Failed to init PHY\n", greth->regs);
 		return -1;
 	}
 
@@ -665,13 +669,18 @@ int greth_initialize(bd_t * bis)
 			}
 		}
 	} else {
-		/* No ethaddr set */
-		return -EINVAL;
+		/* HW Address not found in environment, Set default HW address */
+		addr[0] = GRETH_HWADDR_0;	/* MSB */
+		addr[1] = GRETH_HWADDR_1;
+		addr[2] = GRETH_HWADDR_2;
+		addr[3] = GRETH_HWADDR_3;
+		addr[4] = GRETH_HWADDR_4;
+		addr[5] = GRETH_HWADDR_5;	/* LSB */
 	}
 
 	/* set and remember MAC address */
 	greth_set_hwaddr(greth, addr);
 
-	debug("GRETH[%p]: Initialized successfully\n", greth->regs);
+	debug("GRETH[0x%08x]: Initialized successfully\n", greth->regs);
 	return 0;
 }

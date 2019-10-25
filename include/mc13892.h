@@ -4,7 +4,23 @@
  *
  * (C) Copyright 2009 Freescale Semiconductor, Inc.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 
@@ -122,22 +138,6 @@
 #define VCAM_2_75	(2 << 16)
 #define VCAM_3_0	(3 << 16)
 #define VCAM_MASK	(3 << 16)
-
-/* Reg Mode 0 */
-#define VGEN1EN		(1 << 0)
-#define VGEN1STBY	(1 << 1)
-#define VGEN1MODE	(1 << 2)
-#define VIOHIEN		(1 << 3)
-#define VIOHISTBY	(1 << 4)
-#define VDIGEN		(1 << 9)
-#define VDIGSTBY	(1 << 10)
-#define VGEN2EN		(1 << 12)
-#define VGEN2STBY	(1 << 13)
-#define VGEN2MODE	(1 << 14)
-#define VPLLEN		(1 << 15)
-#define VPLLSTBY	(1 << 16)
-#define VUSBEN		(1 << 18)
-#define VUSBSTBY	(1 << 19)
 
 /* Reg Mode 1 */
 #define VGEN3EN		(1 << 0)

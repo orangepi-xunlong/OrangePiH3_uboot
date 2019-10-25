@@ -1,10 +1,26 @@
 /*
  * ColdFire cache
  *
- * Copyright 2004-2012 Freescale Semiconductor, Inc.
+ * Copyright (C) 2004-2010 Freescale Semiconductor, Inc.
  * TsiChung Liew (Tsi-Chung.Liew@freescale.com)
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef __CACHE_H
@@ -15,15 +31,15 @@
 #define CONFIG_CF_V2
 #endif
 
-#if defined(CONFIG_MCF530x) || defined(CONFIG_MCF532x) || \
-    defined(CONFIG_MCF5301x)
+#if defined(CONFIG_MCF532x) || defined(CONFIG_MCF5301x)
 #define CONFIG_CF_V3
 #endif
 
 #if defined(CONFIG_MCF547x_8x) || defined(CONFIG_MCF5445x)
 #define CONFIG_CF_V4
-#elif defined(CONFIG_MCF5441x)
+#if defined(CONFIG_MCF5441x)
 #define CONFIG_CF_V4E		/* Four Extra ACRn */
+#endif
 #endif
 
 /* ***** CACR ***** */
@@ -71,7 +87,7 @@
 #endif				/* CONFIG_CF_V3 */
 
 /* V4 Core */
-#if defined(CONFIG_CF_V4) || defined(CONFIG_CF_V4E)
+#ifdef CONFIG_CF_V4
 
 #define CF_CACR_DEC		(1 << 31)
 #define CF_CACR_DW		(1 << 30)
@@ -97,7 +113,7 @@
 #define CF_CACR_IDSP		(1 << 7)
 #define CF_CACR_EUSP		(1 << 5)
 
-#if defined(CONFIG_MCF5445x) || defined(CONFIG_MCF5441x)
+#ifdef CONFIG_MCF5445x
 #define CF_CACR_IVO		(1 << 20)
 #define CF_CACR_SPA		(1 << 14)
 #else
@@ -132,7 +148,7 @@
 #endif				/* CONFIG_CF_V2 */
 
 /* V4 Core */
-#if defined(CONFIG_CF_V4) || defined(CONFIG_CF_V4E)
+#ifdef CONFIG_CF_V4
 #define CF_ACR_AMM		(1 << 10)
 #define CF_ACR_SP		(1 << 3)
 #endif				/* CONFIG_CF_V4 */
@@ -189,16 +205,6 @@
 void icache_invalid(void);
 void dcache_invalid(void);
 
-#endif
-
-/*
- * m68k uses 16 byte L1 data cache line sizes.  Use this for DMA buffer
- * alignment unless the board configuration has specified a new value.
- */
-#ifdef CONFIG_SYS_CACHELINE_SIZE
-#define ARCH_DMA_MINALIGN	CONFIG_SYS_CACHELINE_SIZE
-#else
-#define ARCH_DMA_MINALIGN	16
 #endif
 
 #endif				/* __CACHE_H */

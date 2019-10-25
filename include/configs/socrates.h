@@ -7,7 +7,23 @@
  * (C) Copyright 2002,2003 Motorola,Inc.
  * Xianghua Xiao <X.Xiao@motorola.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -17,17 +33,21 @@
 #ifndef __CONFIG_H
 #define __CONFIG_H
 
+/* new uImage format support */
+#define CONFIG_FIT		1
+#define CONFIG_OF_LIBFDT	1
+#define CONFIG_FIT_VERBOSE	1 /* enable fit_format_{error,warning}() */
+
 /* High Level Configuration Options */
 #define CONFIG_BOOKE		1	/* BOOKE			*/
 #define CONFIG_E500		1	/* BOOKE e500 family		*/
+#define CONFIG_MPC85xx		1	/* MPC8540/60/55/41		*/
 #define CONFIG_MPC8544		1
 #define CONFIG_SOCRATES		1
-#define CONFIG_DISPLAY_BOARDINFO
 
 #define	CONFIG_SYS_TEXT_BASE	0xfff80000
 
 #define CONFIG_PCI
-#define CONFIG_PCI_INDIRECT_BRIDGE
 
 #define CONFIG_TSEC_ENET		/* tsec ethernet support	*/
 
@@ -71,11 +91,17 @@
 #define CONFIG_SYS_MEMTEST_START	0x00400000
 #define CONFIG_SYS_MEMTEST_END		0x00C00000
 
-#define CONFIG_SYS_CCSRBAR		0xE0000000
-#define CONFIG_SYS_CCSRBAR_PHYS_LOW	CONFIG_SYS_CCSRBAR
+/*
+ * Base addresses -- Note these are effective addresses where the
+ * actual resources get mapped (not physical addresses)
+ */
+#define CONFIG_SYS_CCSRBAR_DEFAULT	0xFF700000	/* CCSRBAR Default	*/
+#define CONFIG_SYS_CCSRBAR		0xE0000000	/* relocated CCSRBAR	*/
+#define CONFIG_SYS_CCSRBAR_PHYS	CONFIG_SYS_CCSRBAR	/* physical addr of CCSRBAR */
+#define CONFIG_SYS_IMMR		CONFIG_SYS_CCSRBAR	/* PQII uses CONFIG_SYS_IMMR	*/
 
 /* DDR Setup */
-#define CONFIG_SYS_FSL_DDR2
+#define CONFIG_FSL_DDR2
 #undef CONFIG_FSL_DDR_INTERACTIVE
 #define CONFIG_SPD_EEPROM		/* Use SPD EEPROM for DDR setup */
 #define CONFIG_DDR_SPD
@@ -193,6 +219,7 @@
 /* Serial Port */
 
 #define CONFIG_CONS_INDEX     1
+#define CONFIG_SYS_NS16550
 #define CONFIG_SYS_NS16550_SERIAL
 #define CONFIG_SYS_NS16550_REG_SIZE	1
 #define CONFIG_SYS_NS16550_CLK		get_bus_freq(0)
@@ -207,18 +234,24 @@
 
 #define CONFIG_CMDLINE_EDITING	1	/* add command line history	*/
 #define CONFIG_AUTO_COMPLETE	1	/* add autocompletion support */
+#define CONFIG_SYS_HUSH_PARSER		1	/* Use the HUSH parser		*/
+#ifdef	CONFIG_SYS_HUSH_PARSER
+#define	CONFIG_SYS_PROMPT_HUSH_PS2	"> "
+#endif
+
 
 /*
  * I2C
  */
-#define CONFIG_SYS_I2C
-#define CONFIG_SYS_I2C_FSL
-#define CONFIG_SYS_FSL_I2C_SPEED	102124
-#define CONFIG_SYS_FSL_I2C_SLAVE	0x7F
-#define CONFIG_SYS_FSL_I2C_OFFSET	0x3000
-#define CONFIG_SYS_FSL_I2C2_SPEED	102124
-#define CONFIG_SYS_FSL_I2C2_SLAVE	0x7F
-#define CONFIG_SYS_FSL_I2C2_OFFSET	0x3100
+#define CONFIG_FSL_I2C		/* Use FSL common I2C driver */
+#define CONFIG_HARD_I2C			/* I2C with hardware support	*/
+#undef	CONFIG_SOFT_I2C			/* I2C bit-banged		*/
+#define CONFIG_SYS_I2C_SPEED		102124	/* I2C speed and slave address	*/
+#define CONFIG_SYS_I2C_SLAVE		0x7F
+#define CONFIG_SYS_I2C_OFFSET		0x3000
+
+#define CONFIG_I2C_MULTI_BUS
+#define CONFIG_SYS_I2C2_OFFSET		0x3100
 
 /* I2C RTC */
 #define CONFIG_RTC_RX8025		/* Use Epson rx8025 rtc via i2c	*/
@@ -256,6 +289,8 @@
 #undef CONFIG_PCI_SCAN_SHOW		/* show pci devices on startup	*/
 #endif	/* CONFIG_PCI */
 
+
+#define CONFIG_NET_MULTI	1
 #define CONFIG_MII		1	/* MII PHY management */
 #define CONFIG_TSEC1	1
 #define CONFIG_TSEC1_NAME	"TSEC0"
@@ -293,6 +328,7 @@
 
 #define	CONFIG_TIMESTAMP		/* Print image info with ts	*/
 
+
 /*
  * BOOTP options
  */
@@ -301,14 +337,25 @@
 #define CONFIG_BOOTP_GATEWAY
 #define CONFIG_BOOTP_HOSTNAME
 
+
 /*
  * Command line configuration.
  */
+#include <config_cmd_default.h>
+
 #define CONFIG_CMD_BMP
 #define CONFIG_CMD_DATE
+#define CONFIG_CMD_DHCP
 #define CONFIG_CMD_DTT
 #undef CONFIG_CMD_EEPROM
+#define CONFIG_CMD_EXT2		/* EXT2 Support			*/
+#define CONFIG_CMD_I2C
 #define CONFIG_CMD_SDRAM
+#define CONFIG_CMD_MII
+#undef CONFIG_CMD_NFS
+#define CONFIG_CMD_PING
+#define CONFIG_CMD_SNTP
+#define CONFIG_CMD_USB
 #define CONFIG_CMD_REGINFO
 
 #if defined(CONFIG_PCI)
@@ -322,6 +369,7 @@
  */
 #define CONFIG_SYS_LONGHELP			/* undef to save memory		*/
 #define CONFIG_SYS_LOAD_ADDR	0x2000000	/* default load address		*/
+#define CONFIG_SYS_PROMPT	"=> "		/* Monitor Command Prompt	*/
 
 #if defined(CONFIG_CMD_KGDB)
     #define CONFIG_SYS_CBSIZE	1024		/* Console I/O Buffer Size	*/
@@ -332,6 +380,7 @@
 #define CONFIG_SYS_PBSIZE (CONFIG_SYS_CBSIZE+sizeof(CONFIG_SYS_PROMPT)+16) /* Print Buf Size	*/
 #define CONFIG_SYS_MAXARGS	16		/* max number of command args	*/
 #define CONFIG_SYS_BARGSIZE	CONFIG_SYS_CBSIZE	/* Boot Argument Buffer Size	*/
+#define CONFIG_SYS_HZ		1000		/* decrementer freq: 1ms ticks	*/
 
 /*
  * For booting Linux, the board info and command line data
@@ -342,10 +391,13 @@
 
 #if defined(CONFIG_CMD_KGDB)
 #define CONFIG_KGDB_BAUDRATE	230400	/* speed to run kgdb serial port*/
+#define CONFIG_KGDB_SER_INDEX	2	/* which serial port to use	*/
 #endif
+
 
 #define CONFIG_LOADADDR	 200000		/* default addr for tftp & bootm*/
 
+#define CONFIG_BOOTDELAY 1		/* -1 disables auto-boot	*/
 
 #define CONFIG_PREBOOT	"echo;"	\
 	"echo Welcome on the ABB Socrates Board;" \
@@ -410,6 +462,8 @@
 #define CONFIG_BOOTCOMMAND	"run boot_nor"
 
 /* pass open firmware flat tree */
+#define CONFIG_OF_LIBFDT	1
+#define CONFIG_OF_BOARD_SETUP	1
 
 /* USB support */
 #define CONFIG_USB_OHCI_NEW		1
@@ -420,5 +474,6 @@
 #define CONFIG_SYS_USB_OHCI_SLOT_NAME		"ohci_pci"
 #define CONFIG_SYS_OHCI_SWAP_REG_ACCESS	1
 #define CONFIG_DOS_PARTITION		1
+#define CONFIG_USB_STORAGE		1
 
 #endif	/* __CONFIG_H */

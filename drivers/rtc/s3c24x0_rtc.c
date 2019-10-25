@@ -2,7 +2,23 @@
  * (C) Copyright 2003
  * David Müller ELSOFT AG Switzerland. d.mueller@elsoft.ch
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -18,7 +34,8 @@
 
 #include <rtc.h>
 #include <asm/io.h>
-#include <linux/compiler.h>
+
+/*#define	DEBUG*/
 
 typedef enum {
 	RTC_ENABLE,
@@ -47,8 +64,7 @@ int rtc_get(struct rtc_time *tmp)
 {
 	struct s3c24x0_rtc *rtc = s3c24x0_get_base_rtc();
 	uchar sec, min, hour, mday, wday, mon, year;
-	__maybe_unused uchar a_sec, a_min, a_hour, a_date,
-			     a_mon, a_year, a_armed;
+	uchar a_sec, a_min, a_hour, a_date, a_mon, a_year, a_armed;
 
 	/* enable access to RTC registers */
 	SetRTC_Access(RTC_ENABLE);

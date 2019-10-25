@@ -9,7 +9,23 @@
  * (C) Copyright 2000
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -36,7 +52,7 @@ extern unsigned long search_exception_table(unsigned long);
 /*
  * Print stack backtrace
  */
-static void print_backtrace(unsigned long *sp)
+void print_backtrace(unsigned long *sp)
 {
 	int cnt = 0;
 	unsigned long i;
@@ -59,7 +75,7 @@ static void print_backtrace(unsigned long *sp)
 /*
  * Print current registers
  */
-void show_regs(struct pt_regs *regs)
+void show_regs(struct pt_regs * regs)
 {
 	int i;
 	printf("NIP: %08lX XER: %08lX LR: %08lX REGS: %p TRAP: %04lx DAR: %08lX\n",
@@ -89,7 +105,7 @@ void show_regs(struct pt_regs *regs)
 /*
  * General exception handler routine
  */
-static void _exception(int signr, struct pt_regs *regs)
+void _exception(int signr, struct pt_regs *regs)
 {
 	show_regs(regs);
 	print_backtrace((unsigned long *)regs->gpr[1]);

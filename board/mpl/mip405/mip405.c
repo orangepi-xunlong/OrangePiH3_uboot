@@ -2,7 +2,24 @@
  * (C) Copyright 2001
  * Denis Peter, MPL AG Switzerland, d.peter@mpl.ch
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
  *
  * TODO: clean-up
  */
@@ -60,6 +77,8 @@ DECLARE_GLOBAL_DATA_PTR;
 
 #undef SDRAM_DEBUG
 #define ENABLE_ECC /* for ecc boards */
+#define FALSE           0
+#define TRUE            1
 
 /* stdlib.h causes some compatibility problems; should fixe these! -- wd */
 #ifndef __ldiv_t_defined
@@ -227,7 +246,8 @@ int init_sdram (void)
 	unsigned char	trp_clocks,
 			trcd_clocks,
 			tras_clocks,
-			trc_clocks;
+			trc_clocks,
+			tctp_clocks;
 	unsigned char	cal_val;
 	unsigned char	bc;
 	unsigned long	sdram_tim, sdram_bank;
@@ -325,6 +345,7 @@ int init_sdram (void)
 	trcd_clocks = sdram_table[i].trcd;	/* 20ns /7.5 ns (datain[29]) */
 	tras_clocks = sdram_table[i].tras;	/* 44ns /7.5 ns  (datain[30]) */
 	/* ctp = ((trp + tras) - trp - trcd) => tras - trcd */
+	tctp_clocks = sdram_table[i].tctp;	/* 44 - 20ns = 24ns */
 	/* trc_clocks is sum of trp_clocks + tras_clocks */
 	trc_clocks = trp_clocks + tras_clocks;
 	/* get SDRAM timing register */
@@ -479,27 +500,6 @@ int board_early_init_f (void)
 	return 0;
 }
 
-int board_early_init_r(void)
-{
-	int mode;
-
-	/*
-	 * since we are relocated, we can finally enable i-cache
-	 * and set up the flash CS correctly
-	 */
-	icache_enable();
-	setup_cs_reloc();
-	/* get and display boot mode */
-	mode = get_boot_mode();
-	if (mode & BOOT_PCI)
-		printf("PCI Boot %s Map\n", (mode & BOOT_MPS) ?
-			"MPS" : "Flash");
-	else
-		printf("%s Boot\n", (mode & BOOT_MPS) ?
-			"MPS" : "Flash");
-
-	return 0;
-}
 
 /*
  * Get some PLD Registers
@@ -626,9 +626,10 @@ phys_size_t initdram (int board_type)
 {
 
 	unsigned long bank_reg[4], tmp, bank_size;
-	int i;
+	int i, ds;
 	unsigned long TotalSize;
 
+	ds = 0;
 	/* since the DRAM controller is allready set up, calculate the size with the
 	   bank registers    */
 	mtdcr (SDRAM0_CFGADDR, SDRAM0_B0CR);
@@ -645,7 +646,8 @@ phys_size_t initdram (int board_type)
 			tmp = (bank_reg[i] >> 17) & 0x7;
 			bank_size = 4 << tmp;
 			TotalSize += bank_size;
-		}
+		} else
+			ds = 1;
 	}
 	mtdcr (SDRAM0_CFGADDR, SDRAM0_ECCCFG);
 	tmp = mfdcr (SDRAM0_CFGDATA);
@@ -673,6 +675,7 @@ static int test_dram (unsigned long ramsize)
 /* used to check if the time in RTC is valid */
 static unsigned long start;
 static struct rtc_time tm;
+extern flash_info_t flash_info[];	/* info for FLASH chips */
 
 int misc_init_r (void)
 {
@@ -752,8 +755,7 @@ int last_stage_init (void)
 
 int overwrite_console (void)
 {
-	/* return true if console should be overwritten */
-	return ((in8(PLD_EXT_CONF_REG) & 0x1) == 0);
+	return ((in8 (PLD_EXT_CONF_REG) & 0x1)==0);	/* return TRUE if console should be overwritten */
 }
 
 

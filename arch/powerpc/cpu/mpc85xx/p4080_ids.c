@@ -1,7 +1,23 @@
 /*
  * Copyright 2010-2011 Freescale Semiconductor, Inc.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -24,26 +40,22 @@ struct qportal_info qp_info[CONFIG_SYS_QMAN_NUM_PORTALS] = {
 };
 #endif
 
-struct srio_liodn_id_table srio_liodn_tbl[] = {
-	SET_SRIO_LIODN_1(1, 198),
-	SET_SRIO_LIODN_1(2, 199),
-};
-int srio_liodn_tbl_sz = ARRAY_SIZE(srio_liodn_tbl);
-
 struct liodn_id_table liodn_tbl[] = {
 	SET_USB_LIODN(1, "fsl-usb2-mph", 127),
 	SET_USB_LIODN(2, "fsl-usb2-dr", 157),
 
 	SET_SDHC_LIODN(1, 156),
 
-	SET_PCI_LIODN(CONFIG_SYS_FSL_PCIE_COMPAT, 1, 193),
-	SET_PCI_LIODN(CONFIG_SYS_FSL_PCIE_COMPAT, 2, 194),
-	SET_PCI_LIODN(CONFIG_SYS_FSL_PCIE_COMPAT, 3, 195),
+	SET_PCI_LIODN("fsl,p4080-pcie", 1, 193),
+	SET_PCI_LIODN("fsl,p4080-pcie", 2, 194),
+	SET_PCI_LIODN("fsl,p4080-pcie", 3, 195),
 
-	SET_DMA_LIODN(1, "fsl,eloplus-dma", 196),
-	SET_DMA_LIODN(2, "fsl,eloplus-dma", 197),
+	SET_DMA_LIODN(1, 196),
+	SET_DMA_LIODN(2, 197),
 
-	SET_GUTS_LIODN("fsl,srio-rmu", 200, rmuliodnr, 0xd3000),
+	SET_GUTS_LIODN("fsl,rapidio-delta", 198, rio1liodnr, 0),
+	SET_GUTS_LIODN(NULL, 199, rio2liodnr, 0),
+	SET_GUTS_LIODN(NULL, 200, rmuliodnr, 0),
 
 #ifdef CONFIG_SYS_DPAA_QBMAN
 	SET_QMAN_LIODN(31),
@@ -54,7 +66,7 @@ struct liodn_id_table liodn_tbl[] = {
 int liodn_tbl_sz = ARRAY_SIZE(liodn_tbl);
 
 #ifdef CONFIG_SYS_DPAA_FMAN
-struct fman_liodn_id_table fman1_liodn_tbl[] = {
+struct liodn_id_table fman1_liodn_tbl[] = {
 	SET_FMAN_RX_1G_LIODN(1, 0, 11),
 	SET_FMAN_RX_1G_LIODN(1, 1, 12),
 	SET_FMAN_RX_1G_LIODN(1, 2, 13),
@@ -64,7 +76,7 @@ struct fman_liodn_id_table fman1_liodn_tbl[] = {
 int fman1_liodn_tbl_sz = ARRAY_SIZE(fman1_liodn_tbl);
 
 #if (CONFIG_SYS_NUM_FMAN == 2)
-struct fman_liodn_id_table fman2_liodn_tbl[] = {
+struct liodn_id_table fman2_liodn_tbl[] = {
 	SET_FMAN_RX_1G_LIODN(2, 0, 16),
 	SET_FMAN_RX_1G_LIODN(2, 1, 17),
 	SET_FMAN_RX_1G_LIODN(2, 2, 18),

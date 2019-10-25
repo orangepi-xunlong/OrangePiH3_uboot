@@ -1,10 +1,26 @@
 /*
  * Configuation settings for the Freescale MCF5373 FireEngine board.
  *
- * Copyright (C) 2004-2007, 2012 Freescale Semiconductor, Inc.
+ * Copyright (C) 2004-2007 Freescale Semiconductor, Inc.
  * TsiChung Liew (Tsi-Chung.Liew@freescale.com)
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -18,19 +34,33 @@
  * High Level Configuration Options
  * (easy to change)
  */
+#define CONFIG_MCF532x		/* define processor family */
+#define CONFIG_M5373		/* define processor type */
 
 #define CONFIG_MCFUART
 #define CONFIG_SYS_UART_PORT		(0)
 #define CONFIG_BAUDRATE		115200
+#define CONFIG_SYS_BAUDRATE_TABLE	{ 9600 , 19200 , 38400 , 57600, 115200 }
 
 #undef CONFIG_WATCHDOG
 #define CONFIG_WATCHDOG_TIMEOUT	3360	/* timeout in ms, max is 3.36 sec */
 
 /* Command line configuration */
+#include <config_cmd_default.h>
+
+#define CONFIG_CMD_CACHE
 #define CONFIG_CMD_DATE
+#define CONFIG_CMD_ELF
+#define CONFIG_CMD_FLASH
+#define CONFIG_CMD_I2C
+#define CONFIG_CMD_MEMORY
+#define CONFIG_CMD_MISC
+#define CONFIG_CMD_MII
+#define CONFIG_CMD_NET
+#define CONFIG_CMD_PING
 #define CONFIG_CMD_REGINFO
 
-#ifdef CONFIG_NANDFLASH_SIZE
+#ifdef NANDFLASH_SIZE
 #      define CONFIG_CMD_NAND
 #endif
 
@@ -38,6 +68,7 @@
 
 #define CONFIG_MCFFEC
 #ifdef CONFIG_MCFFEC
+#	define CONFIG_NET_MULTI		1
 #	define CONFIG_MII		1
 #	define CONFIG_MII_INIT		1
 #	define CONFIG_SYS_DISCOVER_PHY
@@ -66,26 +97,30 @@
 #undef CONFIG_MCFPIT
 
 /* I2C */
-#define CONFIG_SYS_I2C
-#define CONFIG_SYS_I2C_FSL
-#define CONFIG_SYS_FSL_I2C_SPEED	80000
-#define CONFIG_SYS_FSL_I2C_SLAVE	0x7F
-#define CONFIG_SYS_FSL_I2C_OFFSET	0x58000
+#define CONFIG_FSL_I2C
+#define CONFIG_HARD_I2C		/* I2C with hw support */
+#undef CONFIG_SOFT_I2C		/* I2C bit-banged */
+#define CONFIG_SYS_I2C_SPEED		80000
+#define CONFIG_SYS_I2C_SLAVE		0x7F
+#define CONFIG_SYS_I2C_OFFSET		0x58000
 #define CONFIG_SYS_IMMR		CONFIG_SYS_MBAR
 
+#define CONFIG_BOOTDELAY	1	/* autoboot after 5 seconds */
 #define CONFIG_UDP_CHECKSUM
 
 #ifdef CONFIG_MCFFEC
+#	define CONFIG_ETHADDR	00:e0:0c:bc:e5:60
 #	define CONFIG_IPADDR	192.162.1.2
 #	define CONFIG_NETMASK	255.255.255.0
 #	define CONFIG_SERVERIP	192.162.1.1
 #	define CONFIG_GATEWAYIP	192.162.1.1
+#	define CONFIG_OVERWRITE_ETHADDR_ONCE
 #endif				/* FEC_ENET */
 
 #define CONFIG_HOSTNAME		M5373EVB
 #define CONFIG_EXTRA_ENV_SETTINGS					\
 	"netdev=eth0\0"			\
-	"loadaddr=" __stringify(CONFIG_SYS_LOAD_ADDR) "\0"	\
+	"loadaddr=" MK_STR(CONFIG_SYS_LOAD_ADDR) "\0"	\
 	"u-boot=u-boot.bin\0"	\
 	"load=tftp ${loadaddr) ${u-boot}\0"	\
 	"upd=run load; run prog\0"	\
@@ -96,6 +131,7 @@
 	""
 
 #define CONFIG_PRAM		512	/* 512 KB */
+#define CONFIG_SYS_PROMPT		"-> "
 #define CONFIG_SYS_LONGHELP		/* undef to save memory */
 
 #ifdef CONFIG_CMD_KGDB
@@ -109,6 +145,7 @@
 #define CONFIG_SYS_BARGSIZE		CONFIG_SYS_CBSIZE	/* Boot Argument Buffer Size    */
 #define CONFIG_SYS_LOAD_ADDR		0x40010000
 
+#define CONFIG_SYS_HZ			1000
 #define CONFIG_SYS_CLK			80000000
 #define CONFIG_SYS_CPU_CLK		CONFIG_SYS_CLK * 3
 
@@ -173,7 +210,7 @@
 #	define CONFIG_SYS_FLASH_PROTECTION	/* "Real" (hardware) sectors protection */
 #endif
 
-#ifdef CONFIG_NANDFLASH_SIZE
+#ifdef NANDFLASH_SIZE
 #	define CONFIG_SYS_MAX_NAND_DEVICE	1
 #	define CONFIG_SYS_NAND_BASE		CONFIG_SYS_CS2_BASE
 #	define CONFIG_SYS_NAND_SIZE		1
@@ -193,10 +230,6 @@
 #define CONFIG_ENV_OFFSET		0x4000
 #define CONFIG_ENV_SECT_SIZE	0x2000
 #define CONFIG_ENV_IS_IN_FLASH	1
-
-#define LDS_BOARD_TEXT \
-        . = DEFINED(env_offset) ? env_offset : .; \
-        common/env_embedded.o (.text*);
 
 /*-----------------------------------------------------------------------
  * Cache Configuration
@@ -233,9 +266,9 @@
 #define CONFIG_SYS_CS1_MASK		0x001f0001
 #define CONFIG_SYS_CS1_CTRL		0x002A3780
 
-#ifdef CONFIG_NANDFLASH_SIZE
+#ifdef NANDFLASH_SIZE
 #define CONFIG_SYS_CS2_BASE		0x20000000
-#define CONFIG_SYS_CS2_MASK		((CONFIG_NANDFLASH_SIZE << 20) | 1)
+#define CONFIG_SYS_CS2_MASK		((NANDFLASH_SIZE << 20) | 1)
 #define CONFIG_SYS_CS2_CTRL		0x00001f60
 #endif
 

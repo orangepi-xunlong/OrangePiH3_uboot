@@ -2,7 +2,23 @@
  * (C) Copyright 2008
  * Dirk Behme <dirk.behme@gmail.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 #ifndef _BEAGLE_H_
 #define _BEAGLE_H_
@@ -23,7 +39,8 @@ const omap3_sysinfo sysinfo = {
 #define REVISION_AXBX	0x7
 #define REVISION_CX	0x6
 #define REVISION_C4	0x5
-#define REVISION_XM_AB	0x0
+#define REVISION_XM_A	0x0
+#define REVISION_XM_B	0x1
 #define REVISION_XM_C	0x2
 
 /*
@@ -375,7 +392,7 @@ const omap3_sysinfo sysinfo = {
 
 #define MUX_BEAGLE_XM() \
 	MUX_VAL(CP(GPMC_NCS5),		(IDIS | PTD | EN  | M4)) /*GPIO_56*/\
-	MUX_VAL(CP(GPMC_WAIT1),		(IDIS | PTU | EN  | M4)) /*GPIO_63*/\
+	MUX_VAL(CP(GPMC_WAIT0),		(IDIS | PTU | EN  | M4)) /*GPIO_63*/\
 	MUX_VAL(CP(MMC1_DAT7),		(IDIS | PTU | EN  | M4)) /*GPIO_129*/\
 	MUX_VAL(CP(HDQ_SIO),		(IDIS | PTU | EN  | M4)) /*GPIO_170*/\
 	MUX_VAL(CP(MCBSP3_DX),		(IEN  | PTD | DIS | M4)) /*GPIO_140*/\
@@ -519,7 +536,7 @@ static const struct venc_regs venc_config_std_tv = {
  * Configure Timings for DVI D
  */
 static const struct panel_config dvid_cfg = {
-	.timing_h	= 0x0ff03f31, /* Horizontal timing */
+	.timing_h	= 0x0ff03f31, /* Horizantal timing */
 	.timing_v	= 0x01400504, /* Vertical timing */
 	.pol_freq	= 0x00007028, /* Pol Freq */
 	.divisor	= 0x00010006, /* 72Mhz Pixel Clock */
@@ -527,12 +544,11 @@ static const struct panel_config dvid_cfg = {
 	.panel_type	= 0x01, /* TFT */
 	.data_lines	= 0x03, /* 24 Bit RGB */
 	.load_mode	= 0x02, /* Frame Mode */
-	.panel_color	= DVI_BEAGLE_ORANGE_COL, /* ORANGE */
-	.gfx_format	= GFXFORMAT_RGB24_UNPACKED,
+	.panel_color	= DVI_BEAGLE_ORANGE_COL /* ORANGE */
 };
 
 static const struct panel_config dvid_cfg_xm = {
-	.timing_h	= 0x1a4024c9, /* Horizontal timing */
+	.timing_h	= 0x1a4024c9, /* Horizantal timing */
 	.timing_v	= 0x02c00509, /* Vertical timing */
 	.pol_freq	= 0x00007028, /* Pol Freq */
 	.divisor	= 0x00010001, /* 96MHz Pixel Clock */
@@ -540,7 +556,6 @@ static const struct panel_config dvid_cfg_xm = {
 	.panel_type	= 0x01, /* TFT */
 	.data_lines	= 0x03, /* 24 Bit RGB */
 	.load_mode	= 0x02, /* Frame Mode */
-	.panel_color	= DVI_BEAGLE_ORANGE_COL, /* ORANGE */
-	.gfx_format	= GFXFORMAT_RGB24_UNPACKED,
+	.panel_color	= DVI_BEAGLE_ORANGE_COL /* ORANGE */
 };
 #endif

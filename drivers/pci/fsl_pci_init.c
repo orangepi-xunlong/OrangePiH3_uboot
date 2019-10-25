@@ -1,7 +1,20 @@
 /*
- * Copyright 2007-2012 Freescale Semiconductor, Inc.
+ * Copyright 2007-2011 Freescale Semiconductor, Inc.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the Free
+ * Software Foundation; either version 2 of the License, or (at your option)
+ * any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -28,6 +41,18 @@ DECLARE_GLOBAL_DATA_PTR;
 #include <asm/io.h>
 #include <asm/fsl_pci.h>
 
+/* Freescale-specific PCI config registers */
+#define FSL_PCI_PBFR		0x44
+#define FSL_PCIE_CAP_ID		0x4c
+#define FSL_PCIE_CFG_RDY	0x4b0
+#define FSL_PROG_IF_AGENT	0x1
+
+void pciauto_prescan_setup_bridge(struct pci_controller *hose,
+				pci_dev_t dev, int sub_bus);
+void pciauto_postscan_setup_bridge(struct pci_controller *hose,
+				pci_dev_t dev, int sub_bus);
+void pciauto_config_init(struct pci_controller *hose);
+
 #ifndef CONFIG_SYS_PCI_MEMORY_BUS
 #define CONFIG_SYS_PCI_MEMORY_BUS 0
 #endif
@@ -49,13 +74,8 @@ static void set_inbound_window(volatile pit_t *pi,
 				u64 size)
 {
 	u32 sz = (__ilog2_u64(size) - 1);
-#ifdef CONFIG_SYS_FSL_ERRATUM_A005434
-	u32 flag = 0;
-#else
-	u32 flag = PIWAR_LOCAL;
-#endif
-
-	flag |= PIWAR_EN | PIWAR_READ_SNOOP | PIWAR_WRITE_SNOOP;
+	u32 flag = PIWAR_EN | PIWAR_LOCAL |
+			PIWAR_READ_SNOOP | PIWAR_WRITE_SNOOP;
 
 	out_be32(&pi->pitar, r->phys_start >> 12);
 	out_be32(&pi->piwbar, r->bus_start >> 12);
@@ -197,99 +217,6 @@ static int fsl_pci_setup_inbound_windows(struct pci_controller *hose,
 	return 1;
 }
 
-#ifdef CONFIG_SRIO_PCIE_BOOT_MASTER
-static void fsl_pcie_boot_master(pit_t *pi)
-{
-	/* configure inbound window for slave's u-boot image */
-	debug("PCIEBOOT - MASTER: Inbound window for slave's image; "
-			"Local = 0x%llx, Bus = 0x%llx, Size = 0x%x\n",
-			(u64)CONFIG_SRIO_PCIE_BOOT_IMAGE_MEM_PHYS,
-			(u64)CONFIG_SRIO_PCIE_BOOT_IMAGE_MEM_BUS1,
-			CONFIG_SRIO_PCIE_BOOT_IMAGE_SIZE);
-	struct pci_region r_inbound;
-	u32 sz_inbound = __ilog2_u64(CONFIG_SRIO_PCIE_BOOT_IMAGE_SIZE)
-					- 1;
-	pci_set_region(&r_inbound,
-		CONFIG_SRIO_PCIE_BOOT_IMAGE_MEM_BUS1,
-		CONFIG_SRIO_PCIE_BOOT_IMAGE_MEM_PHYS,
-		sz_inbound,
-		PCI_REGION_MEM | PCI_REGION_SYS_MEMORY);
-
-	set_inbound_window(pi--, &r_inbound,
-		CONFIG_SRIO_PCIE_BOOT_IMAGE_SIZE);
-
-	/* configure inbound window for slave's u-boot image */
-	debug("PCIEBOOT - MASTER: Inbound window for slave's image; "
-			"Local = 0x%llx, Bus = 0x%llx, Size = 0x%x\n",
-			(u64)CONFIG_SRIO_PCIE_BOOT_IMAGE_MEM_PHYS,
-			(u64)CONFIG_SRIO_PCIE_BOOT_IMAGE_MEM_BUS2,
-			CONFIG_SRIO_PCIE_BOOT_IMAGE_SIZE);
-	pci_set_region(&r_inbound,
-		CONFIG_SRIO_PCIE_BOOT_IMAGE_MEM_BUS2,
-		CONFIG_SRIO_PCIE_BOOT_IMAGE_MEM_PHYS,
-		sz_inbound,
-		PCI_REGION_MEM | PCI_REGION_SYS_MEMORY);
-
-	set_inbound_window(pi--, &r_inbound,
-		CONFIG_SRIO_PCIE_BOOT_IMAGE_SIZE);
-
-	/* configure inbound window for slave's ucode and ENV */
-	debug("PCIEBOOT - MASTER: Inbound window for slave's "
-			"ucode and ENV; "
-			"Local = 0x%llx, Bus = 0x%llx, Size = 0x%x\n",
-			(u64)CONFIG_SRIO_PCIE_BOOT_UCODE_ENV_MEM_PHYS,
-			(u64)CONFIG_SRIO_PCIE_BOOT_UCODE_ENV_MEM_BUS,
-			CONFIG_SRIO_PCIE_BOOT_UCODE_ENV_SIZE);
-	sz_inbound = __ilog2_u64(CONFIG_SRIO_PCIE_BOOT_UCODE_ENV_SIZE)
-				- 1;
-	pci_set_region(&r_inbound,
-		CONFIG_SRIO_PCIE_BOOT_UCODE_ENV_MEM_BUS,
-		CONFIG_SRIO_PCIE_BOOT_UCODE_ENV_MEM_PHYS,
-		sz_inbound,
-		PCI_REGION_MEM | PCI_REGION_SYS_MEMORY);
-
-	set_inbound_window(pi--, &r_inbound,
-		CONFIG_SRIO_PCIE_BOOT_UCODE_ENV_SIZE);
-}
-
-static void fsl_pcie_boot_master_release_slave(int port)
-{
-	unsigned long release_addr;
-
-	/* now release slave's core 0 */
-	switch (port) {
-	case 1:
-		release_addr = CONFIG_SYS_PCIE1_MEM_VIRT
-			+ CONFIG_SRIO_PCIE_BOOT_BRR_OFFSET;
-		break;
-#ifdef CONFIG_SYS_PCIE2_MEM_VIRT
-	case 2:
-		release_addr = CONFIG_SYS_PCIE2_MEM_VIRT
-			+ CONFIG_SRIO_PCIE_BOOT_BRR_OFFSET;
-		break;
-#endif
-#ifdef CONFIG_SYS_PCIE3_MEM_VIRT
-	case 3:
-		release_addr = CONFIG_SYS_PCIE3_MEM_VIRT
-			+ CONFIG_SRIO_PCIE_BOOT_BRR_OFFSET;
-		break;
-#endif
-	default:
-		release_addr = 0;
-		break;
-	}
-	if (release_addr != 0) {
-		out_be32((void *)release_addr,
-			CONFIG_SRIO_PCIE_BOOT_RELEASE_MASK);
-		debug("PCIEBOOT - MASTER: "
-			"Release slave successfully! Now the slave should start up!\n");
-	} else {
-		debug("PCIEBOOT - MASTER: "
-			"Release slave failed!\n");
-	}
-}
-#endif
-
 void fsl_pci_init(struct pci_controller *hose, struct fsl_pci_info *pci_info)
 {
 	u32 cfg_addr = (u32)&((ccsr_fsl_pci_t *)pci_info->regs)->cfg_addr;
@@ -300,15 +227,6 @@ void fsl_pci_init(struct pci_controller *hose, struct fsl_pci_info *pci_info)
 	int enabled, r, inbound = 0;
 	u16 ltssm;
 	u8 temp8, pcie_cap;
-	int pcie_cap_pos;
-	int pci_dcr;
-	int pci_dsr;
-	int pci_lsr;
-
-#if defined(CONFIG_FSL_PCIE_DISABLE_ASPM)
-	int pci_lcr;
-#endif
-
 	volatile ccsr_fsl_pci_t *pci = (ccsr_fsl_pci_t *)cfg_addr;
 	struct pci_region *reg = hose->regions + hose->region_count;
 	pci_dev_t dev = PCI_BDF(hose->first_busno, 0, 0);
@@ -381,38 +299,16 @@ void fsl_pci_init(struct pci_controller *hose, struct fsl_pci_info *pci_info)
 	hose->region_count++;
 
 	/* see if we are a PCIe or PCI controller */
-	pcie_cap_pos = pci_hose_find_capability(hose, dev, PCI_CAP_ID_EXP);
-	pci_dcr = pcie_cap_pos + 0x08;
-	pci_dsr = pcie_cap_pos + 0x0a;
-	pci_lsr = pcie_cap_pos + 0x12;
+	pci_hose_read_config_byte(hose, dev, FSL_PCIE_CAP_ID, &pcie_cap);
 
-	pci_hose_read_config_byte(hose, dev, pcie_cap_pos, &pcie_cap);
-
-#ifdef CONFIG_SRIO_PCIE_BOOT_MASTER
-	/* boot from PCIE --master */
-	char *s = getenv("bootmaster");
-	char pcie[6];
-	sprintf(pcie, "PCIE%d", pci_info->pci_num);
-
-	if (s && (strcmp(s, pcie) == 0)) {
-		debug("PCIEBOOT - MASTER: Master port [ %d ] for pcie boot.\n",
-				pci_info->pci_num);
-		fsl_pcie_boot_master((pit_t *)pi);
-	} else {
-		/* inbound */
-		inbound = fsl_pci_setup_inbound_windows(hose,
-					out_lo, pcie_cap, pi);
-	}
-#else
 	/* inbound */
 	inbound = fsl_pci_setup_inbound_windows(hose, out_lo, pcie_cap, pi);
-#endif
 
 	for (r = 0; r < hose->region_count; r++)
-		debug("PCI reg:%d %016llx:%016llx %016llx %08lx\n", r,
+		debug("PCI reg:%d %016llx:%016llx %016llx %08x\n", r,
 			(u64)hose->regions[r].phys_start,
-			(u64)hose->regions[r].bus_start,
-			(u64)hose->regions[r].size,
+			hose->regions[r].bus_start,
+			hose->regions[r].size,
 			hose->regions[r].flags);
 
 	pci_register_hose(hose);
@@ -425,43 +321,18 @@ void fsl_pci_init(struct pci_controller *hose, struct fsl_pci_info *pci_info)
 					 * - Master PERR (pci)
 					 * - ICCA (PCIe)
 					 */
-	pci_hose_read_config_dword(hose, dev, pci_dcr, &temp32);
+	pci_hose_read_config_dword(hose, dev, PCI_DCR, &temp32);
 	temp32 |= 0xf000e;		/* set URR, FER, NFER (but not CER) */
-	pci_hose_write_config_dword(hose, dev, pci_dcr, temp32);
+	pci_hose_write_config_dword(hose, dev, PCI_DCR, temp32);
 
 #if defined(CONFIG_FSL_PCIE_DISABLE_ASPM)
-	pci_lcr = pcie_cap_pos + 0x10;
 	temp32 = 0;
-	pci_hose_read_config_dword(hose, dev, pci_lcr, &temp32);
+	pci_hose_read_config_dword(hose, dev, PCI_LCR, &temp32);
 	temp32 &= ~0x03;		/* Disable ASPM  */
-	pci_hose_write_config_dword(hose, dev, pci_lcr, temp32);
+	pci_hose_write_config_dword(hose, dev, PCI_LCR, temp32);
 	udelay(1);
 #endif
 	if (pcie_cap == PCI_CAP_ID_EXP) {
-		if (block_rev >= PEX_IP_BLK_REV_3_0) {
-#define PEX_CSR0_LTSSM_MASK	0xFC
-#define PEX_CSR0_LTSSM_SHIFT	2
-			ltssm = (in_be32(&pci->pex_csr0)
-				& PEX_CSR0_LTSSM_MASK) >> PEX_CSR0_LTSSM_SHIFT;
-			enabled = (ltssm == 0x11) ? 1 : 0;
-#ifdef CONFIG_FSL_PCIE_RESET
-			int i;
-			/* assert PCIe reset */
-			setbits_be32(&pci->pdb_stat, 0x08000000);
-			(void) in_be32(&pci->pdb_stat);
-			udelay(1000);
-			/* clear PCIe reset */
-			clrbits_be32(&pci->pdb_stat, 0x08000000);
-			asm("sync;isync");
-			for (i = 0; i < 100 && ltssm < PCI_LTSSM_L0; i++) {
-				pci_hose_read_config_word(hose, dev, PCI_LTSSM,
-							  &ltssm);
-				udelay(1000);
-			}
-#endif
-		} else {
-		/* pci_hose_read_config_word(hose, dev, PCI_LTSSM, &ltssm); */
-		/* enabled = ltssm >= PCI_LTSSM_L0; */
 		pci_hose_read_config_word(hose, dev, PCI_LTSSM, &ltssm);
 		enabled = ltssm >= PCI_LTSSM_L0;
 
@@ -473,7 +344,7 @@ void fsl_pci_init(struct pci_controller *hose, struct fsl_pci_info *pci_info)
 			setbits_be32(&pci->pdb_stat, 0x08000000);
 			(void) in_be32(&pci->pdb_stat);
 			udelay(100);
-			debug("  Asserting PCIe reset @%p = %x\n",
+			debug("  Asserting PCIe reset @%x = %x\n",
 			      &pci->pdb_stat, in_be32(&pci->pdb_stat));
 			/* clear PCIe reset */
 			clrbits_be32(&pci->pdb_stat, 0x08000000);
@@ -494,39 +365,10 @@ void fsl_pci_init(struct pci_controller *hose, struct fsl_pci_info *pci_info)
 					PCI_BASE_ADDRESS_0, pcicsrbar);
 		}
 #endif
-	}
 
-#ifdef CONFIG_SYS_P4080_ERRATUM_PCIE_A003
-		if (enabled == 0) {
-			serdes_corenet_t *srds_regs = (void *)CONFIG_SYS_FSL_CORENET_SERDES_ADDR;
-			temp32 = in_be32(&srds_regs->srdspccr0);
-
-			if ((temp32 >> 28) == 3) {
-				int i;
-
-				out_be32(&srds_regs->srdspccr0, 2 << 28);
-				setbits_be32(&pci->pdb_stat, 0x08000000);
-				in_be32(&pci->pdb_stat);
-				udelay(100);
-				clrbits_be32(&pci->pdb_stat, 0x08000000);
-				asm("sync;isync");
-				for (i=0; i < 100 && ltssm < PCI_LTSSM_L0; i++) {
-					pci_hose_read_config_word(hose, dev, PCI_LTSSM, &ltssm);
-					udelay(1000);
-				}
-				enabled = ltssm >= PCI_LTSSM_L0;
-			}
-		}
-#endif
 		if (!enabled) {
-			/* Let the user know there's no PCIe link for root
-			 * complex. for endpoint, the link may not setup, so
-			 * print undetermined.
-			 */
-			if (fsl_is_pci_agent(hose))
-				printf("undetermined, regs @ 0x%lx\n", pci_info->regs);
-			else
-				printf("no link, regs @ 0x%lx\n", pci_info->regs);
+			/* Let the user know there's no PCIe link */
+			printf("no link, regs @ 0x%lx\n", pci_info->regs);
 			hose->last_busno = hose->first_busno;
 			return;
 		}
@@ -535,9 +377,9 @@ void fsl_pci_init(struct pci_controller *hose, struct fsl_pci_info *pci_info)
 		out_be32(&pci->pme_msg_int_en, 0xffffffff);
 
 		/* Print the negotiated PCIe link width */
-		pci_hose_read_config_word(hose, dev, pci_lsr, &temp16);
-		printf("x%d gen%d, regs @ 0x%lx\n", (temp16 & 0x3f0) >> 4,
-		       (temp16 & 0xf), pci_info->regs);
+		pci_hose_read_config_word(hose, dev, PCI_LSR, &temp16);
+		printf("x%d, regs @ 0x%lx\n", (temp16 & 0x3f0 ) >> 4,
+			pci_info->regs);
 
 		hose->current_busno++; /* Start scan with secondary */
 		pciauto_prescan_setup_bridge(hose, dev, hose->current_busno);
@@ -557,7 +399,13 @@ void fsl_pci_init(struct pci_controller *hose, struct fsl_pci_info *pci_info)
 	}
 
 #ifndef CONFIG_PCI_NOSCAN
-	if (!fsl_is_pci_agent(hose)) {
+	pci_hose_read_config_byte(hose, dev, PCI_CLASS_PROG, &temp8);
+
+	/* Programming Interface (PCI_CLASS_PROG)
+	 * 0 == pci host or pcie root-complex,
+	 * 1 == pci agent or pcie end-point
+	 */
+	if (!temp8) {
 		debug("           Scanning PCI bus %02x\n",
 			hose->current_busno);
 		hose->last_busno = pci_hose_scan_bus(hose, hose->current_busno);
@@ -582,9 +430,9 @@ void fsl_pci_init(struct pci_controller *hose, struct fsl_pci_info *pci_info)
 		out_be32(&pci->pme_msg_det, 0xffffffff);
 	out_be32(&pci->pedr, 0xffffffff);
 
-	pci_hose_read_config_word(hose, dev, pci_dsr, &temp16);
+	pci_hose_read_config_word (hose, dev, PCI_DSR, &temp16);
 	if (temp16) {
-		pci_hose_write_config_word(hose, dev, pci_dsr, 0xffff);
+		pci_hose_write_config_word(hose, dev, PCI_DSR, 0xffff);
 	}
 
 	pci_hose_read_config_word (hose, dev, PCI_SEC_STATUS, &temp16);
@@ -595,28 +443,12 @@ void fsl_pci_init(struct pci_controller *hose, struct fsl_pci_info *pci_info)
 
 int fsl_is_pci_agent(struct pci_controller *hose)
 {
-	int pcie_cap_pos;
-	u8 pcie_cap;
+	u8 prog_if;
 	pci_dev_t dev = PCI_BDF(hose->first_busno, 0, 0);
 
-	pcie_cap_pos = pci_hose_find_capability(hose, dev, PCI_CAP_ID_EXP);
-	pci_hose_read_config_byte(hose, dev, pcie_cap_pos, &pcie_cap);
-	if (pcie_cap == PCI_CAP_ID_EXP) {
-		u8 header_type;
+	pci_hose_read_config_byte(hose, dev, PCI_CLASS_PROG, &prog_if);
 
-		pci_hose_read_config_byte(hose, dev, PCI_HEADER_TYPE,
-					  &header_type);
-		return (header_type & 0x7f) == PCI_HEADER_TYPE_NORMAL;
-	} else {
-		u8 prog_if;
-
-		pci_hose_read_config_byte(hose, dev, PCI_CLASS_PROG, &prog_if);
-		/* Programming Interface (PCI_CLASS_PROG)
-		 * 0 == pci host or pcie root-complex,
-		 * 1 == pci agent or pcie end-point
-		 */
-		return (prog_if == FSL_PROG_IF_AGENT);
-	}
+	return (prog_if == FSL_PROG_IF_AGENT);
 }
 
 int fsl_pci_init_port(struct fsl_pci_info *pci_info,
@@ -625,7 +457,6 @@ int fsl_pci_init_port(struct fsl_pci_info *pci_info,
 	volatile ccsr_fsl_pci_t *pci;
 	struct pci_region *r;
 	pci_dev_t dev = PCI_BDF(busno,0,0);
-	int pcie_cap_pos;
 	u8 pcie_cap;
 
 	pci = (ccsr_fsl_pci_t *) pci_info->regs;
@@ -663,23 +494,13 @@ int fsl_pci_init_port(struct fsl_pci_info *pci_info,
 	if (fsl_is_pci_agent(hose)) {
 		fsl_pci_config_unlock(hose);
 		hose->last_busno = hose->first_busno;
-#ifdef CONFIG_SRIO_PCIE_BOOT_MASTER
-	} else {
-		/* boot from PCIE --master releases slave's core 0 */
-		char *s = getenv("bootmaster");
-		char pcie[6];
-		sprintf(pcie, "PCIE%d", pci_info->pci_num);
-
-		if (s && (strcmp(s, pcie) == 0))
-			fsl_pcie_boot_master_release_slave(pci_info->pci_num);
-#endif
 	}
 
-	pcie_cap_pos = pci_hose_find_capability(hose, dev, PCI_CAP_ID_EXP);
-	pci_hose_read_config_byte(hose, dev, pcie_cap_pos, &pcie_cap);
+	pci_hose_read_config_byte(hose, dev, FSL_PCIE_CAP_ID, &pcie_cap);
 	printf("PCI%s%x: Bus %02x - %02x\n", pcie_cap == PCI_CAP_ID_EXP ?
 		"e" : "", pci_info->pci_num,
 		hose->first_busno, hose->last_busno);
+
 	return(hose->last_busno + 1);
 }
 
@@ -687,24 +508,18 @@ int fsl_pci_init_port(struct fsl_pci_info *pci_info,
 void fsl_pci_config_unlock(struct pci_controller *hose)
 {
 	pci_dev_t dev = PCI_BDF(hose->first_busno,0,0);
-	int pcie_cap_pos;
+	u8 agent;
 	u8 pcie_cap;
 	u16 pbfr;
 
-	if (!fsl_is_pci_agent(hose))
+	pci_hose_read_config_byte(hose, dev, PCI_CLASS_PROG, &agent);
+	if (!agent)
 		return;
 
-	pcie_cap_pos = pci_hose_find_capability(hose, dev, PCI_CAP_ID_EXP);
-	pci_hose_read_config_byte(hose, dev, pcie_cap_pos, &pcie_cap);
+	pci_hose_read_config_byte(hose, dev, FSL_PCIE_CAP_ID, &pcie_cap);
 	if (pcie_cap != 0x0) {
-		ccsr_fsl_pci_t *pci = (ccsr_fsl_pci_t *)hose->cfg_addr;
-		u32 block_rev = in_be32(&pci->block_rev1);
 		/* PCIe - set CFG_READY bit of Configuration Ready Register */
-		if (block_rev >= PEX_IP_BLK_REV_3_0)
-			setbits_be32(&pci->config, FSL_PCIE_V3_CFG_RDY);
-		else
-			pci_hose_write_config_byte(hose, dev,
-						   FSL_PCIE_CFG_RDY, 0x1);
+		pci_hose_write_config_byte(hose, dev, FSL_PCIE_CFG_RDY, 0x1);
 	} else {
 		/* PCI - clear ACL bit of PBFR */
 		pci_hose_read_config_word(hose, dev, FSL_PCI_PBFR, &pbfr);
@@ -735,17 +550,10 @@ int fsl_configure_pcie(struct fsl_pci_info *info,
 }
 
 #if defined(CONFIG_FSL_CORENET)
-#ifdef CONFIG_SYS_FSL_QORIQ_CHASSIS2
-	#define _DEVDISR_PCIE1 FSL_CORENET_DEVDISR3_PCIE1
-	#define _DEVDISR_PCIE2 FSL_CORENET_DEVDISR3_PCIE2
-	#define _DEVDISR_PCIE3 FSL_CORENET_DEVDISR3_PCIE3
-	#define _DEVDISR_PCIE4 FSL_CORENET_DEVDISR3_PCIE4
-#else
 	#define _DEVDISR_PCIE1 FSL_CORENET_DEVDISR_PCIE1
 	#define _DEVDISR_PCIE2 FSL_CORENET_DEVDISR_PCIE2
 	#define _DEVDISR_PCIE3 FSL_CORENET_DEVDISR_PCIE3
 	#define _DEVDISR_PCIE4 FSL_CORENET_DEVDISR_PCIE4
-#endif
 	#define CONFIG_SYS_MPC8xxx_GUTS_ADDR CONFIG_SYS_MPC85xx_GUTS_ADDR
 #elif defined(CONFIG_MPC85xx)
 	#define _DEVDISR_PCIE1 MPC85xx_DEVDISR_PCIE
@@ -825,42 +633,34 @@ int fsl_pcie_init_board(int busno)
 {
 	struct fsl_pci_info pci_info;
 	ccsr_gur_t *gur = (void *)CONFIG_SYS_MPC8xxx_GUTS_ADDR;
-	u32 devdisr;
-	u32 *addr;
-
-#ifdef CONFIG_SYS_FSL_QORIQ_CHASSIS2
-	addr = &gur->devdisr3;
-#else
-	addr = &gur->devdisr;
-#endif
-	devdisr = in_be32(addr);
+	u32 devdisr = in_be32(&gur->devdisr);
 
 #ifdef CONFIG_PCIE1
 	SET_STD_PCIE_INFO(pci_info, 1);
 	busno = fsl_pcie_init_ctrl(busno, devdisr, PCIE1, &pci_info);
 #else
-	setbits_be32(addr, _DEVDISR_PCIE1); /* disable */
+	setbits_be32(&gur->devdisr, _DEVDISR_PCIE1); /* disable */
 #endif
 
 #ifdef CONFIG_PCIE2
 	SET_STD_PCIE_INFO(pci_info, 2);
 	busno = fsl_pcie_init_ctrl(busno, devdisr, PCIE2, &pci_info);
 #else
-	setbits_be32(addr, _DEVDISR_PCIE2); /* disable */
+	setbits_be32(&gur->devdisr, _DEVDISR_PCIE2); /* disable */
 #endif
 
 #ifdef CONFIG_PCIE3
 	SET_STD_PCIE_INFO(pci_info, 3);
 	busno = fsl_pcie_init_ctrl(busno, devdisr, PCIE3, &pci_info);
 #else
-	setbits_be32(addr, _DEVDISR_PCIE3); /* disable */
+	setbits_be32(&gur->devdisr, _DEVDISR_PCIE3); /* disable */
 #endif
 
 #ifdef CONFIG_PCIE4
 	SET_STD_PCIE_INFO(pci_info, 4);
 	busno = fsl_pcie_init_ctrl(busno, devdisr, PCIE4, &pci_info);
 #else
-	setbits_be32(addr, _DEVDISR_PCIE4); /* disable */
+	setbits_be32(&gur->devdisr, _DEVDISR_PCIE4); /* disable */
 #endif
 
  	return busno;

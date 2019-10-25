@@ -3,21 +3,33 @@
  *
  * (C) Copyright 2008-2009 Freescale Semiconductor, Inc.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef __ASM_ARCH_MX35_H
 #define __ASM_ARCH_MX35_H
-
-#define ARCH_MXC
 
 /*
  * IRAM
  */
 #define IRAM_BASE_ADDR		0x10000000	/* internal ram */
 #define IRAM_SIZE		0x00020000	/* 128 KB */
-
-#define LOW_LEVEL_SRAM_STACK	0x1001E000
 
 /*
  * AIPS 1
@@ -27,11 +39,11 @@
 #define MAX_BASE_ADDR           0x43F04000
 #define EVTMON_BASE_ADDR        0x43F08000
 #define CLKCTL_BASE_ADDR        0x43F0C000
-#define I2C1_BASE_ADDR		0x43F80000
+#define I2C_BASE_ADDR           0x43F80000
 #define I2C3_BASE_ADDR          0x43F84000
 #define ATA_BASE_ADDR           0x43F8C000
-#define UART1_BASE		0x43F90000
-#define UART2_BASE		0x43F94000
+#define UART1_BASE_ADDR         0x43F90000
+#define UART2_BASE_ADDR         0x43F94000
 #define I2C2_BASE_ADDR          0x43F98000
 #define CSPI1_BASE_ADDR         0x43FA4000
 #define IOMUXC_BASE_ADDR        0x43FAC000
@@ -40,7 +52,7 @@
  * SPBA
  */
 #define SPBA_BASE_ADDR          0x50000000
-#define UART3_BASE		0x5000C000
+#define UART3_BASE_ADDR         0x5000C000
 #define CSPI2_BASE_ADDR         0x50010000
 #define ATA_DMA_BASE_ADDR       0x50020000
 #define FEC_BASE_ADDR           0x50038000
@@ -60,16 +72,15 @@
 #define MMC_SDHC2_BASE_ADDR	0x53FB8000
 #define MMC_SDHC3_BASE_ADDR	0x53FBC000
 #define IPU_CTRL_BASE_ADDR	0x53FC0000
+#define GPIO3_BASE_ADDR		0x53FA4000
 #define GPIO1_BASE_ADDR		0x53FCC000
 #define GPIO2_BASE_ADDR		0x53FD0000
 #define SDMA_BASE_ADDR		0x53FD4000
 #define RTC_BASE_ADDR		0x53FD8000
-#define WDOG1_BASE_ADDR		0x53FDC000
+#define WDOG_BASE_ADDR		0x53FDC000
 #define PWM_BASE_ADDR		0x53FE0000
 #define RTIC_BASE_ADDR		0x53FEC000
 #define IIM_BASE_ADDR		0x53FF0000
-#define IMX_USB_BASE		0x53FF4000
-#define IMX_USB_PORT_OFFSET	0x400
 
 #define IMX_CCM_BASE		CCM_BASE_ADDR
 
@@ -136,19 +147,6 @@
 #define PLL_MFI(x)		(((x) & 0xf) << 10)
 #define PLL_MFN(x)		(((x) & 0x3ff) << 0)
 
-#define _PLL_BRM(x)	((x) << 31)
-#define _PLL_PD(x)	(((x) - 1) << 26)
-#define _PLL_MFD(x)	(((x) - 1) << 16)
-#define _PLL_MFI(x)	((x) << 10)
-#define _PLL_MFN(x)	(x)
-#define _PLL_SETTING(brm, pd, mfd, mfi, mfn) \
-	(_PLL_BRM(brm) | _PLL_PD(pd) | _PLL_MFD(mfd) | _PLL_MFI(mfi) |\
-	 _PLL_MFN(mfn))
-
-#define CCM_MPLL_532_HZ	_PLL_SETTING(1, 1, 12, 11, 1)
-#define CCM_MPLL_399_HZ _PLL_SETTING(0, 1, 16, 8, 5)
-#define CCM_PPLL_300_HZ _PLL_SETTING(0, 1, 4, 6, 1)
-
 #define CSCR_U(x)	(WEIM_CTRL_CS#x + 0)
 #define CSCR_L(x)	(WEIM_CTRL_CS#x + 4)
 #define CSCR_A(x)	(WEIM_CTRL_CS#x + 8)
@@ -166,32 +164,7 @@
 #define IPU_CONF_PF_EN		(1<<3)
 #define IPU_CONF_ROT_EN		(1<<2)
 #define IPU_CONF_IC_EN		(1<<1)
-#define IPU_CONF_CSI_EN		(1<<0)
-
-/*
- * CSPI register definitions
- */
-#define MXC_CSPI
-#define MXC_CSPICTRL_EN		(1 << 0)
-#define MXC_CSPICTRL_MODE	(1 << 1)
-#define MXC_CSPICTRL_XCH	(1 << 2)
-#define MXC_CSPICTRL_SMC	(1 << 3)
-#define MXC_CSPICTRL_POL	(1 << 4)
-#define MXC_CSPICTRL_PHA	(1 << 5)
-#define MXC_CSPICTRL_SSCTL	(1 << 6)
-#define MXC_CSPICTRL_SSPOL	(1 << 7)
-#define MXC_CSPICTRL_CHIPSELECT(x)	(((x) & 0x3) << 12)
-#define MXC_CSPICTRL_BITCOUNT(x)	(((x) & 0xfff) << 20)
-#define MXC_CSPICTRL_DATARATE(x)	(((x) & 0x7) << 16)
-#define MXC_CSPICTRL_TC		(1 << 7)
-#define MXC_CSPICTRL_RXOVF	(1 << 6)
-#define MXC_CSPICTRL_MAXBITS	0xfff
-#define MXC_CSPIPERIOD_32KHZ	(1 << 15)
-#define MAX_SPI_BYTES	4
-
-#define MXC_SPI_BASE_ADDRESSES \
-	0x43fa4000, \
-	0x50010000,
+#define IPU_CONF_SCI_EN		(1<<0)
 
 #define GPIO_PORT_NUM		3
 #define GPIO_NUM_PIN		32
@@ -204,6 +177,34 @@
 
 #if !(defined(__KERNEL_STRICT_NAMES) || defined(__ASSEMBLY__))
 #include <asm/types.h>
+
+extern void imx_get_mac_from_fuse(unsigned char *mac);
+
+enum mxc_main_clocks {
+	CPU_CLK,
+	AHB_CLK,
+	IPG_CLK,
+	IPG_PER_CLK,
+	NFC_CLK,
+	USB_CLK,
+	HSP_CLK,
+};
+
+enum mxc_peri_clocks {
+	UART1_BAUD,
+	UART2_BAUD,
+	UART3_BAUD,
+	SSI1_BAUD,
+	SSI2_BAUD,
+	CSI_BAUD,
+	MSHC_CLK,
+	ESDHC1_CLK,
+	ESDHC2_CLK,
+	ESDHC3_CLK,
+	SPDIF_CLK,
+	SPI1_CLK,
+	SPI2_CLK,
+};
 
 /* Clock Control Module (CCM) registers */
 struct ccm_regs {
@@ -246,28 +247,11 @@ struct iim_regs {
 	u32 iim_sdat;
 	u32 iim_prev;
 	u32 iim_srev;
-	u32 iim_prg_p;
+	u32 iim_prog_p;
 	u32 iim_scs0;
 	u32 iim_scs1;
 	u32 iim_scs2;
 	u32 iim_scs3;
-	u32 res1[0x1f1];
-	struct fuse_bank {
-		u32 fuse_regs[0x20];
-		u32 fuse_rsvd[0xe0];
-	} bank[3];
-};
-
-struct fuse_bank0_regs {
-	u32 fuse0_7[8];
-	u32 uid[8];
-	u32 fuse16_31[0x10];
-};
-
-struct fuse_bank1_regs {
-	u32 fuse0_21[0x16];
-	u32 usr;
-	u32 fuse23_31[9];
 };
 
 /* General Purpose Timer (GPT) registers */
@@ -293,73 +277,13 @@ struct cspi_regs {
 	u32 test;
 };
 
-struct esdc_regs {
-	u32	esdctl0;
-	u32	esdcfg0;
-	u32	esdctl1;
-	u32	esdcfg1;
-	u32	esdmisc;
-	u32	reserved[4];
-	u32	esdcdly[5];
-	u32	esdcdlyl;
-};
-
-#define ESDC_MISC_RST		(1 << 1)
-#define ESDC_MISC_MDDR_EN	(1 << 2)
-#define ESDC_MISC_MDDR_DL_RST	(1 << 3)
-#define ESDC_MISC_DDR_EN	(1 << 8)
-#define ESDC_MISC_DDR2_EN	(1 << 9)
-
-/* Multi-Layer AHB Crossbar Switch (MAX) registers */
-struct max_regs {
-	u32 mpr0;
-	u32 pad00[3];
-	u32 sgpcr0;
-	u32 pad01[59];
-	u32 mpr1;
-	u32 pad02[3];
-	u32 sgpcr1;
-	u32 pad03[59];
-	u32 mpr2;
-	u32 pad04[3];
-	u32 sgpcr2;
-	u32 pad05[59];
-	u32 mpr3;
-	u32 pad06[3];
-	u32 sgpcr3;
-	u32 pad07[59];
-	u32 mpr4;
-	u32 pad08[3];
-	u32 sgpcr4;
-	u32 pad09[251];
-	u32 mgpcr0;
-	u32 pad10[63];
-	u32 mgpcr1;
-	u32 pad11[63];
-	u32 mgpcr2;
-	u32 pad12[63];
-	u32 mgpcr3;
-	u32 pad13[63];
-	u32 mgpcr4;
-	u32 pad14[63];
-	u32 mgpcr5;
-};
-
-/* AHB <-> IP-Bus Interface (AIPS) */
-struct aips_regs {
-	u32 mpr_0_7;
-	u32 mpr_8_15;
-	u32 pad0[6];
-	u32 pacr_0_7;
-	u32 pacr_8_15;
-	u32 pacr_16_23;
-	u32 pacr_24_31;
-	u32 pad1[4];
-	u32 opacr_0_7;
-	u32 opacr_8_15;
-	u32 opacr_16_23;
-	u32 opacr_24_31;
-	u32 opacr_32_39;
+/* Watchdog Timer (WDOG) registers */
+struct wdog_regs {
+	u16 wcr;	/* Control */
+	u16 wsr;	/* Service */
+	u16 wrsr;	/* Reset Status */
+	u16 wicr;	/* Interrupt Control */
+	u16 wmcr;	/* Misc Control */
 };
 
 /*
@@ -371,17 +295,9 @@ struct aips_regs {
 
 #define CCM_RCSR_NF_16BIT_SEL	(1 << 14)
 
+extern unsigned int get_board_rev(void);
+extern int is_soc_rev(int rev);
+extern int sdhc_init(void);
+
 #endif
-
-/*
- * Generic timer support
- */
-#ifdef CONFIG_MX35_CLK32
-#define	CONFIG_SYS_TIMER_RATE	CONFIG_MX35_CLK32
-#else
-#define	CONFIG_SYS_TIMER_RATE	32768
-#endif
-
-#define CONFIG_SYS_TIMER_COUNTER	(GPT1_BASE_ADDR+36)
-
 #endif /* __ASM_ARCH_MX35_H */

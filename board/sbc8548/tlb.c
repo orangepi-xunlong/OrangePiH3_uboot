@@ -4,7 +4,23 @@
  * (C) Copyright 2000
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -30,14 +46,12 @@ struct fsl_e_tlb_entry tlb_table[] = {
 
 	/*
 	 * TLB 0:	64M	Non-cacheable, guarded
-	 * 0xfc000000	56M	unused
+	 * 0xfc000000	56M	8MB -> 64MB of user flash
 	 * 0xff800000	8M	boot FLASH
-	 *	.... or ....
-	 * 0xfc000000	64M	user flash
-	 *
 	 * Out of reset this entry is only 4K.
 	 */
-	SET_TLB_ENTRY(1, 0xfc000000, 0xfc000000,
+	SET_TLB_ENTRY(1, CONFIG_SYS_ALT_FLASH + 0x800000,
+		      CONFIG_SYS_ALT_FLASH + 0x800000,
 		      MAS3_SX|MAS3_SW|MAS3_SR, MAS2_I|MAS2_G,
 		      0, 0, BOOKE_PAGESZ_64M, 1),
 
@@ -60,7 +74,6 @@ struct fsl_e_tlb_entry tlb_table[] = {
 		      MAS3_SX|MAS3_SW|MAS3_SR, MAS2_I|MAS2_G,
 		      0, 2, BOOKE_PAGESZ_64M, 1),
 
-#ifdef CONFIG_SYS_LBC_SDRAM_BASE
 	/*
 	 * TLB 3:	64M	Cacheable, non-guarded
 	 * 0xf0000000	64M	LBC SDRAM First half
@@ -77,7 +90,6 @@ struct fsl_e_tlb_entry tlb_table[] = {
 		      CONFIG_SYS_LBC_SDRAM_BASE + 0x4000000,
 		      MAS3_SX|MAS3_SW|MAS3_SR, 0,
 		      0, 4, BOOKE_PAGESZ_64M, 1),
-#endif
 
 	/*
 	 * TLB 5:	16M	Cacheable, non-guarded
@@ -90,18 +102,9 @@ struct fsl_e_tlb_entry tlb_table[] = {
 		      MAS3_SX|MAS3_SW|MAS3_SR, MAS2_I|MAS2_G,
 		      0, 5, BOOKE_PAGESZ_16M, 1),
 
-#ifndef CONFIG_SYS_ALT_BOOT
-	/*
-	 * TLB 6:	64M	Non-cacheable, guarded
-	 * 0xec000000	64M	64MB user FLASH
-	 */
-	SET_TLB_ENTRY(1, CONFIG_SYS_ALT_FLASH, CONFIG_SYS_ALT_FLASH,
-		      MAS3_SX|MAS3_SW|MAS3_SR, MAS2_I|MAS2_G,
-		      0, 6, BOOKE_PAGESZ_64M, 1),
-#else
 	/*
 	 * TLB 6:	4M	Non-cacheable, guarded
-	 * 0xef800000	4M	1st 1/2 8MB soldered FLASH
+	 * 0xfb800000	4M	1st 4MB block of 64MB user FLASH
 	 */
 	SET_TLB_ENTRY(1, CONFIG_SYS_ALT_FLASH, CONFIG_SYS_ALT_FLASH,
 		      MAS3_SX|MAS3_SW|MAS3_SR, MAS2_I|MAS2_G,
@@ -109,13 +112,12 @@ struct fsl_e_tlb_entry tlb_table[] = {
 
 	/*
 	 * TLB 7:	4M	Non-cacheable, guarded
-	 * 0xefc00000	4M	2nd half 8MB soldered FLASH
+	 * 0xfbc00000	4M	2nd 4MB block of 64MB user FLASH
 	 */
 	SET_TLB_ENTRY(1, CONFIG_SYS_ALT_FLASH + 0x400000,
 		      CONFIG_SYS_ALT_FLASH + 0x400000,
 		      MAS3_SX|MAS3_SW|MAS3_SR, MAS2_I|MAS2_G,
 		      0, 7, BOOKE_PAGESZ_4M, 1),
-#endif
 
 };
 

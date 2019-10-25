@@ -1,7 +1,9 @@
 /*
  * Copyright 2010-2011 Freescale Semiconductor, Inc.
  *
- * SPDX-License-Identifier:	GPL-2.0
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * Version 2 as published by the Free Software Foundation.
  */
 
 #include <common.h>
@@ -9,7 +11,7 @@
 
 #ifdef CONFIG_MPC85xx
 /* Boards should provide their own version of this if they use lbc sdram */
-static void __lbc_sdram_init(void)
+void __lbc_sdram_init(void)
 {
 	/* Do nothing */
 }
@@ -26,8 +28,6 @@ void print_lbc_regs(void)
 		printf("BR%d\t0x%08X\tOR%d\t0x%08X\n",
 		       i, get_lbc_br(i), i, get_lbc_or(i));
 	}
-	printf("LBCR\t0x%08X\tLCRR\t0x%08X\n",
-		       get_lbc_lbcr(), get_lbc_lcrr());
 }
 
 void init_early_memctl_regs(void)
@@ -107,7 +107,7 @@ void init_early_memctl_regs(void)
 void upmconfig(uint upm, uint *table, uint size)
 {
 	fsl_lbc_t *lbc = LBC_BASE_ADDR;
-	int i, mad, old_mad = 0;
+	int i, mdr, mad, old_mad = 0;
 	u32 mask = (~MxMR_OP_MSK & ~MxMR_MAD_MSK);
 	u32 msel = BR_UPMx_TO_MSEL(upm);
 	u32 *mxmr = &lbc->mamr + upm;
@@ -138,7 +138,7 @@ void upmconfig(uint upm, uint *table, uint size)
 	for (i = 0; i < size; i++) {
 		out_be32(mxmr, (in_be32(mxmr) & mask) | MxMR_OP_WARR | i);
 		out_be32(&lbc->mdr, table[i]);
-		(void)in_be32(&lbc->mdr);
+		mdr = in_be32(&lbc->mdr);
 		*dummy = 0;
 		do {
 			mad = in_be32(mxmr) & MxMR_MAD_MSK;

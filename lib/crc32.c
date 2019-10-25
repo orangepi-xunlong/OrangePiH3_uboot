@@ -8,9 +8,7 @@
  * For conditions of distribution and use, see copyright notice in zlib.h
  */
 
-#ifdef USE_HOSTCC
-#include <arpa/inet.h>
-#else
+#ifndef USE_HOSTCC
 #include <common.h>
 #endif
 #include <compiler.h>
@@ -250,14 +248,4 @@ uint32_t ZEXPORT crc32_wd (uint32_t crc,
 #endif
 
 	return crc;
-}
-
-void crc32_wd_buf(const unsigned char *input, unsigned int ilen,
-		unsigned char *output, unsigned int chunk_sz)
-{
-	uint32_t crc;
-
-	crc = crc32_wd(0, input, ilen, chunk_sz);
-	crc = htonl(crc);
-	memcpy(output, &crc, sizeof(crc));
 }

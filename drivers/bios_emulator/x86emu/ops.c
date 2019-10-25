@@ -79,7 +79,7 @@
 
 /* constant arrays to do several instructions in just one function */
 
-#ifdef CONFIG_X86EMU_DEBUG
+#ifdef DEBUG
 static char *x86emu_GenOpName[8] = {
     "ADD", "OR", "ADC", "SBB", "AND", "SUB", "XOR", "CMP"};
 #endif
@@ -160,7 +160,7 @@ static u32 (*opcD1_long_operation[])(u32 s, u8 d) =
     sar_long,
 };
 
-#ifdef CONFIG_X86EMU_DEBUG
+#ifdef DEBUG
 
 static char *opF6_names[8] =
   { "TEST\t", "", "NOT\t", "NEG\t", "MUL\t", "IMUL\t", "DIV\t", "IDIV\t" };
@@ -179,7 +179,7 @@ void x86emuOp_illegal_op(
 {
     START_OF_INSTR();
     if (M.x86.R_SP != 0) {
-	DB(printf("ILLEGAL X86 OPCODE\n"));
+	DECODE_PRINTF("ILLEGAL X86 OPCODE\n");
 	TRACE_REGS();
 	DB( printk("%04x:%04x: %02X ILLEGAL X86 OPCODE!\n",
 	    M.x86.R_CS, M.x86.R_IP-1,op1));
@@ -1281,7 +1281,7 @@ void x86emuOp_opc80_byte_RM_IMM(u8 X86EMU_UNUSED(op1))
      */
     START_OF_INSTR();
     FETCH_DECODE_MODRM(mod, rh, rl);
-#ifdef CONFIG_X86EMU_DEBUG
+#ifdef DEBUG
     if (DEBUG_DECODE()) {
 	/* XXX DECODE_PRINTF may be changed to something more
 	   general, so that it is important to leave the strings
@@ -1359,7 +1359,7 @@ void x86emuOp_opc81_word_RM_IMM(u8 X86EMU_UNUSED(op1))
      */
     START_OF_INSTR();
     FETCH_DECODE_MODRM(mod, rh, rl);
-#ifdef CONFIG_X86EMU_DEBUG
+#ifdef DEBUG
     if (DEBUG_DECODE()) {
 	/* XXX DECODE_PRINTF may be changed to something more
 	   general, so that it is important to leave the strings
@@ -1475,7 +1475,7 @@ void x86emuOp_opc82_byte_RM_IMM(u8 X86EMU_UNUSED(op1))
      */
     START_OF_INSTR();
     FETCH_DECODE_MODRM(mod, rh, rl);
-#ifdef CONFIG_X86EMU_DEBUG
+#ifdef DEBUG
     if (DEBUG_DECODE()) {
 	/* XXX DECODE_PRINTF may be changed to something more
 	   general, so that it is important to leave the strings
@@ -1551,7 +1551,7 @@ void x86emuOp_opc83_word_RM_IMM(u8 X86EMU_UNUSED(op1))
      */
     START_OF_INSTR();
     FETCH_DECODE_MODRM(mod, rh, rl);
-#ifdef CONFIG_X86EMU_DEBUG
+#ifdef DEBUG
     if (DEBUG_DECODE()) {
 	/* XXX DECODE_PRINTF may be changed to something more
 	   general, so that it is important to leave the strings
@@ -2148,7 +2148,7 @@ void x86emuOp_pop_RM(u8 X86EMU_UNUSED(op1))
     DECODE_PRINTF("POP\t");
     FETCH_DECODE_MODRM(mod, rh, rl);
     if (rh != 0) {
-	ERR_PRINTF("ILLEGAL DECODE OF OPCODE 8F\n");
+	DECODE_PRINTF("ILLEGAL DECODE OF OPCODE 8F\n");
 	HALT_SYS();
     }
     if (mod < 3) {
@@ -3083,7 +3083,7 @@ void x86emuOp_opcC0_byte_RM_MEM(u8 X86EMU_UNUSED(op1))
      */
     START_OF_INSTR();
     FETCH_DECODE_MODRM(mod, rh, rl);
-#ifdef CONFIG_X86EMU_DEBUG
+#ifdef DEBUG
     if (DEBUG_DECODE()) {
 	/* XXX DECODE_PRINTF may be changed to something more
 	   general, so that it is important to leave the strings
@@ -3158,7 +3158,7 @@ void x86emuOp_opcC1_word_RM_MEM(u8 X86EMU_UNUSED(op1))
      */
     START_OF_INSTR();
     FETCH_DECODE_MODRM(mod, rh, rl);
-#ifdef CONFIG_X86EMU_DEBUG
+#ifdef DEBUG
     if (DEBUG_DECODE()) {
 	/* XXX DECODE_PRINTF may be changed to something more
 	   general, so that it is important to leave the strings
@@ -3347,7 +3347,7 @@ void x86emuOp_mov_byte_RM_IMM(u8 X86EMU_UNUSED(op1))
     DECODE_PRINTF("MOV\t");
     FETCH_DECODE_MODRM(mod, rh, rl);
     if (rh != 0) {
-	ERR_PRINTF("ILLEGAL DECODE OF OPCODE c6\n");
+	DECODE_PRINTF("ILLEGAL DECODE OF OPCODE c6\n");
 	HALT_SYS();
     }
     if (mod < 3) {
@@ -3381,7 +3381,7 @@ void x86emuOp_mov_word_RM_IMM(u8 X86EMU_UNUSED(op1))
     DECODE_PRINTF("MOV\t");
     FETCH_DECODE_MODRM(mod, rh, rl);
     if (rh != 0) {
-	ERR_PRINTF("ILLEGAL DECODE OF OPCODE 8F\n");
+	DECODE_PRINTF("ILLEGAL DECODE OF OPCODE 8F\n");
 	HALT_SYS();
     }
     if (mod < 3) {
@@ -3518,9 +3518,11 @@ Handles opcode 0xcc
 ****************************************************************************/
 void x86emuOp_int3(u8 X86EMU_UNUSED(op1))
 {
+    u16 tmp;
+
     START_OF_INSTR();
     DECODE_PRINTF("INT 3\n");
-    (void)mem_access_word(3 * 4 + 2);
+    tmp = (u16) mem_access_word(3 * 4 + 2);
     /* access the segment register */
     TRACE_AND_STEP();
 	if (_X86EMU_intrTab[3]) {
@@ -3544,13 +3546,14 @@ Handles opcode 0xcd
 ****************************************************************************/
 void x86emuOp_int_IMM(u8 X86EMU_UNUSED(op1))
 {
+    u16 tmp;
     u8 intnum;
 
     START_OF_INSTR();
     DECODE_PRINTF("INT\t");
     intnum = fetch_byte_imm();
     DECODE_PRINTF2("%x\n", intnum);
-    (void)mem_access_word(intnum * 4 + 2);
+    tmp = mem_access_word(intnum * 4 + 2);
     TRACE_AND_STEP();
 	if (_X86EMU_intrTab[intnum]) {
 		(*_X86EMU_intrTab[intnum])(intnum);
@@ -3573,11 +3576,13 @@ Handles opcode 0xce
 ****************************************************************************/
 void x86emuOp_into(u8 X86EMU_UNUSED(op1))
 {
+    u16 tmp;
+
     START_OF_INSTR();
     DECODE_PRINTF("INTO\n");
     TRACE_AND_STEP();
     if (ACCESS_FLAG(F_OF)) {
-	(void)mem_access_word(4 * 4 + 2);
+	tmp = mem_access_word(4 * 4 + 2);
 		if (_X86EMU_intrTab[4]) {
 			(*_X86EMU_intrTab[4])(4);
 	} else {
@@ -3630,7 +3635,7 @@ void x86emuOp_opcD0_byte_RM_1(u8 X86EMU_UNUSED(op1))
      */
     START_OF_INSTR();
     FETCH_DECODE_MODRM(mod, rh, rl);
-#ifdef CONFIG_X86EMU_DEBUG
+#ifdef DEBUG
     if (DEBUG_DECODE()) {
 	/* XXX DECODE_PRINTF may be changed to something more
 	   general, so that it is important to leave the strings
@@ -3701,7 +3706,7 @@ void x86emuOp_opcD1_word_RM_1(u8 X86EMU_UNUSED(op1))
      */
     START_OF_INSTR();
     FETCH_DECODE_MODRM(mod, rh, rl);
-#ifdef CONFIG_X86EMU_DEBUG
+#ifdef DEBUG
     if (DEBUG_DECODE()) {
 	/* XXX DECODE_PRINTF may be changed to something more
 	   general, so that it is important to leave the strings
@@ -3803,7 +3808,7 @@ void x86emuOp_opcD2_byte_RM_CL(u8 X86EMU_UNUSED(op1))
      */
     START_OF_INSTR();
     FETCH_DECODE_MODRM(mod, rh, rl);
-#ifdef CONFIG_X86EMU_DEBUG
+#ifdef DEBUG
     if (DEBUG_DECODE()) {
 	/* XXX DECODE_PRINTF may be changed to something more
 	   general, so that it is important to leave the strings
@@ -3876,7 +3881,7 @@ void x86emuOp_opcD3_word_RM_CL(u8 X86EMU_UNUSED(op1))
      */
     START_OF_INSTR();
     FETCH_DECODE_MODRM(mod, rh, rl);
-#ifdef CONFIG_X86EMU_DEBUG
+#ifdef DEBUG
     if (DEBUG_DECODE()) {
 	/* XXX DECODE_PRINTF may be changed to something more
 	   general, so that it is important to leave the strings
@@ -3968,7 +3973,7 @@ void x86emuOp_aam(u8 X86EMU_UNUSED(op1))
     DECODE_PRINTF("AAM\n");
     a = fetch_byte_imm();      /* this is a stupid encoding. */
     if (a != 10) {
-	ERR_PRINTF("ERROR DECODING AAM\n");
+	DECODE_PRINTF("ERROR DECODING AAM\n");
 	TRACE_REGS();
 	HALT_SYS();
     }
@@ -3985,9 +3990,11 @@ Handles opcode 0xd5
 ****************************************************************************/
 void x86emuOp_aad(u8 X86EMU_UNUSED(op1))
 {
+    u8 a;
+
     START_OF_INSTR();
     DECODE_PRINTF("AAD\n");
-    (void)fetch_byte_imm();
+    a = fetch_byte_imm();
     TRACE_AND_STEP();
     M.x86.R_AX = aad_word(M.x86.R_AX);
     DECODE_CLEAR_SEGOVR();
@@ -4443,7 +4450,7 @@ void x86emuOp_opcF6_byte_RM(u8 X86EMU_UNUSED(op1))
 	    test_byte(destval, srcval);
 	    break;
 	case 1:
-	    ERR_PRINTF("ILLEGAL OP MOD=00 RH=01 OP=F6\n");
+	    DECODE_PRINTF("ILLEGAL OP MOD=00 RH=01 OP=F6\n");
 	    HALT_SYS();
 	    break;
 	case 2:
@@ -4490,7 +4497,7 @@ void x86emuOp_opcF6_byte_RM(u8 X86EMU_UNUSED(op1))
 	    test_byte(*destreg, srcval);
 	    break;
 	case 1:
-	    ERR_PRINTF("ILLEGAL OP MOD=00 RH=01 OP=F6\n");
+	    DECODE_PRINTF("ILLEGAL OP MOD=00 RH=01 OP=F6\n");
 	    HALT_SYS();
 	    break;
 	case 2:
@@ -4559,7 +4566,7 @@ void x86emuOp_opcF7_word_RM(u8 X86EMU_UNUSED(op1))
 		test_long(destval, srcval);
 		break;
 	    case 1:
-		ERR_PRINTF("ILLEGAL OP MOD=00 RH=01 OP=F7\n");
+		DECODE_PRINTF("ILLEGAL OP MOD=00 RH=01 OP=F7\n");
 		HALT_SYS();
 		break;
 	    case 2:
@@ -4611,7 +4618,7 @@ void x86emuOp_opcF7_word_RM(u8 X86EMU_UNUSED(op1))
 		test_word(destval, srcval);
 		break;
 	    case 1:
-		ERR_PRINTF("ILLEGAL OP MOD=00 RH=01 OP=F7\n");
+		DECODE_PRINTF("ILLEGAL OP MOD=00 RH=01 OP=F7\n");
 		HALT_SYS();
 		break;
 	    case 2:
@@ -4666,7 +4673,7 @@ void x86emuOp_opcF7_word_RM(u8 X86EMU_UNUSED(op1))
 		test_long(*destreg, srcval);
 		break;
 	    case 1:
-		ERR_PRINTF("ILLEGAL OP MOD=00 RH=01 OP=F6\n");
+		DECODE_PRINTF("ILLEGAL OP MOD=00 RH=01 OP=F6\n");
 		HALT_SYS();
 		break;
 	    case 2:
@@ -4715,7 +4722,7 @@ void x86emuOp_opcF7_word_RM(u8 X86EMU_UNUSED(op1))
 		test_word(*destreg, srcval);
 		break;
 	    case 1:
-		ERR_PRINTF("ILLEGAL OP MOD=00 RH=01 OP=F6\n");
+		DECODE_PRINTF("ILLEGAL OP MOD=00 RH=01 OP=F6\n");
 		HALT_SYS();
 		break;
 	    case 2:
@@ -4859,7 +4866,7 @@ void x86emuOp_opcFE_byte_RM(u8 X86EMU_UNUSED(op1))
     /* Yet another special case instruction. */
     START_OF_INSTR();
     FETCH_DECODE_MODRM(mod, rh, rl);
-#ifdef CONFIG_X86EMU_DEBUG
+#ifdef DEBUG
     if (DEBUG_DECODE()) {
 	/* XXX DECODE_PRINTF may be changed to something more
 	   general, so that it is important to leave the strings
@@ -4879,7 +4886,7 @@ void x86emuOp_opcFE_byte_RM(u8 X86EMU_UNUSED(op1))
 	case 5:
 	case 6:
 	case 7:
-	    ERR_PRINTF2("ILLEGAL OP MAJOR OP 0xFE MINOR OP %x\n", mod);
+	    DECODE_PRINTF2("ILLEGAL OP MAJOR OP 0xFE MINOR OP %x \n", mod);
 	    HALT_SYS();
 	    break;
 	}
@@ -4923,7 +4930,7 @@ void x86emuOp_opcFF_word_RM(u8 X86EMU_UNUSED(op1))
     /* Yet another special case instruction. */
     START_OF_INSTR();
     FETCH_DECODE_MODRM(mod, rh, rl);
-#ifdef CONFIG_X86EMU_DEBUG
+#ifdef DEBUG
     if (DEBUG_DECODE()) {
 	/* XXX DECODE_PRINTF may be changed to something more
 	   general, so that it is important to leave the strings
@@ -4961,7 +4968,7 @@ void x86emuOp_opcFF_word_RM(u8 X86EMU_UNUSED(op1))
 	    DECODE_PRINTF("PUSH\t");
 	    break;
 	case 7:
-	    ERR_PRINTF("ILLEGAL DECODING OF OPCODE FF\t");
+	    DECODE_PRINTF("ILLEGAL DECODING OF OPCODE FF\t");
 	    HALT_SYS();
 	    break;
 	}
@@ -5092,7 +5099,7 @@ void x86emuOp_opcFF_word_RM(u8 X86EMU_UNUSED(op1))
 	    M.x86.R_IP = *destreg;
 	    break;
 	case 3:		/* jmp far ptr ... */
-	    ERR_PRINTF("OPERATION UNDEFINED 0XFF\n");
+	    DECODE_PRINTF("OPERATION UNDEFINED 0XFF \n");
 	    TRACE_AND_STEP();
 	    HALT_SYS();
 	    break;
@@ -5104,7 +5111,7 @@ void x86emuOp_opcFF_word_RM(u8 X86EMU_UNUSED(op1))
 	    M.x86.R_IP = (u16) (*destreg);
 	    break;
 	case 5:		/* jmp far ptr ... */
-	    ERR_PRINTF("OPERATION UNDEFINED 0XFF\n");
+	    DECODE_PRINTF("OPERATION UNDEFINED 0XFF \n");
 	    TRACE_AND_STEP();
 	    HALT_SYS();
 	    break;

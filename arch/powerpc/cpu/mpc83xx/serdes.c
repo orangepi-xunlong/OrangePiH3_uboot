@@ -1,12 +1,15 @@
 /*
  * Freescale SerDes initialization routine
  *
- * Copyright 2007,2011 Freescale Semiconductor, Inc.
+ * Copyright (C) 2007 Freescale Semicondutor, Inc.
  * Copyright (C) 2008 MontaVista Software, Inc.
  *
  * Author: Li Yang <leoli@freescale.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
  */
 
 #include <config.h>
@@ -17,10 +20,6 @@
 /* SerDes registers */
 #define FSL_SRDSCR0_OFFS		0x0
 #define FSL_SRDSCR0_DPP_1V2		0x00008800
-#define FSL_SRDSCR0_TXEQA_MASK		0x00007000
-#define FSL_SRDSCR0_TXEQA_SATA		0x00001000
-#define FSL_SRDSCR0_TXEQE_MASK		0x00000700
-#define FSL_SRDSCR0_TXEQE_SATA		0x00000100
 #define FSL_SRDSCR1_OFFS		0x4
 #define FSL_SRDSCR1_PLLBW		0x00000040
 #define FSL_SRDSCR2_OFFS		0x8
@@ -71,11 +70,6 @@ void fsl_setup_serdes(u32 offset, char proto, u32 rfcks, char vdd)
 		udelay(1000);
 		tmp &= ~FSL_SRDSRSTCTL_SATA_RESET;
 		out_be32(regs + FSL_SRDSRSTCTL_OFFS, tmp);
-
-		/* Configure SRDSCR0 */
-		clrsetbits_be32(regs + FSL_SRDSCR0_OFFS,
-			FSL_SRDSCR0_TXEQA_MASK | FSL_SRDSCR0_TXEQE_MASK,
-			FSL_SRDSCR0_TXEQA_SATA | FSL_SRDSCR0_TXEQE_SATA);
 
 		/* Configure SRDSCR1 */
 		tmp = in_be32(regs + FSL_SRDSCR1_OFFS);

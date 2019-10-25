@@ -1,5 +1,5 @@
 /*
- * U-Boot - traps.c Routines related to interrupts and exceptions
+ * U-boot - traps.c Routines related to interrupts and exceptions
  *
  * Copyright (c) 2005-2008 Analog Devices Inc.
  *
@@ -150,10 +150,7 @@ int trap_c(struct pt_regs *regs, uint32_t level)
 				(data ? 'D' : 'I'), (void *)new_cplb_addr);
 			bfin_panic(regs);
 		} else
-			debug("CPLB addr %p matches map 0x%p - 0x%p\n",
-				(void *)new_cplb_addr,
-				(void *)bfin_memory_map[i].start,
-				(void *)bfin_memory_map[i].end);
+			debug("CPLB addr %p matches map 0x%p - 0x%p\n", new_cplb_addr, bfin_memory_map[i].start, bfin_memory_map[i].end);
 		new_cplb_data = (data ? bfin_memory_map[i].data_flags : bfin_memory_map[i].inst_flags);
 
 		if (data) {
@@ -166,17 +163,16 @@ int trap_c(struct pt_regs *regs, uint32_t level)
 
 		/* find the next unlocked entry and evict it */
 		i = last_evicted & 0xF;
-		debug("last evicted = %zu\n", i);
+		debug("last evicted = %i\n", i);
 		CPLB_DATA = CPLB_DATA_BASE + i;
 		while (*CPLB_DATA & CPLB_LOCK) {
-			debug("skipping %zu %p - %08X\n", i, CPLB_DATA, *CPLB_DATA);
+			debug("skipping %i %p - %08X\n", i, CPLB_DATA, *CPLB_DATA);
 			i = (i + 1) & 0xF;	/* wrap around */
 			CPLB_DATA = CPLB_DATA_BASE + i;
 		}
 		CPLB_ADDR = CPLB_ADDR_BASE + i;
 
-		debug("evicting entry %zu: 0x%p 0x%08X\n", i,
-			(void *)*CPLB_ADDR, *CPLB_DATA);
+		debug("evicting entry %i: 0x%p 0x%08X\n", i, *CPLB_ADDR, *CPLB_DATA);
 		last_evicted = i + 1;
 
 		/* need to turn off cplbs whenever we muck with the cplb table */
@@ -194,8 +190,7 @@ int trap_c(struct pt_regs *regs, uint32_t level)
 		CPLB_ADDR = CPLB_ADDR_BASE;
 		CPLB_DATA = CPLB_DATA_BASE;
 		for (i = 0; i < 16; ++i)
-			debug("%2zu 0x%p 0x%08X\n", i,
-				(void *)*CPLB_ADDR++, *CPLB_DATA++);
+			debug("%2i 0x%p 0x%08X\n", i, *CPLB_ADDR++, *CPLB_DATA++);
 
 		break;
 	}
@@ -261,7 +256,7 @@ static void decode_address(char *buf, unsigned long address)
 	if (!address)
 		sprintf(buf, "<0x%p> /* Maybe null pointer? */", paddr);
 	else if (address >= CONFIG_SYS_MONITOR_BASE &&
-		 address < CONFIG_SYS_MONITOR_BASE + CONFIG_SYS_MONITOR_LEN)
+	         address < CONFIG_SYS_MONITOR_BASE + CONFIG_SYS_MONITOR_LEN)
 		sprintf(buf, "<0x%p> /* somewhere in u-boot */", paddr);
 	else
 		sprintf(buf, "<0x%p> /* unknown address */", paddr);

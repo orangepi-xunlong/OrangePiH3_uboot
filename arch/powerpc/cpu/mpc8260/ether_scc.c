@@ -16,7 +16,23 @@
  * DENX Software Engineerin GmbH
  * Gary Jennejohn <garyj@denx.de>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -26,6 +42,10 @@
 #include <net.h>
 #include <command.h>
 #include <config.h>
+
+#ifndef CONFIG_NET_MULTI
+#error "CONFIG_NET_MULTI must be defined."
+#endif
 
 #if (CONFIG_ETHER_INDEX == 1)
 #  define PROFF_ENET            PROFF_SCC1
@@ -89,7 +109,7 @@ typedef volatile struct CommonBufferDescriptor {
 static RTXBD *rtx;
 
 
-static int sec_send(struct eth_device *dev, void *packet, int length)
+static int sec_send(struct eth_device *dev, volatile void *packet, int length)
 {
     int i;
     int result = 0;
@@ -146,7 +166,7 @@ static int sec_rx(struct eth_device *dev)
 	else
 	{
 	    /* Pass the packet up to the protocol layers. */
-	    net_process_received_packet(net_rx_packets[rxIdx], length - 4);
+	    NetReceive(NetRxPackets[rxIdx], length - 4);
 	}
 
 
@@ -263,7 +283,7 @@ static int sec_init(struct eth_device *dev, bd_t *bis)
     {
 	rtx->rxbd[i].cbd_sc = BD_ENET_RX_EMPTY;
 	rtx->rxbd[i].cbd_datlen = 0;                  /* Reset */
-	rtx->rxbd[i].cbd_bufaddr = (uint)net_rx_packets[i];
+	rtx->rxbd[i].cbd_bufaddr = (uint)NetRxPackets[i];
     }
 
     rtx->rxbd[PKTBUFSRX - 1].cbd_sc |= BD_ENET_RX_WRAP;
@@ -355,7 +375,7 @@ int mpc82xx_scc_enet_initialize(bd_t *bis)
 	dev = (struct eth_device *) malloc(sizeof *dev);
 	memset(dev, 0, sizeof *dev);
 
-	strcpy(dev->name, "SCC");
+	sprintf(dev->name, "SCC");
 	dev->init   = sec_init;
 	dev->halt   = sec_halt;
 	dev->send   = sec_send;

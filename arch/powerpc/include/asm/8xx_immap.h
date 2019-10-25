@@ -1,3 +1,4 @@
+
 /*
  * MPC8xx Internal Memory Map
  * Copyright (c) 1997 Dan Malek (dmalek@jlc.net)
@@ -484,12 +485,7 @@ typedef struct comm_proc {
 	 * Some processors don't have all of it populated.
 	 */
 	u_char	cp_dpmem[0x1C00];	/* BD / Data / ucode */
-
-	/* Parameter RAM */
-	union {
-		u_char	cp_dparam[0x400];
-		u16	cp_dparam16[0x200];
-	};
+	u_char	cp_dparam[0x400];	/* Parameter RAM */
 } cpm8xx_t;
 
 /* Internal memory map.

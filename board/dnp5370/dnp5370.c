@@ -1,5 +1,5 @@
 /*
- * U-Boot - main board file
+ * U-boot - main board file
  *
  * (C) Copyright 2010 3ality Digital Systems
  *
@@ -8,12 +8,29 @@
  * (C) Copyright 2000-2004
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
+ * MA 02110-1301 USA
  */
 
 #include <common.h>
 #include <config.h>
 #include <asm/blackfin.h>
+#include <asm/net.h>
 #include <net.h>
 #include <netdev.h>
 #include <asm/gpio.h>
@@ -36,14 +53,28 @@ int checkboard(void)
 #ifdef CONFIG_BFIN_MAC
 static void board_init_enetaddr(uchar *mac_addr)
 {
-#ifndef CONFIG_SYS_NO_FLASH
-	/* we cram the MAC in the last flash sector */
-	uchar *board_mac_addr = (uchar *)0x202F0000;
-	if (is_valid_ethaddr(board_mac_addr)) {
-		memcpy(mac_addr, board_mac_addr, 6);
-		eth_setenv_enetaddr("ethaddr", mac_addr);
-	}
+#ifdef CONFIG_SYS_NO_FLASH
+# define USE_MAC_IN_FLASH 0
+#else
+# define USE_MAC_IN_FLASH 1
 #endif
+	bool valid_mac = false;
+
+	if (USE_MAC_IN_FLASH) {
+		/* we cram the MAC in the last flash sector */
+		uchar *board_mac_addr = (uchar *)0x202F0000;
+		if (is_valid_ether_addr(board_mac_addr)) {
+			memcpy(mac_addr, board_mac_addr, 6);
+			valid_mac = true;
+		}
+	}
+
+	if (!valid_mac) {
+		puts("Warning: Generating 'random' MAC address\n");
+		bfin_gen_rand_mac(mac_addr);
+	}
+
+	eth_setenv_enetaddr("ethaddr", mac_addr);
 }
 
 int board_eth_init(bd_t *bis)

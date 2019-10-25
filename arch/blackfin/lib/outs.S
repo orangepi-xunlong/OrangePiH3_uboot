@@ -8,7 +8,7 @@
  * Licensed under the GPL-2.
  */
 
-#include <linux/linkage.h>
+#include <asm/linkage.h>
 
 .align 2
 

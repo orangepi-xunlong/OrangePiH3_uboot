@@ -8,7 +8,23 @@
  * and Jeff Brown.
  * Some bits are taken from linux driver writen by adrian@humboldt.co.uk.
  *
- * SPDX-License-Identifier:	GPL-2.0
+ * This software may be used and distributed according to the
+ * terms of the GNU Public License, Version 2, incorporated
+ * herein by reference.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * Version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef _ASM_FSL_I2C_H_
@@ -16,7 +32,7 @@
 
 #include <asm/types.h>
 
-typedef struct fsl_i2c_base {
+typedef struct fsl_i2c {
 
 	u8 adr;		/* I2C slave address */
 	u8 res0[3];
@@ -38,7 +54,6 @@ typedef struct fsl_i2c_base {
 #define I2C_CR_MTX	0x10
 #define I2C_CR_TXAK	0x08
 #define I2C_CR_RSTA	0x04
-#define I2C_CR_BIT6	0x02	/* required for workaround A004447 */
 #define I2C_CR_BCST	0x01
 
 	u8 sr;		/* I2C status register */
@@ -67,15 +82,5 @@ typedef struct fsl_i2c_base {
 	/* Fill out the reserved block */
 	u8 res6[0xE8];
 } fsl_i2c_t;
-
-#ifdef CONFIG_DM_I2C
-struct fsl_i2c_dev {
-	struct fsl_i2c_base __iomem *base;      /* register base */
-	u32 i2c_clk;
-	u32 index;
-	u8 slaveadd;
-	uint speed;
-};
-#endif
 
 #endif	/* _ASM_I2C_H_ */

@@ -2,7 +2,23 @@
  * (C) Copyright 2002
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -59,10 +75,11 @@ static int rtc_post_skip (ulong * diff)
 
 static void rtc_post_restore (struct rtc_time *tm, unsigned int sec)
 {
-	time_t t = rtc_mktime(tm) + sec;
+	time_t t = mktime (tm->tm_year, tm->tm_mon, tm->tm_mday, tm->tm_hour,
+					   tm->tm_min, tm->tm_sec) + sec;
 	struct rtc_time ntm;
 
-	rtc_to_tm(t, &ntm);
+	to_tm (t, &ntm);
 
 	rtc_set (&ntm);
 }
@@ -115,17 +132,10 @@ int rtc_post_test (int flags)
 	rtc_get (&svtm);
 
 	for (i = 0; i < 12; i++) {
-		time_t t;
+		time_t t = mktime (ynl, i + 1, daysnl[i], 23, 59, 59);
 		struct rtc_time tm;
 
-		tm.tm_year = ynl;
-		tm.tm_mon = i + 1;
-		tm.tm_mday = daysnl[i];
-		tm.tm_hour = 23;
-		tm.tm_min = 59;
-		tm.tm_sec = 59;
-		t = rtc_mktime(&tm);
-		rtc_to_tm(t, &tm);
+		to_tm (t, &tm);
 		rtc_set (&tm);
 
 		skipped++;
@@ -146,18 +156,10 @@ int rtc_post_test (int flags)
 	}
 
 	for (i = 0; i < 12; i++) {
-		time_t t;
+		time_t t = mktime (yl, i + 1, daysl[i], 23, 59, 59);
 		struct rtc_time tm;
 
-		tm.tm_year = yl;
-		tm.tm_mon = i + 1;
-		tm.tm_mday = daysl[i];
-		tm.tm_hour = 23;
-		tm.tm_min = 59;
-		tm.tm_sec = 59;
-		t = rtc_mktime(&tm);
-
-		rtc_to_tm(t, &tm);
+		to_tm (t, &tm);
 		rtc_set (&tm);
 
 		skipped++;

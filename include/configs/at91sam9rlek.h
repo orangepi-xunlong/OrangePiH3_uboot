@@ -1,11 +1,27 @@
 /*
  * (C) Copyright 2007-2008
- * Stelian Pop <stelian@popies.net>
+ * Stelian Pop <stelian.pop@leadtechdesign.com>
  * Lead Tech Design <www.leadtechdesign.com>
  *
  * Configuation settings for the AT91SAM9RLEK board.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef __CONFIG_H
@@ -18,12 +34,14 @@
 /* ARM asynchronous clock */
 #define CONFIG_SYS_AT91_SLOW_CLOCK	32768		/* slow clock xtal */
 #define CONFIG_SYS_AT91_MAIN_CLOCK	12000000	/* main clock xtal */
+#define CONFIG_SYS_HZ			1000
 
 #define CONFIG_AT91SAM9RLEK		1	/* It's an AT91SAM9RLEK Board */
 
 #define CONFIG_ARCH_CPU_INIT
 #define CONFIG_SKIP_LOWLEVEL_INIT
 #define CONFIG_BOARD_EARLY_INIT_F
+#undef CONFIG_USE_IRQ			/* we don't need IRQ/FIQ stuff */
 
 #define CONFIG_CMDLINE_TAG		1	/* enable passing of ATAGs */
 #define CONFIG_SETUP_MEMORY_TAGS	1
@@ -44,6 +62,7 @@
 #define CONFIG_USART_BASE		ATMEL_BASE_DBGU
 #define CONFIG_USART_ID			ATMEL_ID_SYS
 #define CONFIG_BAUDRATE			115200
+#define CONFIG_SYS_BAUDRATE_TABLE	{115200, 19200, 38400, 57600, 9600}
 
 /* LCD */
 #define CONFIG_LCD			1
@@ -59,16 +78,28 @@
 #undef CONFIG_FB_ADDR
 #define CONFIG_SYS_CONSOLE_IS_IN_ENV	1
 
+
 /* LED */
 #define CONFIG_AT91_LED
 #define	CONFIG_RED_LED		AT91_PIN_PD14	/* this is the power led */
 #define	CONFIG_GREEN_LED	AT91_PIN_PD15	/* this is the user1 led */
 #define	CONFIG_YELLOW_LED	AT91_PIN_PD16	/* this is the user2 led */
 
+#define CONFIG_BOOTDELAY	3
 
 /*
  * Command line configuration.
  */
+#include <config_cmd_default.h>
+#undef CONFIG_CMD_BDI
+#undef CONFIG_CMD_FPGA
+#undef CONFIG_CMD_IMI
+#undef CONFIG_CMD_IMLS
+#undef CONFIG_CMD_LOADS
+#undef CONFIG_CMD_NET
+#undef CONFIG_CMD_NFS
+#undef CONFIG_CMD_SOURCE
+#undef CONFIG_CMD_USB
 
 #define CONFIG_CMD_NAND			1
 
@@ -83,6 +114,7 @@
 /* DataFlash */
 #define CONFIG_ATMEL_DATAFLASH_SPI
 #define CONFIG_HAS_DATAFLASH			1
+#define CONFIG_SYS_SPI_WRITE_TOUT		(5*CONFIG_SYS_HZ)
 #define CONFIG_SYS_MAX_DATAFLASH_BANKS		1
 #define CONFIG_SYS_DATAFLASH_LOGIC_ADDR_CS0	0xC0000000	/* CS0 */
 #define AT91_SPI_CLK				15000000
@@ -107,15 +139,6 @@
 
 #endif
 
-/* MMC */
-
-#ifdef CONFIG_CMD_MMC
-#define CONFIG_MMC
-#define CONFIG_GENERIC_MMC
-#define CONFIG_GENERIC_ATMEL_MCI
-#define CONFIG_DOS_PARTITION
-#endif
-
 /* Ethernet - not present */
 
 /* USB - not supported */
@@ -133,56 +156,41 @@
 #define CONFIG_ENV_OFFSET		0x4200
 #define CONFIG_ENV_ADDR		(CONFIG_SYS_DATAFLASH_LOGIC_ADDR_CS0 + CONFIG_ENV_OFFSET)
 #define CONFIG_ENV_SIZE		0x4200
-#define CONFIG_BOOTCOMMAND	"cp.b 0xC0084000 0x22000000 0x210000; bootm"
+#define CONFIG_BOOTCOMMAND	"cp.b 0xC0042000 0x22000000 0x210000; bootm"
 #define CONFIG_BOOTARGS		"console=ttyS0,115200 " \
 				"root=/dev/mtdblock0 " \
 				"mtdparts=atmel_nand:-(root) "\
 				"rw rootfstype=jffs2"
 
-#elif CONFIG_SYS_USE_NANDFLASH
+#else /* CONFIG_SYS_USE_NANDFLASH */
 
 /* bootstrap + u-boot + env + linux in nandflash */
 #define CONFIG_ENV_IS_IN_NAND		1
-#define CONFIG_ENV_OFFSET		0xc0000
-#define CONFIG_ENV_OFFSET_REDUND	0x100000
+#define CONFIG_ENV_OFFSET		0x60000
+#define CONFIG_ENV_OFFSET_REDUND	0x80000
 #define CONFIG_ENV_SIZE		0x20000		/* 1 sector = 128 kB */
-#define CONFIG_BOOTCOMMAND	"nand read 0x22000000 0x200000 0x600000; "	\
-				"nand read 0x21000000 0x180000 0x80000; "	\
-				"bootz 0x22000000 - 0x21000000"
-#define CONFIG_BOOTARGS		\
-				"console=ttyS0,115200 earlyprintk "				\
-				"mtdparts=atmel_nand:256k(bootstrap)ro,512k(uboot)ro,"		\
-				"256K(env),256k(env_redundent),256k(spare),"			\
-				"512k(dtb),6M(kernel)ro,-(rootfs) "				\
-				"rootfstype=ubifs ubi.mtd=7 root=ubi0:rootfs"
-
-#else /* CONFIG_SYS_USE_MMC */
-
-/* bootstrap + u-boot + env + linux in mmc */
-#define CONFIG_ENV_IS_IN_FAT
-#define CONFIG_FAT_WRITE
-#define FAT_ENV_INTERFACE	"mmc"
-#define FAT_ENV_FILE		"uboot.env"
-#define FAT_ENV_DEVICE_AND_PART	"0"
-#define CONFIG_ENV_SIZE		0x4000
-#define CONFIG_BOOTCOMMAND	"fatload mmc 0:1 0x21000000 at91sam9rlek.dtb; " \
-				"fatload mmc 0:1 0x22000000 zImage; " \
-				"bootz 0x22000000 - 0x21000000"
+#define CONFIG_BOOTCOMMAND	"nand read 0x22000000 0xA0000 0x200000; bootm"
 #define CONFIG_BOOTARGS		"console=ttyS0,115200 " \
-				"mtdparts=atmel_nand:" \
-				"8M(bootstrap/uboot/kernel)ro,-(rootfs) " \
-				"root=/dev/mmcblk0p2 rw rootwait"
+				"root=/dev/mtdblock5 " \
+				"mtdparts=atmel_nand:128k(bootstrap)ro,256k(uboot)ro,128k(env1)ro,128k(env2)ro,2M(linux),-(root) " \
+				"rw rootfstype=jffs2"
+
 #endif
 
+#define CONFIG_SYS_PROMPT		"U-Boot> "
 #define CONFIG_SYS_CBSIZE		256
 #define CONFIG_SYS_MAXARGS		16
+#define CONFIG_SYS_PBSIZE		(CONFIG_SYS_CBSIZE + sizeof(CONFIG_SYS_PROMPT) + 16)
 #define CONFIG_SYS_LONGHELP		1
 #define CONFIG_CMDLINE_EDITING		1
-#define CONFIG_AUTO_COMPLETE
 
 /*
  * Size of malloc() pool
  */
 #define CONFIG_SYS_MALLOC_LEN	ROUND(3 * CONFIG_ENV_SIZE + 128*1024, 0x1000)
+
+#define CONFIG_STACKSIZE	(32*1024)	/* regular stack */
+
+#undef CONFIG_USE_IRQ
 
 #endif

@@ -2,7 +2,20 @@
  * Copyright (c) 2004 Picture Elements, Inc.
  *    Stephen Williams (XXXXXXXXXXXXXXXX)
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ *    This source code is free software; you can redistribute it
+ *    and/or modify it in source code form under the terms of the GNU
+ *    General Public License as published by the Free Software
+ *    Foundation; either version 2 of the License, or (at your option)
+ *    any later version.
+ *
+ *    This program is distributed in the hope that it will be useful,
+ *    but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *    GNU General Public License for more details.
+ *
+ *    You should have received a copy of the GNU General Public License
+ *    along with this program; if not, write to the Free Software
+ *    Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA
  */
 
 /*
@@ -27,7 +40,7 @@
 
 #include <common.h>
 #include <command.h>
-#include <dm.h>
+#include <systemace.h>
 #include <part.h>
 #include <asm/io.h>
 
@@ -38,40 +51,29 @@
  * to be the base address for the chip, usually in the local
  * peripheral bus.
  */
-
-static u32 base = CONFIG_SYS_SYSTEMACE_BASE;
-static u32 width = CONFIG_SYS_SYSTEMACE_WIDTH;
-
-static void ace_writew(u16 val, unsigned off)
-{
-	if (width == 8) {
+#if (CONFIG_SYS_SYSTEMACE_WIDTH == 8)
 #if !defined(__BIG_ENDIAN)
-		writeb(val >> 8, base + off);
-		writeb(val, base + off + 1);
+#define ace_readw(off) ((readb(CONFIG_SYS_SYSTEMACE_BASE+off)<<8) | \
+			(readb(CONFIG_SYS_SYSTEMACE_BASE+off+1)))
+#define ace_writew(val, off) {writeb(val>>8, CONFIG_SYS_SYSTEMACE_BASE+off); \
+			      writeb(val, CONFIG_SYS_SYSTEMACE_BASE+off+1);}
 #else
-		writeb(val, base + off);
-		writeb(val >> 8, base + off + 1);
+#define ace_readw(off) ((readb(CONFIG_SYS_SYSTEMACE_BASE+off)) | \
+			(readb(CONFIG_SYS_SYSTEMACE_BASE+off+1)<<8))
+#define ace_writew(val, off) {writeb(val, CONFIG_SYS_SYSTEMACE_BASE+off); \
+			      writeb(val>>8, CONFIG_SYS_SYSTEMACE_BASE+off+1);}
 #endif
-	} else
-		out16(base + off, val);
-}
-
-static u16 ace_readw(unsigned off)
-{
-	if (width == 8) {
-#if !defined(__BIG_ENDIAN)
-		return (readb(base + off) << 8) | readb(base + off + 1);
 #else
-		return readb(base + off) | (readb(base + off + 1) << 8);
+#define ace_readw(off) (in16(CONFIG_SYS_SYSTEMACE_BASE+off))
+#define ace_writew(val, off) (out16(CONFIG_SYS_SYSTEMACE_BASE+off,val))
 #endif
-	}
 
-	return in16(base + off);
-}
+/* */
 
-#ifndef CONFIG_BLK
-static struct blk_desc systemace_dev = { 0 };
-#endif
+static unsigned long systemace_read(int dev, unsigned long start,
+				    unsigned long blkcnt, void *buffer);
+
+static block_dev_desc_t systemace_dev = { 0 };
 
 static int get_cf_lock(void)
 {
@@ -102,19 +104,40 @@ static void release_cf_lock(void)
 	ace_writew((val & 0xffff), 0x18);
 }
 
+#ifdef CONFIG_PARTITIONS
+block_dev_desc_t *systemace_get_dev(int dev)
+{
+	/* The first time through this, the systemace_dev object is
+	   not yet initialized. In that case, fill it in. */
+	if (systemace_dev.blksz == 0) {
+		systemace_dev.if_type = IF_TYPE_UNKNOWN;
+		systemace_dev.dev = 0;
+		systemace_dev.part_type = PART_TYPE_UNKNOWN;
+		systemace_dev.type = DEV_TYPE_HARDDISK;
+		systemace_dev.blksz = 512;
+		systemace_dev.removable = 1;
+		systemace_dev.block_read = systemace_read;
+
+		/*
+		 * Ensure the correct bus mode (8/16 bits) gets enabled
+		 */
+		ace_writew(CONFIG_SYS_SYSTEMACE_WIDTH == 8 ? 0 : 0x0001, 0);
+
+		init_part(&systemace_dev);
+
+	}
+
+	return &systemace_dev;
+}
+#endif
+
 /*
  * This function is called (by dereferencing the block_read pointer in
  * the dev_desc) to read blocks of data. The return value is the
  * number of blocks read. A zero return indicates an error.
  */
-#ifdef CONFIG_BLK
-static unsigned long systemace_read(struct udevice *dev, unsigned long start,
-				    lbaint_t blkcnt, void *buffer)
-#else
-static unsigned long systemace_read(struct blk_desc *block_dev,
-				    unsigned long start, lbaint_t blkcnt,
-				    void *buffer)
-#endif
+static unsigned long systemace_read(int dev, unsigned long start,
+				    unsigned long blkcnt, void *buffer)
 {
 	int retry;
 	unsigned blk_countdown;
@@ -232,72 +255,3 @@ static unsigned long systemace_read(struct blk_desc *block_dev,
 
 	return blkcnt;
 }
-
-#ifdef CONFIG_BLK
-static int systemace_bind(struct udevice *dev)
-{
-	struct blk_desc *bdesc;
-	struct udevice *bdev;
-	int ret;
-
-	ret = blk_create_devicef(dev, "systemace_blk", "blk", IF_TYPE_SYSTEMACE,
-				 -1, 512, 0, &bdev);
-	if (ret) {
-		debug("Cannot create block device\n");
-		return ret;
-	}
-	bdesc = dev_get_uclass_platdata(bdev);
-	bdesc->removable = 1;
-	bdesc->part_type = PART_TYPE_UNKNOWN;
-	bdesc->log2blksz = LOG2(bdesc->blksz);
-
-	/* Ensure the correct bus mode (8/16 bits) gets enabled */
-	ace_writew(width == 8 ? 0 : 0x0001, 0);
-
-	return 0;
-}
-
-static const struct blk_ops systemace_blk_ops = {
-	.read	= systemace_read,
-};
-
-U_BOOT_DRIVER(systemace_blk) = {
-	.name		= "systemace_blk",
-	.id		= UCLASS_BLK,
-	.ops		= &systemace_blk_ops,
-	.bind		= systemace_bind,
-};
-#else
-static int systemace_get_dev(int dev, struct blk_desc **descp)
-{
-	/* The first time through this, the systemace_dev object is
-	   not yet initialized. In that case, fill it in. */
-	if (systemace_dev.blksz == 0) {
-		systemace_dev.if_type = IF_TYPE_UNKNOWN;
-		systemace_dev.devnum = 0;
-		systemace_dev.part_type = PART_TYPE_UNKNOWN;
-		systemace_dev.type = DEV_TYPE_HARDDISK;
-		systemace_dev.blksz = 512;
-		systemace_dev.log2blksz = LOG2(systemace_dev.blksz);
-		systemace_dev.removable = 1;
-		systemace_dev.block_read = systemace_read;
-
-		/*
-		 * Ensure the correct bus mode (8/16 bits) gets enabled
-		 */
-		ace_writew(width == 8 ? 0 : 0x0001, 0);
-
-		part_init(&systemace_dev);
-	}
-	*descp = &systemace_dev;
-
-	return 0;
-}
-
-U_BOOT_LEGACY_BLK(systemace) = {
-	.if_typename	= "ace",
-	.if_type	= IF_TYPE_SYSTEMACE,
-	.max_devs	= 1,
-	.get_dev	= systemace_get_dev,
-};
-#endif

@@ -3,7 +3,24 @@
  * Rich Ireland, Enterasys Networks, rireland@enterasys.com.
  * Keith Outwater, keith_outwater@mvis.com
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
  */
 
 /*
@@ -12,7 +29,6 @@
  */
 
 #include <common.h>
-#include <console.h>
 #include <virtex2.h>
 
 #if 0
@@ -85,26 +101,25 @@
 #define CONFIG_SYS_FPGA_WAIT_CONFIG	CONFIG_SYS_HZ/5	/* 200 ms */
 #endif
 
-static int virtex2_ssm_load(xilinx_desc *desc, const void *buf, size_t bsize);
-static int virtex2_ssm_dump(xilinx_desc *desc, const void *buf, size_t bsize);
+static int Virtex2_ssm_load(Xilinx_desc *desc, const void *buf, size_t bsize);
+static int Virtex2_ssm_dump(Xilinx_desc *desc, const void *buf, size_t bsize);
 
-static int virtex2_ss_load(xilinx_desc *desc, const void *buf, size_t bsize);
-static int virtex2_ss_dump(xilinx_desc *desc, const void *buf, size_t bsize);
+static int Virtex2_ss_load(Xilinx_desc *desc, const void *buf, size_t bsize);
+static int Virtex2_ss_dump(Xilinx_desc *desc, const void *buf, size_t bsize);
 
-static int virtex2_load(xilinx_desc *desc, const void *buf, size_t bsize,
-			bitstream_type bstype)
+int Virtex2_load(Xilinx_desc *desc, const void *buf, size_t bsize)
 {
 	int ret_val = FPGA_FAIL;
 
 	switch (desc->iface) {
 	case slave_serial:
 		PRINTF ("%s: Launching Slave Serial Load\n", __FUNCTION__);
-		ret_val = virtex2_ss_load(desc, buf, bsize);
+		ret_val = Virtex2_ss_load (desc, buf, bsize);
 		break;
 
 	case slave_selectmap:
 		PRINTF ("%s: Launching Slave Parallel Load\n", __FUNCTION__);
-		ret_val = virtex2_ssm_load(desc, buf, bsize);
+		ret_val = Virtex2_ssm_load (desc, buf, bsize);
 		break;
 
 	default:
@@ -114,19 +129,19 @@ static int virtex2_load(xilinx_desc *desc, const void *buf, size_t bsize,
 	return ret_val;
 }
 
-static int virtex2_dump(xilinx_desc *desc, const void *buf, size_t bsize)
+int Virtex2_dump(Xilinx_desc *desc, const void *buf, size_t bsize)
 {
 	int ret_val = FPGA_FAIL;
 
 	switch (desc->iface) {
 	case slave_serial:
 		PRINTF ("%s: Launching Slave Serial Dump\n", __FUNCTION__);
-		ret_val = virtex2_ss_dump(desc, buf, bsize);
+		ret_val = Virtex2_ss_dump (desc, buf, bsize);
 		break;
 
 	case slave_parallel:
 		PRINTF ("%s: Launching Slave Parallel Dump\n", __FUNCTION__);
-		ret_val = virtex2_ssm_dump(desc, buf, bsize);
+		ret_val = Virtex2_ssm_dump (desc, buf, bsize);
 		break;
 
 	default:
@@ -136,7 +151,7 @@ static int virtex2_dump(xilinx_desc *desc, const void *buf, size_t bsize)
 	return ret_val;
 }
 
-static int virtex2_info(xilinx_desc *desc)
+int Virtex2_info (Xilinx_desc * desc)
 {
 	return FPGA_SUCCESS;
 }
@@ -155,10 +170,10 @@ static int virtex2_info(xilinx_desc *desc)
  *    INIT_B and DONE lines.  If both are high, configuration has
  *    succeeded. Congratulations!
  */
-static int virtex2_ssm_load(xilinx_desc *desc, const void *buf, size_t bsize)
+static int Virtex2_ssm_load(Xilinx_desc *desc, const void *buf, size_t bsize)
 {
 	int ret_val = FPGA_FAIL;
-	xilinx_virtex2_slave_selectmap_fns *fn = desc->iface_fns;
+	Xilinx_Virtex2_Slave_SelectMap_fns *fn = desc->iface_fns;
 
 	PRINTF ("%s:%d: Start with interface functions @ 0x%p\n",
 			__FUNCTION__, __LINE__, fn);
@@ -206,7 +221,7 @@ static int virtex2_ssm_load(xilinx_desc *desc, const void *buf, size_t bsize)
 		 * There is no maximum value for the pulse width.  Check to make
 		 * sure that INIT_B goes low after assertion of PROG_B
 		 */
-		(*fn->pgm) (true, true, cookie);
+		(*fn->pgm) (TRUE, TRUE, cookie);
 		udelay (10);
 		ts = get_timer (0);
 		do {
@@ -219,9 +234,9 @@ static int virtex2_ssm_load(xilinx_desc *desc, const void *buf, size_t bsize)
 			}
 		} while (!(*fn->init) (cookie));
 
-		(*fn->pgm) (false, true, cookie);
+		(*fn->pgm) (FALSE, TRUE, cookie);
 		CONFIG_FPGA_DELAY ();
-		(*fn->clk) (true, true, cookie);
+		(*fn->clk) (TRUE, TRUE, cookie);
 
 		/*
 		 * Start a timer and wait for INIT_B to go high
@@ -238,8 +253,8 @@ static int virtex2_ssm_load(xilinx_desc *desc, const void *buf, size_t bsize)
 			}
 		} while ((*fn->init) (cookie) && (*fn->busy) (cookie));
 
-		(*fn->wr) (true, true, cookie);
-		(*fn->cs) (true, true, cookie);
+		(*fn->wr) (TRUE, TRUE, cookie);
+		(*fn->cs) (TRUE, TRUE, cookie);
 
 		udelay (10000);
 
@@ -271,15 +286,15 @@ static int virtex2_ssm_load(xilinx_desc *desc, const void *buf, size_t bsize)
 			}
 #endif
 
-			(*fn->wdata) (data[bytecount++], true, cookie);
+			(*fn->wdata) (data[bytecount++], TRUE, cookie);
 			CONFIG_FPGA_DELAY ();
 
 			/*
 			 * Cycle the clock pin
 			 */
-			(*fn->clk) (false, true, cookie);
+			(*fn->clk) (FALSE, TRUE, cookie);
 			CONFIG_FPGA_DELAY ();
-			(*fn->clk) (true, true, cookie);
+			(*fn->clk) (TRUE, TRUE, cookie);
 
 #ifdef CONFIG_SYS_FPGA_CHECK_BUSY
 			ts = get_timer (0);
@@ -304,8 +319,8 @@ static int virtex2_ssm_load(xilinx_desc *desc, const void *buf, size_t bsize)
 		 * Finished writing the data; deassert FPGA CS_B and WRITE_B signals.
 		 */
 		CONFIG_FPGA_DELAY ();
-		(*fn->cs) (false, true, cookie);
-		(*fn->wr) (false, true, cookie);
+		(*fn->cs) (FALSE, TRUE, cookie);
+		(*fn->wr) (FALSE, TRUE, cookie);
 
 #ifdef CONFIG_SYS_FPGA_PROG_FEEDBACK
 		putc ('\n');
@@ -354,10 +369,10 @@ static int virtex2_ssm_load(xilinx_desc *desc, const void *buf, size_t bsize)
 /*
  * Read the FPGA configuration data
  */
-static int virtex2_ssm_dump(xilinx_desc *desc, const void *buf, size_t bsize)
+static int Virtex2_ssm_dump(Xilinx_desc *desc, const void *buf, size_t bsize)
 {
 	int ret_val = FPGA_FAIL;
-	xilinx_virtex2_slave_selectmap_fns *fn = desc->iface_fns;
+	Xilinx_Virtex2_Slave_SelectMap_fns *fn = desc->iface_fns;
 
 	if (fn) {
 		unsigned char *data = (unsigned char *) buf;
@@ -366,8 +381,8 @@ static int virtex2_ssm_dump(xilinx_desc *desc, const void *buf, size_t bsize)
 
 		printf ("Starting Dump of FPGA Device %d...\n", cookie);
 
-		(*fn->cs) (true, true, cookie);
-		(*fn->clk) (true, true, cookie);
+		(*fn->cs) (TRUE, TRUE, cookie);
+		(*fn->clk) (TRUE, TRUE, cookie);
 
 		while (bytecount < bsize) {
 #ifdef CONFIG_SYS_FPGA_CHECK_CTRLC
@@ -379,8 +394,8 @@ static int virtex2_ssm_dump(xilinx_desc *desc, const void *buf, size_t bsize)
 			/*
 			 * Cycle the clock and read the data
 			 */
-			(*fn->clk) (false, true, cookie);
-			(*fn->clk) (true, true, cookie);
+			(*fn->clk) (FALSE, TRUE, cookie);
+			(*fn->clk) (TRUE, TRUE, cookie);
 			(*fn->rdata) (&(data[bytecount++]), cookie);
 #ifdef CONFIG_SYS_FPGA_PROG_FEEDBACK
 			if (bytecount % (bsize / 40) == 0)
@@ -391,9 +406,9 @@ static int virtex2_ssm_dump(xilinx_desc *desc, const void *buf, size_t bsize)
 		/*
 		 * Deassert CS_B and cycle the clock to deselect the device.
 		 */
-		(*fn->cs) (false, false, cookie);
-		(*fn->clk) (false, true, cookie);
-		(*fn->clk) (true, true, cookie);
+		(*fn->cs) (FALSE, FALSE, cookie);
+		(*fn->clk) (FALSE, TRUE, cookie);
+		(*fn->clk) (TRUE, TRUE, cookie);
 
 #ifdef CONFIG_SYS_FPGA_PROG_FEEDBACK
 		putc ('\n');
@@ -406,22 +421,16 @@ static int virtex2_ssm_dump(xilinx_desc *desc, const void *buf, size_t bsize)
 	return ret_val;
 }
 
-static int virtex2_ss_load(xilinx_desc *desc, const void *buf, size_t bsize)
+static int Virtex2_ss_load(Xilinx_desc *desc, const void *buf, size_t bsize)
 {
 	printf ("%s: Slave Serial Loading is unsupported\n", __FUNCTION__);
 	return FPGA_FAIL;
 }
 
-static int virtex2_ss_dump(xilinx_desc *desc, const void *buf, size_t bsize)
+static int Virtex2_ss_dump(Xilinx_desc *desc, const void *buf, size_t bsize)
 {
 	printf ("%s: Slave Serial Dumping is unsupported\n", __FUNCTION__);
 	return FPGA_FAIL;
 }
 
 /* vim: set ts=4 tw=78: */
-
-struct xilinx_fpga_op virtex2_op = {
-	.load = virtex2_load,
-	.dump = virtex2_dump,
-	.info = virtex2_info,
-};

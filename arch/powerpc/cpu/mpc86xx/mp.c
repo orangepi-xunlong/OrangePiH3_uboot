@@ -1,7 +1,23 @@
 /*
  * Copyright 2008-2010 Freescale Semiconductor, Inc.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -74,11 +90,8 @@ int cpu_release(int nr, int argc, char * const argv[])
 	return 1;
 }
 
-u32 determine_mp_bootpg(unsigned int *pagesize)
+u32 determine_mp_bootpg(void)
 {
-	if (pagesize)
-		*pagesize = 4096;
-
 	/* if we have 4G or more of memory, put the boot page at 4Gb-1M */
 	if ((u64)gd->ram_size > 0xfffff000)
 		return (0xfff00000);
@@ -88,7 +101,7 @@ u32 determine_mp_bootpg(unsigned int *pagesize)
 
 void cpu_mp_lmb_reserve(struct lmb *lmb)
 {
-	u32 bootpg = determine_mp_bootpg(NULL);
+	u32 bootpg = determine_mp_bootpg();
 
 	/* tell u-boot we stole a page */
 	lmb_reserve(lmb, bootpg, 4096);
@@ -102,7 +115,7 @@ void setup_mp(void)
 {
 	extern ulong __secondary_start_page;
 	ulong fixup = (ulong)&__secondary_start_page;
-	u32 bootpg = determine_mp_bootpg(NULL);
+	u32 bootpg = determine_mp_bootpg();
 	u32 bootpg_va;
 
 	if (bootpg >= CONFIG_SYS_MAX_DDR_BAT_SIZE) {

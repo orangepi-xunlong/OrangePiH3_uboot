@@ -16,6 +16,9 @@
 #ifndef __MICROBLAZE_POSIX_TYPES_H__
 #define __MICROBLAZE_POSIX_TYPES_H__
 
+#include <asm/bitops.h>
+
+
 typedef unsigned int	__kernel_dev_t;
 typedef unsigned long	__kernel_ino_t;
 typedef unsigned long long __kernel_ino64_t;
@@ -27,11 +30,7 @@ typedef int		__kernel_pid_t;
 typedef unsigned short	__kernel_ipc_pid_t;
 typedef unsigned int	__kernel_uid_t;
 typedef unsigned int	__kernel_gid_t;
-#ifdef __GNUC__
-typedef __SIZE_TYPE__  __kernel_size_t;
-#else
 typedef unsigned int	__kernel_size_t;
-#endif
 typedef int		__kernel_ssize_t;
 typedef int		__kernel_ptrdiff_t;
 typedef long		__kernel_time_t;

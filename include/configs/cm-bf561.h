@@ -1,5 +1,5 @@
 /*
- * U-Boot - Configuration file for CM-BF561 board
+ * U-boot - Configuration file for CM-BF561 board
  */
 
 #ifndef __CONFIG_CM_BF561_H__
@@ -7,11 +7,13 @@
 
 #include <asm/config-pre.h>
 
+
 /*
  * Processor Settings
  */
 #define CONFIG_BFIN_CPU             bf561-0.3
 #define CONFIG_BFIN_BOOT_MODE       BFIN_BOOT_PARA
+
 
 /*
  * Clock Settings
@@ -39,6 +41,7 @@
 /* Decrease core voltage */
 #define CONFIG_VR_CTL_VAL (VLEV_110 | GAIN_20 | FREQ_1000)
 
+
 /*
  * Memory Settings
  */
@@ -55,14 +58,19 @@
 #define CONFIG_SYS_MONITOR_LEN	(256 * 1024)
 #define CONFIG_SYS_MALLOC_LEN	(128 * 1024)
 
+
 /*
  * Network Settings
  */
 #define ADI_CMDS_NETWORK	1
+#define CONFIG_NET_MULTI
 #define CONFIG_SMC911X		1
 #define CONFIG_SMC911X_BASE	0x24008000 /* AMS1 */
 #define CONFIG_SMC911X_16_BIT
 #define CONFIG_HOSTNAME		cm-bf561
+/* Uncomment next line to use fixed MAC address */
+/* #define CONFIG_ETHADDR	02:80:ad:20:31:cf */
+
 
 /*
  * Flash Settings
@@ -74,6 +82,7 @@
 #define CONFIG_SYS_MAX_FLASH_BANKS	1
 #define CONFIG_SYS_MAX_FLASH_SECT	67
 
+
 /*
  * Env Storage Settings
  */
@@ -83,6 +92,7 @@
 #define CONFIG_ENV_SIZE		0x10000
 #define CONFIG_ENV_IS_EMBEDDED_IN_LDR
 
+
 /*
  * Misc Settings
  */
@@ -90,6 +100,7 @@
 #define CONFIG_UART_CONSOLE	0
 #define CONFIG_BOOTCOMMAND	"run flashboot"
 #define FLASHBOOT_ENV_SETTINGS	"flashboot=bootm 0x20040000\0"
+
 
 /*
  * Pull in common ADI header for remaining command/environment setup

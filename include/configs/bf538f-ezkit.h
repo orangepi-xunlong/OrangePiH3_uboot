@@ -1,5 +1,5 @@
 /*
- * U-Boot - Configuration file for BF538F EZ-Kit Lite board
+ * U-boot - Configuration file for BF538F EZ-Kit Lite board
  */
 
 #ifndef __CONFIG_BF538F_EZKIT_H__
@@ -7,11 +7,13 @@
 
 #include <asm/config-pre.h>
 
+
 /*
  * Processor Settings
  */
 #define CONFIG_BFIN_CPU             bf538-0.4
 #define CONFIG_BFIN_BOOT_MODE       BFIN_BOOT_BYPASS
+
 
 /*
  * Clock Settings
@@ -36,6 +38,7 @@
 /* Values can range from 1-15						*/
 #define CONFIG_SCLK_DIV			4
 
+
 /*
  * Memory Settings
  */
@@ -52,13 +55,18 @@
 #define CONFIG_SYS_MONITOR_LEN	(256 * 1024)
 #define CONFIG_SYS_MALLOC_LEN	(384 * 1024)
 
+
 /*
  * Network Settings
  */
 #define ADI_CMDS_NETWORK	1
+#define CONFIG_NET_MULTI
 #define CONFIG_SMC91111	1
 #define CONFIG_SMC91111_BASE	0x20310300
 #define CONFIG_HOSTNAME		bf538f-ezkit
+/* Uncomment next line to use fixed MAC address */
+/* #define CONFIG_ETHADDR	02:80:ad:20:31:e8 */
+
 
 /*
  * Flash Settings
@@ -70,15 +78,16 @@
 #define CONFIG_SYS_MAX_FLASH_BANKS	1
 #define CONFIG_SYS_MAX_FLASH_SECT	71
 
+
 /*
  * SPI Settings
  */
 #define CONFIG_BFIN_SPI
 #define CONFIG_ENV_SPI_MAX_HZ	30000000
-/*
 #define CONFIG_SF_DEFAULT_SPEED	30000000
+#define CONFIG_SPI_FLASH
 #define CONFIG_SPI_FLASH_ALL
-*/
+
 
 /*
  * Env Storage Settings
@@ -107,23 +116,26 @@
  * it linked after the configuration sector.
  */
 # define LDS_BOARD_TEXT \
-	arch/blackfin/lib/built-in.o (.text*); \
-	arch/blackfin/cpu/built-in.o (.text*); \
+	arch/blackfin/lib/libblackfin.o (.text*); \
+	arch/blackfin/cpu/libblackfin.o (.text*); \
 	. = DEFINED(env_offset) ? env_offset : .; \
 	common/env_embedded.o (.text*);
 #endif
 
+
 /*
  * I2C Settings
  */
-#define CONFIG_SYS_I2C
-#define CONFIG_SYS_I2C_ADI
+#define CONFIG_BFIN_TWI_I2C	1
+#define CONFIG_HARD_I2C		1
+
 
 /*
  * Misc Settings
  */
 #define CONFIG_RTC_BFIN
 #define CONFIG_UART_CONSOLE	0
+
 
 /*
  * Pull in common ADI header for remaining command/environment setup

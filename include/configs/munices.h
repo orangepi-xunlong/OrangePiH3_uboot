@@ -2,7 +2,23 @@
  * (C) Copyright 2007
  * Heiko Schocher, DENX Software Engineering, hs@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef __CONFIG_H
@@ -11,7 +27,8 @@
  * High Level Configuration Options
  * (easy to change)
  */
-#define CONFIG_MPC5200		1	/* This is an MPC5200 CPU */
+#define CONFIG_MPC5xxx		1	/* This is an MPC5xxx CPU */
+#define CONFIG_MPC5200		1	/* (more precisely an MPC5200 CPU) */
 #define CONFIG_MPC5200_DDR	1	/* (with DDR-SDRAM) */
 #define CONFIG_MUNICES		1	/* ... on MUNICes board */
 
@@ -26,7 +43,13 @@
 /*
  * Command line configuration.
  */
+#include <config_cmd_default.h>
+
+#define CONFIG_CMD_ASKENV
+#define CONFIG_CMD_ELF
 #define CONFIG_CMD_IMMAP
+#define CONFIG_CMD_NET
+#define CONFIG_CMD_PING
 #define CONFIG_CMD_REGINFO
 
 #if defined(CONFIG_CMD_KGDB)
@@ -41,6 +64,7 @@
 #define CONFIG_SYS_BAUDRATE_TABLE	{ 9600, 19200, 38400, 57600, 115200, 230400 }
 
 #define	CONFIG_TIMESTAMP	1	/* Print image info with timestamp */
+#define CONFIG_BOOTDELAY	5   /* autoboot after 5 seconds */
 #undef	CONFIG_BOOTARGS
 
 #define CONFIG_PREBOOT	"echo;"	\
@@ -158,6 +182,7 @@
  * Miscellaneous configurable options
  */
 #define CONFIG_SYS_LONGHELP			/* undef to save memory	    */
+#define CONFIG_SYS_PROMPT		"=> "	/* Monitor Command Prompt   */
 #define CONFIG_SYS_CBSIZE		1024	/* Console I/O Buffer Size  */
 #define CONFIG_SYS_PBSIZE (CONFIG_SYS_CBSIZE+sizeof(CONFIG_SYS_PROMPT)+16)	/* Print Buffer Size */
 #define CONFIG_SYS_MAXARGS		16		/* max number of command args	*/
@@ -167,6 +192,7 @@
 #define CONFIG_SYS_MEMTEST_END		0x00f00000	/* 1 ... 15 MB in DRAM	*/
 
 #define CONFIG_SYS_LOAD_ADDR		0x200000	/* default load address */
+#define CONFIG_SYS_HZ			1000	/* decrementer freq: 1 ms ticks */
 
 #define CONFIG_DISPLAY_BOARDINFO 1
 #define CONFIG_CMDLINE_EDITING  1
@@ -180,6 +206,10 @@
 #define CONFIG_SYS_CS_BURST		0x00000000
 #define CONFIG_SYS_CS_DEADCYCLE	0x33333333
 #define CONFIG_SYS_RESET_ADDRESS	0xff000000
+
+/* pass open firmware flat tree */
+#define CONFIG_OF_LIBFDT	1
+#define CONFIG_OF_BOARD_SETUP	1
 
 #define OF_CPU			"PowerPC,5200@0"
 #define OF_TBCLK		(bd->bi_busfreq / 4)

@@ -5,14 +5,13 @@
  * Licensed under the GPL-2 or later.
  */
 #include <common.h>
-#include <errno.h>
 #include <malloc.h>
 #include <part.h>
 #include <mmc.h>
 #include <spi.h>
 #include <crc.h>
 #include <linux/crc7.h>
-#include <asm/byteorder.h>
+#include <linux/byteorder/swab.h>
 
 /* MMC/SD in SPI mode reports R1 status always */
 #define R1_SPI_IDLE		(1 << 0)
@@ -92,8 +91,8 @@ static uint mmc_spi_readdata(struct mmc *mmc, void *xbuf,
 			spi_xfer(spi, bsize * 8, NULL, buf, 0);
 			spi_xfer(spi, 2 * 8, NULL, &crc, 0);
 #ifdef CONFIG_MMC_SPI_CRC_ON
-			if (be_to_cpu16(crc16_ccitt(0, buf, bsize)) != crc) {
-				debug("%s: CRC error\n", mmc->cfg->name);
+			if (swab16(cyg_crc16(buf, bsize)) != crc) {
+				debug("%s: CRC error\n", mmc->name);
 				r1 = R1_SPI_COM_CRC;
 				break;
 			}
@@ -121,7 +120,7 @@ static uint mmc_spi_writedata(struct mmc *mmc, const void *xbuf,
 	tok[1] = multi ? SPI_TOKEN_MULTI_WRITE : SPI_TOKEN_SINGLE;
 	while (bcnt--) {
 #ifdef CONFIG_MMC_SPI_CRC_ON
-		crc = cpu_to_be16(crc16_ccitt(0, (u8 *)buf, bsize));
+		crc = swab16(cyg_crc16((u8 *)buf, bsize));
 #endif
 		spi_xfer(spi, 2 * 8, tok, NULL, 0);
 		spi_xfer(spi, bsize * 8, buf, NULL, 0);
@@ -177,24 +176,24 @@ static int mmc_spi_request(struct mmc *mmc, struct mmc_cmd *cmd,
 	u8 r1;
 	int i;
 	int ret = 0;
-	debug("%s:cmd%d %x %x\n", __func__,
-	      cmd->cmdidx, cmd->resp_type, cmd->cmdarg);
+	debug("%s:cmd%d %x %x %x\n", __func__,
+	      cmd->cmdidx, cmd->resp_type, cmd->cmdarg, cmd->flags);
 	spi_claim_bus(spi);
 	spi_cs_activate(spi);
 	r1 = mmc_spi_sendcmd(mmc, cmd->cmdidx, cmd->cmdarg);
 	if (r1 == 0xff) { /* no response */
-		ret = -ENOMEDIUM;
+		ret = NO_CARD_ERR;
 		goto done;
 	} else if (r1 & R1_SPI_COM_CRC) {
-		ret = -ECOMM;
+		ret = COMM_ERR;
 		goto done;
 	} else if (r1 & ~R1_SPI_IDLE) { /* other errors */
-		ret = -ETIMEDOUT;
+		ret = TIMEOUT;
 		goto done;
 	} else if (cmd->resp_type == MMC_RSP_R2) {
 		r1 = mmc_spi_readdata(mmc, cmd->response, 1, 16);
 		for (i = 0; i < 4; i++)
-			cmd->response[i] = be32_to_cpu(cmd->response[i]);
+			cmd->response[i] = swab32(cmd->response[i]);
 		debug("r128 %x %x %x %x\n", cmd->response[0], cmd->response[1],
 		      cmd->response[2], cmd->response[3]);
 	} else if (!data) {
@@ -206,7 +205,7 @@ static int mmc_spi_request(struct mmc *mmc, struct mmc_cmd *cmd,
 		case SD_CMD_SEND_IF_COND:
 		case MMC_CMD_SPI_READ_OCR:
 			spi_xfer(spi, 4 * 8, NULL, cmd->response, 0);
-			cmd->response[0] = be32_to_cpu(cmd->response[0]);
+			cmd->response[0] = swab32(cmd->response[0]);
 			debug("r32 %x\n", cmd->response[0]);
 			break;
 		case MMC_CMD_SEND_STATUS:
@@ -226,9 +225,9 @@ static int mmc_spi_request(struct mmc *mmc, struct mmc_cmd *cmd,
 				data->blocks, data->blocksize,
 				(cmd->cmdidx == MMC_CMD_WRITE_MULTIPLE_BLOCK));
 		if (r1 & R1_SPI_COM_CRC)
-			ret = -ECOMM;
+			ret = COMM_ERR;
 		else if (r1) /* other errors */
-			ret = -ETIMEDOUT;
+			ret = TIMEOUT;
 	}
 done:
 	spi_cs_deactivate(spi);
@@ -239,7 +238,6 @@ done:
 static void mmc_spi_set_ios(struct mmc *mmc)
 {
 	struct spi_slave *spi = mmc->priv;
-
 	debug("%s: clock %u\n", __func__, mmc->clock);
 	if (mmc->clock)
 		spi_set_speed(spi, mmc->clock);
@@ -248,6 +246,7 @@ static void mmc_spi_set_ios(struct mmc *mmc)
 static int mmc_spi_init_p(struct mmc *mmc)
 {
 	struct spi_slave *spi = mmc->priv;
+	mmc->clock = 0;
 	spi_set_speed(spi, MMC_SPI_MIN_CLOCK);
 	spi_claim_bus(spi);
 	/* cs deactivated for 100+ clock */
@@ -256,37 +255,31 @@ static int mmc_spi_init_p(struct mmc *mmc)
 	return 0;
 }
 
-static const struct mmc_ops mmc_spi_ops = {
-	.send_cmd	= mmc_spi_request,
-	.set_ios	= mmc_spi_set_ios,
-	.init		= mmc_spi_init_p,
-};
-
-static struct mmc_config mmc_spi_cfg = {
-	.name		= "MMC_SPI",
-	.ops		= &mmc_spi_ops,
-	.host_caps	= MMC_MODE_SPI,
-	.voltages	= MMC_SPI_VOLTAGE,
-	.f_min		= MMC_SPI_MIN_CLOCK,
-	.part_type	= PART_TYPE_DOS,
-	.b_max		= CONFIG_SYS_MMC_MAX_BLK_COUNT,
-};
-
 struct mmc *mmc_spi_init(uint bus, uint cs, uint speed, uint mode)
 {
 	struct mmc *mmc;
-	struct spi_slave *spi;
 
-	spi = spi_setup_slave(bus, cs, speed, mode);
-	if (spi == NULL)
+	mmc = malloc(sizeof(*mmc));
+	if (!mmc)
 		return NULL;
-
-	mmc_spi_cfg.f_max = speed;
-
-	mmc = mmc_create(&mmc_spi_cfg, spi);
-	if (mmc == NULL) {
-		spi_free_slave(spi);
+	memset(mmc, 0, sizeof(*mmc));
+	mmc->priv = spi_setup_slave(bus, cs, speed, mode);
+	if (!mmc->priv) {
+		free(mmc);
 		return NULL;
 	}
+	sprintf(mmc->name, "MMC_SPI");
+	mmc->send_cmd = mmc_spi_request;
+	mmc->set_ios = mmc_spi_set_ios;
+	mmc->init = mmc_spi_init_p;
+	mmc->host_caps = MMC_MODE_SPI;
+
+	mmc->voltages = MMC_SPI_VOLTAGE;
+	mmc->f_max = speed;
+	mmc->f_min = MMC_SPI_MIN_CLOCK;
+	mmc->block_dev.part_type = PART_TYPE_DOS;
+
+	mmc_register(mmc);
+
 	return mmc;
 }

@@ -9,50 +9,54 @@
  * based on - Driver for MV64360X ethernet ports
  * Copyright (C) 2002 rabeeh@galileo.co.il
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+ * MA 02110-1301 USA
  */
 
 #include <common.h>
 #include <net.h>
 #include <malloc.h>
 #include <miiphy.h>
-#include <asm/io.h>
 #include <asm/errno.h>
 #include <asm/types.h>
-#include <asm/system.h>
 #include <asm/byteorder.h>
-#include <asm/arch/cpu.h>
 
 #if defined(CONFIG_KIRKWOOD)
-#include <asm/arch/soc.h>
+#include <asm/arch/kirkwood.h>
 #elif defined(CONFIG_ORION5X)
 #include <asm/arch/orion5x.h>
-#elif defined(CONFIG_DOVE)
-#include <asm/arch/dove.h>
 #endif
 
 #include "mvgbe.h"
 
 DECLARE_GLOBAL_DATA_PTR;
 
-#ifndef CONFIG_MVGBE_PORTS
-# define CONFIG_MVGBE_PORTS {0, 0}
-#endif
-
 #define MV_PHY_ADR_REQUEST 0xee
 #define MVGBE_SMI_REG (((struct mvgbe_registers *)MVGBE0_BASE)->smi)
 
-#if defined(CONFIG_PHYLIB) || defined(CONFIG_MII) || defined(CONFIG_CMD_MII)
 /*
  * smi_reg_read - miiphy_read callback function.
  *
  * Returns 16bit phy register value, or 0xffff on error
  */
-static int smi_reg_read(struct mii_dev *bus, int phy_adr, int devad,
-			int reg_ofs)
+static int smi_reg_read(const char *devname, u8 phy_adr, u8 reg_ofs, u16 * data)
 {
-	u16 data = 0;
-	struct eth_device *dev = eth_get_dev_by_name(bus->name);
+	struct eth_device *dev = eth_get_dev_by_name(devname);
 	struct mvgbe_device *dmvgbe = to_mvgbe(dev);
 	struct mvgbe_registers *regs = dmvgbe->regs;
 	u32 smi_reg;
@@ -62,18 +66,18 @@ static int smi_reg_read(struct mii_dev *bus, int phy_adr, int devad,
 	if (phy_adr == MV_PHY_ADR_REQUEST &&
 			reg_ofs == MV_PHY_ADR_REQUEST) {
 		/* */
-		data = (u16) (MVGBE_REG_RD(regs->phyadr) & PHYADR_MASK);
-		return data;
+		*data = (u16) (MVGBE_REG_RD(regs->phyadr) & PHYADR_MASK);
+		return 0;
 	}
 	/* check parameters */
 	if (phy_adr > PHYADR_MASK) {
 		printf("Err..(%s) Invalid PHY address %d\n",
-			__func__, phy_adr);
+			__FUNCTION__, phy_adr);
 		return -EFAULT;
 	}
 	if (reg_ofs > PHYREG_MASK) {
 		printf("Err..(%s) Invalid register offset %d\n",
-			__func__, reg_ofs);
+			__FUNCTION__, reg_ofs);
 		return -EFAULT;
 	}
 
@@ -83,7 +87,7 @@ static int smi_reg_read(struct mii_dev *bus, int phy_adr, int devad,
 		/* read smi register */
 		smi_reg = MVGBE_REG_RD(MVGBE_SMI_REG);
 		if (timeout-- == 0) {
-			printf("Err..(%s) SMI busy timeout\n", __func__);
+			printf("Err..(%s) SMI busy timeout\n", __FUNCTION__);
 			return -EFAULT;
 		}
 	} while (smi_reg & MVGBE_PHY_SMI_BUSY_MASK);
@@ -104,7 +108,7 @@ static int smi_reg_read(struct mii_dev *bus, int phy_adr, int devad,
 		smi_reg = MVGBE_REG_RD(MVGBE_SMI_REG);
 		if (timeout-- == 0) {
 			printf("Err..(%s) SMI read ready timeout\n",
-				__func__);
+				__FUNCTION__);
 			return -EFAULT;
 		}
 	} while (!(smi_reg & MVGBE_PHY_SMI_READ_VALID_MASK));
@@ -113,12 +117,12 @@ static int smi_reg_read(struct mii_dev *bus, int phy_adr, int devad,
 	for (timeout = 0; timeout < MVGBE_PHY_SMI_TIMEOUT; timeout++)
 		;
 
-	data = (u16) (MVGBE_REG_RD(MVGBE_SMI_REG) & MVGBE_PHY_SMI_DATA_MASK);
+	*data = (u16) (MVGBE_REG_RD(MVGBE_SMI_REG) & MVGBE_PHY_SMI_DATA_MASK);
 
-	debug("%s:(adr %d, off %d) value= %04x\n", __func__, phy_adr, reg_ofs,
-	      data);
+	debug("%s:(adr %d, off %d) value= %04x\n", __FUNCTION__, phy_adr,
+		reg_ofs, *data);
 
-	return data;
+	return 0;
 }
 
 /*
@@ -127,10 +131,9 @@ static int smi_reg_read(struct mii_dev *bus, int phy_adr, int devad,
  * Returns 0 if write succeed, -EINVAL on bad parameters
  * -ETIME on timeout
  */
-static int smi_reg_write(struct mii_dev *bus, int phy_adr, int devad,
-			 int reg_ofs, u16 data)
+static int smi_reg_write(const char *devname, u8 phy_adr, u8 reg_ofs, u16 data)
 {
-	struct eth_device *dev = eth_get_dev_by_name(bus->name);
+	struct eth_device *dev = eth_get_dev_by_name(devname);
 	struct mvgbe_device *dmvgbe = to_mvgbe(dev);
 	struct mvgbe_registers *regs = dmvgbe->regs;
 	u32 smi_reg;
@@ -145,11 +148,11 @@ static int smi_reg_write(struct mii_dev *bus, int phy_adr, int devad,
 
 	/* check parameters */
 	if (phy_adr > PHYADR_MASK) {
-		printf("Err..(%s) Invalid phy address\n", __func__);
+		printf("Err..(%s) Invalid phy address\n", __FUNCTION__);
 		return -EINVAL;
 	}
 	if (reg_ofs > PHYREG_MASK) {
-		printf("Err..(%s) Invalid register offset\n", __func__);
+		printf("Err..(%s) Invalid register offset\n", __FUNCTION__);
 		return -EINVAL;
 	}
 
@@ -159,7 +162,7 @@ static int smi_reg_write(struct mii_dev *bus, int phy_adr, int devad,
 		/* read smi register */
 		smi_reg = MVGBE_REG_RD(MVGBE_SMI_REG);
 		if (timeout-- == 0) {
-			printf("Err..(%s) SMI busy timeout\n", __func__);
+			printf("Err..(%s) SMI busy timeout\n", __FUNCTION__);
 			return -ETIME;
 		}
 	} while (smi_reg & MVGBE_PHY_SMI_BUSY_MASK);
@@ -175,26 +178,6 @@ static int smi_reg_write(struct mii_dev *bus, int phy_adr, int devad,
 
 	return 0;
 }
-#endif
-
-#if defined(CONFIG_PHYLIB)
-int mvgbe_phy_read(struct mii_dev *bus, int phy_addr, int dev_addr,
-		   int reg_addr)
-{
-	u16 data;
-	int ret;
-	ret = smi_reg_read(bus->name, phy_addr, reg_addr, &data);
-	if (ret)
-		return ret;
-	return data;
-}
-
-int mvgbe_phy_write(struct mii_dev *bus, int phy_addr, int dev_addr,
-		    int reg_addr, u16 data)
-{
-	return smi_reg_write(bus->name, phy_addr, reg_addr, data);
-}
-#endif
 
 /* Stop and checks all queues */
 static void stop_queue(u32 * qreg)
@@ -427,9 +410,8 @@ static int mvgbe_init(struct eth_device *dev)
 {
 	struct mvgbe_device *dmvgbe = to_mvgbe(dev);
 	struct mvgbe_registers *regs = dmvgbe->regs;
-#if (defined(CONFIG_MII) || defined(CONFIG_CMD_MII)) &&  \
-	!defined(CONFIG_PHYLIB) &&			 \
-	defined(CONFIG_SYS_FAULT_ECHO_LINK_DOWN)
+#if (defined (CONFIG_MII) || defined (CONFIG_CMD_MII)) \
+	 && defined (CONFIG_SYS_FAULT_ECHO_LINK_DOWN)
 	int i;
 #endif
 	/* setup RX rings */
@@ -480,9 +462,8 @@ static int mvgbe_init(struct eth_device *dev)
 	/* Enable port Rx. */
 	MVGBE_REG_WR(regs->rqc, (1 << RXUQ));
 
-#if (defined(CONFIG_MII) || defined(CONFIG_CMD_MII)) && \
-	!defined(CONFIG_PHYLIB) && \
-	defined(CONFIG_SYS_FAULT_ECHO_LINK_DOWN)
+#if (defined (CONFIG_MII) || defined (CONFIG_CMD_MII)) \
+	 && defined (CONFIG_SYS_FAULT_ECHO_LINK_DOWN)
 	/* Wait up to 5s for the link status */
 	for (i = 0; i < 5; i++) {
 		u16 phyadr;
@@ -539,14 +520,14 @@ static int mvgbe_write_hwaddr(struct eth_device *dev)
 	return 0;
 }
 
-static int mvgbe_send(struct eth_device *dev, void *dataptr, int datasize)
+static int mvgbe_send(struct eth_device *dev, void *dataptr,
+		      int datasize)
 {
 	struct mvgbe_device *dmvgbe = to_mvgbe(dev);
 	struct mvgbe_registers *regs = dmvgbe->regs;
 	struct mvgbe_txdesc *p_txdesc = dmvgbe->p_txdesc;
 	void *p = (void *)dataptr;
 	u32 cmd_sts;
-	u32 txuq0_reg_addr;
 
 	/* Copy buffer if it's misaligned */
 	if ((u32) dataptr & 0x07) {
@@ -568,8 +549,7 @@ static int mvgbe_send(struct eth_device *dev, void *dataptr, int datasize)
 	p_txdesc->byte_cnt = datasize;
 
 	/* Set this tc desc as zeroth TXUQ */
-	txuq0_reg_addr = (u32)&regs->tcqdp[TXUQ];
-	writel((u32) p_txdesc, txuq0_reg_addr);
+	MVGBE_REG_WR(regs->tcqdp[TXUQ], (u32) p_txdesc);
 
 	/* ensure tx desc writes above are performed before we start Tx DMA */
 	isb();
@@ -586,7 +566,7 @@ static int mvgbe_send(struct eth_device *dev, void *dataptr, int datasize)
 		if ((cmd_sts & (MVGBE_ERROR_SUMMARY | MVGBE_TX_LAST_FRAME)) ==
 				(MVGBE_ERROR_SUMMARY | MVGBE_TX_LAST_FRAME) &&
 				cmd_sts & (MVGBE_UR_ERROR | MVGBE_RL_ERROR)) {
-			printf("Err..(%s) in xmit packet\n", __func__);
+			printf("Err..(%s) in xmit packet\n", __FUNCTION__);
 			return -1;
 		}
 		cmd_sts = readl(&p_txdesc->cmd_sts);
@@ -600,21 +580,20 @@ static int mvgbe_recv(struct eth_device *dev)
 	struct mvgbe_rxdesc *p_rxdesc_curr = dmvgbe->p_rxdesc_curr;
 	u32 cmd_sts;
 	u32 timeout = 0;
-	u32 rxdesc_curr_addr;
 
 	/* wait untill rx packet available or timeout */
 	do {
 		if (timeout < MVGBE_PHY_SMI_TIMEOUT)
 			timeout++;
 		else {
-			debug("%s time out...\n", __func__);
+			debug("%s time out...\n", __FUNCTION__);
 			return -1;
 		}
 	} while (readl(&p_rxdesc_curr->cmd_sts) & MVGBE_BUFFER_OWNED_BY_DMA);
 
 	if (p_rxdesc_curr->byte_cnt != 0) {
 		debug("%s: Received %d byte Packet @ 0x%x (cmd_sts= %08x)\n",
-			__func__, (u32) p_rxdesc_curr->byte_cnt,
+			__FUNCTION__, (u32) p_rxdesc_curr->byte_cnt,
 			(u32) p_rxdesc_curr->buf_ptr,
 			(u32) p_rxdesc_curr->cmd_sts);
 	}
@@ -631,24 +610,21 @@ static int mvgbe_recv(struct eth_device *dev)
 		!= (MVGBE_RX_FIRST_DESC | MVGBE_RX_LAST_DESC)) {
 
 		printf("Err..(%s) Dropping packet spread on"
-			" multiple descriptors\n", __func__);
+			" multiple descriptors\n", __FUNCTION__);
 
 	} else if (cmd_sts & MVGBE_ERROR_SUMMARY) {
 
 		printf("Err..(%s) Dropping packet with errors\n",
-			__func__);
+			__FUNCTION__);
 
 	} else {
 		/* !!! call higher layer processing */
 		debug("%s: Sending Received packet to"
-		      " upper layer (net_process_received_packet)\n",
-		      __func__);
+			" upper layer (NetReceive)\n", __FUNCTION__);
 
 		/* let the upper layer handle the packet */
-		net_process_received_packet((p_rxdesc_curr->buf_ptr +
-					     RX_BUF_OFFSET),
-					    (int)(p_rxdesc_curr->byte_cnt -
-						  RX_BUF_OFFSET));
+		NetReceive((p_rxdesc_curr->buf_ptr + RX_BUF_OFFSET),
+			(int)(p_rxdesc_curr->byte_cnt - RX_BUF_OFFSET));
 	}
 	/*
 	 * free these descriptors and point next in the ring
@@ -658,56 +634,18 @@ static int mvgbe_recv(struct eth_device *dev)
 	p_rxdesc_curr->buf_size = PKTSIZE_ALIGN;
 	p_rxdesc_curr->byte_cnt = 0;
 
-	rxdesc_curr_addr = (u32)&dmvgbe->p_rxdesc_curr;
-	writel((unsigned)p_rxdesc_curr->nxtdesc_p, rxdesc_curr_addr);
+	writel((unsigned)p_rxdesc_curr->nxtdesc_p,
+		(u32) &dmvgbe->p_rxdesc_curr);
 
 	return 0;
 }
-
-#if defined(CONFIG_PHYLIB)
-int mvgbe_phylib_init(struct eth_device *dev, int phyid)
-{
-	struct mii_dev *bus;
-	struct phy_device *phydev;
-	int ret;
-
-	bus = mdio_alloc();
-	if (!bus) {
-		printf("mdio_alloc failed\n");
-		return -ENOMEM;
-	}
-	bus->read = mvgbe_phy_read;
-	bus->write = mvgbe_phy_write;
-	strcpy(bus->name, dev->name);
-
-	ret = mdio_register(bus);
-	if (ret) {
-		printf("mdio_register failed\n");
-		free(bus);
-		return -ENOMEM;
-	}
-
-	/* Set phy address of the port */
-	mvgbe_phy_write(bus, MV_PHY_ADR_REQUEST, 0, MV_PHY_ADR_REQUEST, phyid);
-
-	phydev = phy_connect(bus, phyid, dev, PHY_INTERFACE_MODE_RGMII);
-	if (!phydev) {
-		printf("phy_connect failed\n");
-		return -ENODEV;
-	}
-
-	phy_config(phydev);
-	phy_startup(phydev);
-
-	return 0;
-}
-#endif
 
 int mvgbe_initialize(bd_t *bis)
 {
 	struct mvgbe_device *dmvgbe;
 	struct eth_device *dev;
 	int devnum;
+	char *s;
 	u8 used_ports[MAX_MVGBE_DEVS] = CONFIG_MVGBE_PORTS;
 
 	for (devnum = 0; devnum < MAX_MVGBE_DEVS; devnum++) {
@@ -753,28 +691,50 @@ error2:
 			free(dmvgbe);
 error1:
 			printf("Err.. %s Failed to allocate memory\n",
-				__func__);
+				__FUNCTION__);
 			return -1;
 		}
 
 		dev = &dmvgbe->dev;
 
-		/* must be less than sizeof(dev->name) */
+		/* must be less than NAMESIZE (16) */
 		sprintf(dev->name, "egiga%d", devnum);
 
+		/* Extract the MAC address from the environment */
 		switch (devnum) {
 		case 0:
 			dmvgbe->regs = (void *)MVGBE0_BASE;
+			s = "ethaddr";
 			break;
 #if defined(MVGBE1_BASE)
 		case 1:
 			dmvgbe->regs = (void *)MVGBE1_BASE;
+			s = "eth1addr";
 			break;
 #endif
 		default:	/* this should never happen */
 			printf("Err..(%s) Invalid device number %d\n",
-				__func__, devnum);
+				__FUNCTION__, devnum);
 			return -1;
+		}
+
+		while (!eth_getenv_enetaddr(s, dev->enetaddr)) {
+			/* Generate Private MAC addr if not set */
+			dev->enetaddr[0] = 0x02;
+			dev->enetaddr[1] = 0x50;
+			dev->enetaddr[2] = 0x43;
+#if defined (CONFIG_SKIP_LOCAL_MAC_RANDOMIZATION)
+			/* Generate fixed lower MAC half using devnum */
+			dev->enetaddr[3] = 0;
+			dev->enetaddr[4] = 0;
+			dev->enetaddr[5] = devnum;
+#else
+			/* Generate random lower MAC half */
+			dev->enetaddr[3] = get_random_hex();
+			dev->enetaddr[4] = get_random_hex();
+			dev->enetaddr[5] = get_random_hex();
+#endif
+			eth_setenv_enetaddr(s, dev->enetaddr);
 		}
 
 		dev->init = (void *)mvgbe_init;
@@ -785,20 +745,8 @@ error1:
 
 		eth_register(dev);
 
-#if defined(CONFIG_PHYLIB)
-		mvgbe_phylib_init(dev, PHY_BASE_ADR + devnum);
-#elif defined(CONFIG_MII) || defined(CONFIG_CMD_MII)
-		int retval;
-		struct mii_dev *mdiodev = mdio_alloc();
-		if (!mdiodev)
-			return -ENOMEM;
-		strncpy(mdiodev->name, dev->name, MDIO_NAME_LEN);
-		mdiodev->read = smi_reg_read;
-		mdiodev->write = smi_reg_write;
-
-		retval = mdio_register(mdiodev);
-		if (retval < 0)
-			return retval;
+#if defined(CONFIG_MII) || defined(CONFIG_CMD_MII)
+		miiphy_register(dev->name, smi_reg_read, smi_reg_write);
 		/* Set phy address of the port */
 		miiphy_write(dev->name, MV_PHY_ADR_REQUEST,
 				MV_PHY_ADR_REQUEST, PHY_BASE_ADR + devnum);

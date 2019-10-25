@@ -5,17 +5,44 @@
  * (C) Copyright 2004, Psyent Corporation <www.psyent.com>
  * Scott McNutt <smcnutt@psyent.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
-#include <common.h>
-#include <command.h>
-#include <asm/nios2.h>
+
+#include <nios2.h>
+#include <nios2-io.h>
 #include <asm/types.h>
 #include <asm/io.h>
 #include <asm/ptrace.h>
+#include <common.h>
+#include <command.h>
+#include <watchdog.h>
+#ifdef CONFIG_STATUS_LED
+#include <status_led.h>
+#endif
 
-/*************************************************************************/
+#if defined(CONFIG_SYS_NIOS_TMRBASE) && !defined(CONFIG_SYS_NIOS_TMRIRQ)
+#error CONFIG_SYS_NIOS_TMRIRQ not defined (see documentation)
+#endif
+
+/****************************************************************************/
+
 struct	irq_action {
 	interrupt_handler_t *handler;
 	void *arg;
@@ -24,6 +51,90 @@ struct	irq_action {
 
 static struct irq_action vecs[32];
 
+/*************************************************************************/
+volatile ulong timestamp = 0;
+
+void reset_timer (void)
+{
+	nios_timer_t *tmr =(nios_timer_t *)CONFIG_SYS_NIOS_TMRBASE;
+
+	/* From Embedded Peripherals Handbook:
+	 *
+	 * "When the hardware is configured with Writeable period
+	 * disabled, writing to one of the period_n registers causes
+	 * the counter to reset to the fixed Timeout Period specified
+	 * at system generation time."
+	 *
+	 * Here we force a reload to prevent early timeouts from
+	 * get_timer() when the interrupt period is greater than
+	 * than 1 msec.
+	 *
+	 * Simply write to periodl with its own value to force an
+	 * internal counter reload, THEN reset the timestamp.
+	 */
+	writel (readl (&tmr->periodl), &tmr->periodl);
+	timestamp = 0;
+
+	/* From Embedded Peripherals Handbook:
+	 *
+	 * "Writing to one of the period_n registers stops the internal
+	 * counter, except when the hardware is configured with Start/Stop
+	 * control bits off. If Start/Stop control bits is off, writing
+	 * either register does not stop the counter."
+	 *
+	 * In order to accomodate either configuration, the control
+	 * register is re-written. If the counter is stopped, it will
+	 * be restarted. If it is running, the write is essentially
+	 * a nop.
+	 */
+	writel (NIOS_TIMER_ITO | NIOS_TIMER_CONT | NIOS_TIMER_START,
+			&tmr->control);
+
+}
+
+ulong get_timer (ulong base)
+{
+	WATCHDOG_RESET ();
+	return (timestamp - base);
+}
+
+/* The board must handle this interrupt if a timer is not
+ * provided.
+ */
+#if defined(CONFIG_SYS_NIOS_TMRBASE)
+void tmr_isr (void *arg)
+{
+	nios_timer_t *tmr = (nios_timer_t *)arg;
+	/* Interrupt is cleared by writing anything to the
+	 * status register.
+	 */
+	writel (0, &tmr->status);
+	timestamp += CONFIG_SYS_NIOS_TMRMS;
+#ifdef CONFIG_STATUS_LED
+	status_led_tick(timestamp);
+#endif
+}
+
+static void tmr_init (void)
+{
+	nios_timer_t *tmr =(nios_timer_t *)CONFIG_SYS_NIOS_TMRBASE;
+
+	writel (0, &tmr->status);
+	writel (0, &tmr->control);
+	writel (NIOS_TIMER_STOP, &tmr->control);
+
+#if defined(CONFIG_SYS_NIOS_TMRCNT)
+	writel (CONFIG_SYS_NIOS_TMRCNT & 0xffff, &tmr->periodl);
+	writel ((CONFIG_SYS_NIOS_TMRCNT >> 16) & 0xffff, &tmr->periodh);
+#endif
+	writel (NIOS_TIMER_ITO | NIOS_TIMER_CONT | NIOS_TIMER_START,
+			&tmr->control);
+	irq_install_handler (CONFIG_SYS_NIOS_TMRIRQ, tmr_isr, (void *)tmr);
+}
+
+#endif /* CONFIG_SYS_NIOS_TMRBASE */
+
+/*************************************************************************/
 int disable_interrupts (void)
 {
 	int val = rdctl (CTL_STATUS);
@@ -110,6 +221,10 @@ int interrupt_init (void)
 		vecs[i].arg = (void *)i;
 		vecs[i].count = 0;
 	}
+
+#if defined(CONFIG_SYS_NIOS_TMRBASE)
+	tmr_init ();
+#endif
 
 	enable_interrupts ();
 	return (0);

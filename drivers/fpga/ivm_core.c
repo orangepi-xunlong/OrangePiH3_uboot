@@ -26,7 +26,23 @@
  * 08/28/08 NN Added Calculate checksum support.
  * 4/1/09 Nguyen replaced the recursive function call codes on
  *        the ispVMLCOUNT function
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -2086,6 +2102,7 @@ signed char ispVMLCOUNT(unsigned short a_usCountSize)
 	unsigned char ucState             = 0;
 	unsigned short usDelay            = 0;
 	unsigned short usToggle           = 0;
+	unsigned char usByte              = 0;
 
 	g_usIntelBufferSize = (unsigned short)ispVMDataSize();
 
@@ -2154,6 +2171,7 @@ signed char ispVMLCOUNT(unsigned short a_usCountSize)
 		ucState            = 0;
 		usDelay            = 0;
 		usToggle           = 0;
+		usByte             = 0;
 		usContinue		   = 1;
 
 		/*

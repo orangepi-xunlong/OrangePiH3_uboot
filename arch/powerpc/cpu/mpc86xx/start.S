@@ -1,8 +1,24 @@
 /*
- * Copyright 2004, 2007, 2011 Freescale Semiconductor.
+ * Copyright 2004, 2007 Freescale Semiconductor.
  * Srikanth Srinivasan <srikanth.srinivaan@freescale.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*  U-Boot - Startup Code for 86xx PowerPC based Embedded Boards
@@ -45,7 +61,7 @@
 	GOT_ENTRY(transfer_to_handler)
 
 	GOT_ENTRY(__init_end)
-	GOT_ENTRY(__bss_end)
+	GOT_ENTRY(__bss_end__)
 	GOT_ENTRY(__bss_start)
 	END_GOT
 
@@ -273,7 +289,6 @@ diag_done:
 /*	bl	l2cache_enable */
 
 	/* run 1st part of board init code (from Flash)	  */
-	li	r3, 0		/* clear boot_flag for calling board_init_f */
 	bl	board_init_f
 	sync
 
@@ -306,73 +321,6 @@ invalidate_bats:
 	isync
 	sync
 	blr
-
-#define CONFIG_BAT_PAIR(n) \
-	lis	r4, CONFIG_SYS_IBAT##n##L@h; 		\
-	ori	r4, r4, CONFIG_SYS_IBAT##n##L@l; 	\
-	lis	r3, CONFIG_SYS_IBAT##n##U@h; 		\
-	ori	r3, r3, CONFIG_SYS_IBAT##n##U@l; 	\
-	mtspr	IBAT##n##L, r4; 			\
-	mtspr	IBAT##n##U, r3; 			\
-	lis	r4, CONFIG_SYS_DBAT##n##L@h; 		\
-	ori	r4, r4, CONFIG_SYS_DBAT##n##L@l; 	\
-	lis	r3, CONFIG_SYS_DBAT##n##U@h; 		\
-	ori	r3, r3, CONFIG_SYS_DBAT##n##U@l; 	\
-	mtspr	DBAT##n##L, r4;				\
-	mtspr	DBAT##n##U, r3;
-
-/*
- * setup_bats:
- *
- * Set up the final BAT registers now that setup is done.
- *
- * Assumes that:
- *	1) Address translation is enabled upon entry
- *	2) The boot rom is still accessible via 1:1 translation
- */
-	.globl setup_bats
-setup_bats:
-	mflr	r5
-	sync
-
-	/*
-	 * When we disable address translation, we will get 1:1 (VA==PA)
-	 * translation.  The only place we know for sure is safe for that is
-	 * the bootrom where we originally started out.  Pop back into there.
-	 */
-	lis	r4, CONFIG_SYS_MONITOR_BASE_EARLY@h
-	ori	r4, r4, CONFIG_SYS_MONITOR_BASE_EARLY@l
-	addi	r4, r4, trans_disabled - _start + EXC_OFF_SYS_RESET
-
-	/* disable address translation */
-	mfmsr	r3
-	rlwinm	r3, r3, 0, 28, 25
-	mtspr	SRR0, r4
-	mtspr	SRR1, r3
-	rfi
-
-trans_disabled:
-#if defined(CONFIG_SYS_DBAT0U) && defined(CONFIG_SYS_DBAT0L) \
-	&& defined(CONFIG_SYS_IBAT0U) && defined(CONFIG_SYS_IBAT0L)
-	CONFIG_BAT_PAIR(0)
-#endif
-	CONFIG_BAT_PAIR(1)
-	CONFIG_BAT_PAIR(2)
-	CONFIG_BAT_PAIR(3)
-	CONFIG_BAT_PAIR(4)
-	CONFIG_BAT_PAIR(5)
-	CONFIG_BAT_PAIR(6)
-	CONFIG_BAT_PAIR(7)
-
-	sync
-	isync
-
-	/* Turn translation back on and return */
-	mfmsr	r3
-	ori	r3, r3, (MSR_IR | MSR_DR)
-	mtspr	SPRN_SRR0,r5
-	mtspr	SPRN_SRR1,r3
-	rfi
 
 /*
  * early_bats:
@@ -785,7 +733,7 @@ in_ram:
 	 * Now clear BSS segment
 	 */
 	lwz	r3,GOT(__bss_start)
-	lwz	r4,GOT(__bss_end)
+	lwz	r4,GOT(__bss_end__)
 
 	cmplw	0, r3, r4
 	beq	6f

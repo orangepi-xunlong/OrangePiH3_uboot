@@ -1,5 +1,5 @@
 /*
- * U-Boot - Configuration file for BF548 STAMP board
+ * U-boot - Configuration file for BF548 STAMP board
  */
 
 #ifndef __CONFIG_BF548_EZKIT_H__
@@ -7,11 +7,13 @@
 
 #include <asm/config-pre.h>
 
+
 /*
  * Processor Settings
  */
 #define CONFIG_BFIN_CPU             bf548-0.0
 #define CONFIG_BFIN_BOOT_MODE       BFIN_BOOT_PARA
+
 
 /*
  * Clock Settings
@@ -35,6 +37,7 @@
 /* SCLK_DIV controls the system clock divider				*/
 /* Values can range from 1-15						*/
 #define CONFIG_SCLK_DIV			4
+
 
 /*
  * Memory Settings
@@ -61,14 +64,19 @@
 #define CONFIG_SYS_MONITOR_LEN	(1024 * 1024)
 #define CONFIG_SYS_MALLOC_LEN	(768 * 1024)
 
+
 /*
  * Network Settings
  */
 #define ADI_CMDS_NETWORK	1
+#define CONFIG_NET_MULTI
 #define CONFIG_SMC911X	1
 #define CONFIG_SMC911X_BASE	0x24000000
 #define CONFIG_SMC911X_16_BIT
 #define CONFIG_HOSTNAME		bf548-ezkit
+/* Uncomment next line to use fixed MAC address */
+/* #define CONFIG_ETHADDR	02:80:ad:20:31:e8 */
+
 
 /*
  * Flash Settings
@@ -80,12 +88,16 @@
 #define CONFIG_SYS_MAX_FLASH_BANKS	1
 #define CONFIG_SYS_MAX_FLASH_SECT	259
 
+
 /*
  * SPI Settings
  */
 #define CONFIG_BFIN_SPI
 #define CONFIG_ENV_SPI_MAX_HZ	30000000
 #define CONFIG_SF_DEFAULT_SPEED	30000000
+#define CONFIG_SPI_FLASH
+#define CONFIG_SPI_FLASH_STMICRO
+
 
 /*
  * Env Storage Settings
@@ -109,22 +121,26 @@
 #define CONFIG_ENV_SECT_SIZE	0x8000
 #endif
 
+
 /*
  * NAND Settings
  */
+#define CONFIG_BFIN_NFC_CTL_VAL	0x0033
 #if (CONFIG_BFIN_BOOT_MODE == BFIN_BOOT_NAND)
-#define CONFIG_BFIN_NFC_CTL_VAL        0x0033
-#define CONFIG_BFIN_NFC_BOOTROM_ECC
-#define CONFIG_DRIVER_NAND_BFIN
-#define CONFIG_SYS_NAND_BASE           0 /* not actually used */
-#define CONFIG_SYS_MAX_NAND_DEVICE     1
+# define CONFIG_BFIN_NFC_BOOTROM_ECC
 #endif
+#define CONFIG_DRIVER_NAND_BFIN
+#define CONFIG_SYS_NAND_BASE		0 /* not actually used */
+#define CONFIG_SYS_MAX_NAND_DEVICE	1
+#define NAND_MAX_CHIPS		1
+
 
 /*
  * I2C Settings
  */
-#define CONFIG_SYS_I2C
-#define CONFIG_SYS_I2C_ADI
+#define CONFIG_BFIN_TWI_I2C	1
+#define CONFIG_HARD_I2C		1
+
 
 /*
  * SATA
@@ -138,6 +154,7 @@
 #define CONFIG_BFIN_ATA_MODE	XFER_PIO_4
 #endif
 
+
 /*
  * SDH Settings
  */
@@ -147,14 +164,18 @@
 #define CONFIG_BFIN_SDH
 #endif
 
+
 /*
  * USB Settings
  */
 #if !defined(__ADSPBF544__)
-#define CONFIG_USB_MUSB_HCD
+#define CONFIG_USB
+#define CONFIG_MUSB_HCD
 #define CONFIG_USB_BLACKFIN
-#define CONFIG_USB_MUSB_TIMEOUT 100000
+#define CONFIG_USB_STORAGE
+#define CONFIG_MUSB_TIMEOUT 100000
 #endif
+
 
 /*
  * Misc Settings
@@ -165,26 +186,21 @@
 #define CONFIG_UART_CONSOLE	1
 #define CONFIG_BFIN_SPI_IMG_SIZE 0x50000
 
-#define CONFIG_ADI_GPIO2
-
-#undef CONFIG_VIDEO
-#ifdef CONFIG_VIDEO
-#define EASYLOGO_HEADER < asm/bfin_logo_230x230_gzip.h >
-#define CONFIG_DEB_DMA_URGENT
+#ifndef __ADSPBF542__
+/* Don't waste time transferring a logo over the UART */
+# if (CONFIG_BFIN_BOOT_MODE != BFIN_BOOT_UART)
+#  define CONFIG_VIDEO
+# endif
+# define CONFIG_DEB_DMA_URGENT
 #endif
 
 /* Define if want to do post memory test */
 #undef CONFIG_POST
 #ifdef CONFIG_POST
-#define CONFIG_POST_BSPEC1_GPIO_LEDS \
-	GPIO_PG6, GPIO_PG7, GPIO_PG8, GPIO_PG9, GPIO_PG10, GPIO_PG11,
-#define CONFIG_POST_BSPEC2_GPIO_BUTTONS \
-	GPIO_PB8, GPIO_PB9, GPIO_PB10, GPIO_PB11
-#define CONFIG_POST_BSPEC2_GPIO_NAMES \
-	13, 12, 11, 10,
-#define CONFIG_SYS_POST_FLASH_START	10
-#define CONFIG_SYS_POST_FLASH_END	127
+#define FLASH_START_POST_BLOCK 11       /* Should > = 11 */
+#define FLASH_END_POST_BLOCK   71       /* Should < = 71 */
 #endif
+
 
 /*
  * Pull in common ADI header for remaining command/environment setup

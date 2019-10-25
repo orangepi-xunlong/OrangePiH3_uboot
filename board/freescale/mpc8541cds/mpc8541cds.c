@@ -1,9 +1,25 @@
 /*
- * Copyright 2004, 2011 Freescale Semiconductor.
+ * Copyright 2004 Freescale Semiconductor.
  *
  * (C) Copyright 2002 Scott McNutt <smcnutt@artesyncp.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -11,7 +27,7 @@
 #include <asm/processor.h>
 #include <asm/mmu.h>
 #include <asm/immap_85xx.h>
-#include <fsl_ddr_sdram.h>
+#include <asm/fsl_ddr_sdram.h>
 #include <ioports.h>
 #include <spd_sdram.h>
 #include <libfdt.h>
@@ -184,7 +200,6 @@ const iop_conf_t iop_conf_tab[4][32] = {
 int checkboard (void)
 {
 	volatile ccsr_gur_t *gur = (void *)(CONFIG_SYS_MPC85xx_GUTS_ADDR);
-	char buf[32];
 
 	/* PCI slot in USER bits CSR[6:7] by convention. */
 	uint pci_slot = get_pci_slot ();
@@ -207,7 +222,8 @@ int checkboard (void)
 
 	printf("PCI1: %d bit, %s MHz, %s\n",
 		(pci1_32) ? 32 : 64,
-		strmhz(buf, pci1_speed),
+		(pci1_speed == 33000000) ? "33" :
+		(pci1_speed == 66000000) ? "66" : "unknown",
 		pci1_clk_sel ? "sync" : "async");
 
 	if (pci_dual) {
@@ -250,16 +266,16 @@ local_bus_init(void)
 
 	get_sys_info(&sysinfo);
 	clkdiv = lbc->lcrr & LCRR_CLKDIV;
-	lbc_hz = sysinfo.freq_systembus / 1000000 / clkdiv;
+	lbc_hz = sysinfo.freqSystemBus / 1000000 / clkdiv;
 
 	if (lbc_hz < 66) {
-		lbc->lcrr |= LCRR_DBYP;	/* DLL Bypass */
+		lbc->lcrr |= 0x80000000;	/* DLL Bypass */
 
 	} else if (lbc_hz >= 133) {
-		lbc->lcrr &= (~LCRR_DBYP);		/* DLL Enabled */
+		lbc->lcrr &= (~0x80000000);		/* DLL Enabled */
 
 	} else {
-		lbc->lcrr &= (~LCRR_DBYP);	/* DLL Enabled */
+		lbc->lcrr &= (~0x8000000);	/* DLL Enabled */
 		udelay(200);
 
 		/*

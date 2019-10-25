@@ -1,8 +1,6 @@
 #ifndef _ASM_IO_H
 #define _ASM_IO_H
 
-#include <linux/compiler.h>
-
 /*
  * This file contains the definitions for the x86 IO instructions
  * inb/inw/inl/outb/outw/outl and the "string versions" of the same
@@ -38,8 +36,6 @@
 
 #define IO_SPACE_LIMIT 0xffff
 
-#include <asm/types.h>
-
 
 #ifdef __KERNEL__
 
@@ -68,55 +64,6 @@
 #define memset_io(a,b,c)	memset((a),(b),(c))
 #define memcpy_fromio(a,b,c)	memcpy((a),(b),(c))
 #define memcpy_toio(a,b,c)	memcpy((a),(b),(c))
-
-#define write_arch(type, endian, a, v) __raw_write##type(cpu_to_##endian(v), a)
-#define read_arch(type, endian, a) endian##_to_cpu(__raw_read##type(a))
-
-#define write_le64(a, v)	write_arch(q, le64, a, v)
-#define write_le32(a, v)	write_arch(l, le32, a, v)
-#define write_le16(a, v)	write_arch(w, le16, a, v)
-
-#define read_le64(a)	read_arch(q, le64, a)
-#define read_le32(a)	read_arch(l, le32, a)
-#define read_le16(a)	read_arch(w, le16, a)
-
-#define write_be32(a, v)	write_arch(l, be32, a, v)
-#define write_be16(a, v)	write_arch(w, be16, a, v)
-
-#define read_be32(a)	read_arch(l, be32, a)
-#define read_be16(a)	read_arch(w, be16, a)
-
-#define write_8(a, v)	__raw_writeb(v, a)
-#define read_8(a)	__raw_readb(a)
-
-#define clrbits(type, addr, clear) \
-	write_##type((addr), read_##type(addr) & ~(clear))
-
-#define setbits(type, addr, set) \
-	write_##type((addr), read_##type(addr) | (set))
-
-#define clrsetbits(type, addr, clear, set) \
-	write_##type((addr), (read_##type(addr) & ~(clear)) | (set))
-
-#define clrbits_be32(addr, clear) clrbits(be32, addr, clear)
-#define setbits_be32(addr, set) setbits(be32, addr, set)
-#define clrsetbits_be32(addr, clear, set) clrsetbits(be32, addr, clear, set)
-
-#define clrbits_le32(addr, clear) clrbits(le32, addr, clear)
-#define setbits_le32(addr, set) setbits(le32, addr, set)
-#define clrsetbits_le32(addr, clear, set) clrsetbits(le32, addr, clear, set)
-
-#define clrbits_be16(addr, clear) clrbits(be16, addr, clear)
-#define setbits_be16(addr, set) setbits(be16, addr, set)
-#define clrsetbits_be16(addr, clear, set) clrsetbits(be16, addr, clear, set)
-
-#define clrbits_le16(addr, clear) clrbits(le16, addr, clear)
-#define setbits_le16(addr, set) setbits(le16, addr, set)
-#define clrsetbits_le16(addr, clear, set) clrsetbits(le16, addr, clear, set)
-
-#define clrbits_8(addr, clear) clrbits(8, addr, clear)
-#define setbits_8(addr, set) setbits(8, addr, set)
-#define clrsetbits_8(addr, clear, set) clrsetbits(8, addr, clear, set)
 
 /*
  * ISA space is 'always mapped' on a typical x86 system, no need to
@@ -188,7 +135,7 @@ out:
 #ifdef SLOW_IO_BY_JUMPING
 #define __SLOW_DOWN_IO "\njmp 1f\n1:\tjmp 1f\n1:"
 #else
-#define __SLOW_DOWN_IO "\noutb %%al,$0xed"
+#define __SLOW_DOWN_IO "\noutb %%al,$0x80"
 #endif
 
 #ifdef REALLY_SLOW_IO
@@ -202,7 +149,7 @@ out:
  * Talk about misusing macros..
  */
 #define __OUT1(s,x) \
-static inline void _out##s(unsigned x value, unsigned short port) {
+static inline void out##s(unsigned x value, unsigned short port) {
 
 #define __OUT2(s,s1,s2) \
 __asm__ __volatile__ ("out" #s " %" s1 "0,%" s2 "1"
@@ -213,7 +160,7 @@ __OUT1(s,x) __OUT2(s,s1,"w") : : "a" (value), "Nd" (port)); } \
 __OUT1(s##_p,x) __OUT2(s,s1,"w") __FULL_SLOW_DOWN_IO : : "a" (value), "Nd" (port));}
 
 #define __IN1(s) \
-static inline RETURN_TYPE _in##s(unsigned short port) { RETURN_TYPE _v;
+static inline RETURN_TYPE in##s(unsigned short port) { RETURN_TYPE _v;
 
 #define __IN2(s,s1,s2) \
 __asm__ __volatile__ ("in" #s " %" s2 "1,%" s1 "0"
@@ -242,17 +189,9 @@ __IN(w,"")
 __IN(l,"")
 #undef RETURN_TYPE
 
-#define inb(port)	_inb((uintptr_t)(port))
-#define inw(port)	_inw((uintptr_t)(port))
-#define inl(port)	_inl((uintptr_t)(port))
-
 __OUT(b,"b",char)
 __OUT(w,"w",short)
 __OUT(l,,int)
-
-#define outb(val, port)	_outb(val, (uintptr_t)(port))
-#define outw(val, port)	_outw(val, (uintptr_t)(port))
-#define outl(val, port)	_outl(val, (uintptr_t)(port))
 
 __INS(b)
 __INS(w)
@@ -261,28 +200,6 @@ __INS(l)
 __OUTS(b)
 __OUTS(w)
 __OUTS(l)
-
-/* IO space accessors */
-#define clrio(type, addr, clear) \
-	out##type(in##type(addr) & ~(clear), (addr))
-
-#define setio(type, addr, set) \
-	out##type(in##type(addr) | (set), (addr))
-
-#define clrsetio(type, addr, clear, set) \
-	out##type((in##type(addr) & ~(clear)) | (set), (addr))
-
-#define clrio_32(addr, clear) clrio(l, addr, clear)
-#define clrio_16(addr, clear) clrio(w, addr, clear)
-#define clrio_8(addr, clear) clrio(b, addr, clear)
-
-#define setio_32(addr, set) setio(l, addr, set)
-#define setio_16(addr, set) setio(w, addr, set)
-#define setio_8(addr, set) setio(b, addr, set)
-
-#define clrsetio_32(addr, clear, set) clrsetio(l, addr, clear, set)
-#define clrsetio_16(addr, clear, set) clrsetio(w, addr, clear, set)
-#define clrsetio_8(addr, clear, set) clrsetio(b, addr, clear, set)
 
 static inline void sync(void)
 {
@@ -301,7 +218,7 @@ static inline void sync(void)
 static inline void *
 map_physmem(phys_addr_t paddr, unsigned long len, unsigned long flags)
 {
-	return (void *)(uintptr_t)paddr;
+	return (void *)paddr;
 }
 
 /*
@@ -314,15 +231,7 @@ static inline void unmap_physmem(void *vaddr, unsigned long flags)
 
 static inline phys_addr_t virt_to_phys(void * vaddr)
 {
-	return (phys_addr_t)(uintptr_t)(vaddr);
+	return (phys_addr_t)(vaddr);
 }
-
-/*
- * TODO: The kernel offers some more advanced versions of barriers, it might
- * have some advantages to use them instead of the simple one here.
- */
-#define dmb()		__asm__ __volatile__ ("" : : : "memory")
-#define __iormb()	dmb()
-#define __iowmb()	dmb()
 
 #endif

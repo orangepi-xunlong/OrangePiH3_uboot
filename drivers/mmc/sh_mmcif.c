@@ -3,7 +3,9 @@
  *
  * Copyright (C)  2011 Renesas Solutions Corp.
  *
- * SPDX-License-Identifier:	GPL-2.0
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License.
  */
 
 #include <config.h>
@@ -17,6 +19,11 @@
 #include "sh_mmcif.h"
 
 #define DRIVER_NAME	"sh_mmcif"
+
+static void *mmc_priv(struct mmc *mmc)
+{
+	return (void *)mmc->priv;
+}
 
 static int sh_mmcif_intr(void *dev_id)
 {
@@ -101,18 +108,20 @@ static int mmcif_wait_interrupt_flag(struct sh_mmcif_host *host)
 
 static void sh_mmcif_clock_control(struct sh_mmcif_host *host, unsigned int clk)
 {
+	int i;
+
 	sh_mmcif_bitclr(CLK_ENABLE, &host->regs->ce_clk_ctrl);
 	sh_mmcif_bitclr(CLK_CLEAR, &host->regs->ce_clk_ctrl);
 
 	if (!clk)
 		return;
-
-	if (clk == CLKDEV_EMMC_DATA)
+	if (clk == CLKDEV_EMMC_DATA) {
 		sh_mmcif_bitset(CLK_PCLK, &host->regs->ce_clk_ctrl);
-	else
-		sh_mmcif_bitset((fls(DIV_ROUND_UP(host->clk,
-						  clk) - 1) - 1) << 16,
-				&host->regs->ce_clk_ctrl);
+	} else {
+		for (i = 1; (unsigned int)host->clk / (1 << i) >= clk; i++)
+			;
+		sh_mmcif_bitset((i - 1) << 16, &host->regs->ce_clk_ctrl);
+	}
 	sh_mmcif_bitset(CLK_ENABLE, &host->regs->ce_clk_ctrl);
 }
 
@@ -168,7 +177,7 @@ static int sh_mmcif_error_manage(struct sh_mmcif_host *host)
 	if (state2 & STS2_CRC_ERR)
 		ret = -EILSEQ;
 	else if (state2 & STS2_TIMEOUT_ERR)
-		ret = -ETIMEDOUT;
+		ret = TIMEOUT;
 	else
 		ret = -EILSEQ;
 	return ret;
@@ -483,7 +492,7 @@ static int sh_mmcif_start_cmd(struct sh_mmcif_host *host,
 		case MMC_CMD_ALL_SEND_CID:
 		case MMC_CMD_SELECT_CARD:
 		case MMC_CMD_APP_CMD:
-			ret = -ETIMEDOUT;
+			ret = TIMEOUT;
 			break;
 		default:
 			printf(DRIVER_NAME": Cmd(d'%d) err\n", cmd->cmdidx);
@@ -513,21 +522,21 @@ static int sh_mmcif_start_cmd(struct sh_mmcif_host *host,
 static int sh_mmcif_request(struct mmc *mmc, struct mmc_cmd *cmd,
 			    struct mmc_data *data)
 {
-	struct sh_mmcif_host *host = mmc->priv;
+	struct sh_mmcif_host *host = mmc_priv(mmc);
 	int ret;
 
 	WATCHDOG_RESET();
 
 	switch (cmd->cmdidx) {
 	case MMC_CMD_APP_CMD:
-		return -ETIMEDOUT;
+		return TIMEOUT;
 	case MMC_CMD_SEND_EXT_CSD: /* = SD_SEND_IF_COND (8) */
 		if (data)
 			/* ext_csd */
 			break;
 		else
 			/* send_if_cond cmd (not support) */
-			return -ETIMEDOUT;
+			return TIMEOUT;
 	default:
 		break;
 	}
@@ -541,7 +550,7 @@ static int sh_mmcif_request(struct mmc *mmc, struct mmc_cmd *cmd,
 
 static void sh_mmcif_set_ios(struct mmc *mmc)
 {
-	struct sh_mmcif_host *host = mmc->priv;
+	struct sh_mmcif_host *host = mmc_priv(mmc);
 
 	if (mmc->clock)
 		sh_mmcif_clock_control(host, mmc->clock);
@@ -558,49 +567,42 @@ static void sh_mmcif_set_ios(struct mmc *mmc)
 
 static int sh_mmcif_init(struct mmc *mmc)
 {
-	struct sh_mmcif_host *host = mmc->priv;
+	struct sh_mmcif_host *host = mmc_priv(mmc);
 
 	sh_mmcif_sync_reset(host);
 	sh_mmcif_write(MASK_ALL, &host->regs->ce_int_mask);
 	return 0;
 }
 
-static const struct mmc_ops sh_mmcif_ops = {
-	.send_cmd	= sh_mmcif_request,
-	.set_ios	= sh_mmcif_set_ios,
-	.init		= sh_mmcif_init,
-};
-
-static struct mmc_config sh_mmcif_cfg = {
-	.name		= DRIVER_NAME,
-	.ops		= &sh_mmcif_ops,
-	.host_caps	= MMC_MODE_HS | MMC_MODE_HS_52MHz | MMC_MODE_4BIT |
-			  MMC_MODE_8BIT,
-	.voltages	= MMC_VDD_32_33 | MMC_VDD_33_34,
-	.b_max		= CONFIG_SYS_MMC_MAX_BLK_COUNT,
-};
-
 int mmcif_mmc_init(void)
 {
+	int ret = 0;
 	struct mmc *mmc;
 	struct sh_mmcif_host *host = NULL;
 
+	mmc = malloc(sizeof(struct mmc));
+	if (!mmc)
+		ret = -ENOMEM;
+	memset(mmc, 0, sizeof(*mmc));
 	host = malloc(sizeof(struct sh_mmcif_host));
 	if (!host)
-		return -ENOMEM;
+		ret = -ENOMEM;
 	memset(host, 0, sizeof(*host));
 
+	mmc->f_min = CLKDEV_MMC_INIT;
+	mmc->f_max = CLKDEV_EMMC_DATA;
+	mmc->voltages = MMC_VDD_32_33 | MMC_VDD_33_34;
+	mmc->host_caps = MMC_MODE_HS | MMC_MODE_HS_52MHz | MMC_MODE_4BIT |
+			 MMC_MODE_8BIT;
+	memcpy(mmc->name, DRIVER_NAME, sizeof(DRIVER_NAME));
+	mmc->send_cmd = sh_mmcif_request;
+	mmc->set_ios = sh_mmcif_set_ios;
+	mmc->init = sh_mmcif_init;
 	host->regs = (struct sh_mmcif_regs *)CONFIG_SH_MMCIF_ADDR;
 	host->clk = CONFIG_SH_MMCIF_CLK;
+	mmc->priv = host;
 
-	sh_mmcif_cfg.f_min = MMC_CLK_DIV_MIN(host->clk);
-	sh_mmcif_cfg.f_max = MMC_CLK_DIV_MAX(host->clk);
+	mmc_register(mmc);
 
-	mmc = mmc_create(&sh_mmcif_cfg, host);
-	if (mmc == NULL) {
-		free(host);
-		return -ENOMEM;
-	}
-
-	return 0;
+	return ret;
 }

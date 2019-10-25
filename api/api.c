@@ -3,7 +3,24 @@
  *
  * Written by: Rafal Jaworowski <raj@semihalf.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
  */
 
 #include <config.h>
@@ -52,7 +69,7 @@ static int API_getc(va_list ap)
 {
 	int *c;
 
-	if ((c = (int *)va_arg(ap, uintptr_t)) == NULL)
+	if ((c = (int *)va_arg(ap, u_int32_t)) == NULL)
 		return API_EINVAL;
 
 	*c = getc();
@@ -68,7 +85,7 @@ static int API_tstc(va_list ap)
 {
 	int *t;
 
-	if ((t = (int *)va_arg(ap, uintptr_t)) == NULL)
+	if ((t = (int *)va_arg(ap, u_int32_t)) == NULL)
 		return API_EINVAL;
 
 	*t = tstc();
@@ -84,7 +101,7 @@ static int API_putc(va_list ap)
 {
 	char *c;
 
-	if ((c = (char *)va_arg(ap, uintptr_t)) == NULL)
+	if ((c = (char *)va_arg(ap, u_int32_t)) == NULL)
 		return API_EINVAL;
 
 	putc(*c);
@@ -100,7 +117,7 @@ static int API_puts(va_list ap)
 {
 	char *s;
 
-	if ((s = (char *)va_arg(ap, uintptr_t)) == NULL)
+	if ((s = (char *)va_arg(ap, u_int32_t)) == NULL)
 		return API_EINVAL;
 
 	puts(s);
@@ -132,7 +149,7 @@ static int API_get_sys_info(va_list ap)
 {
 	struct sys_info *si;
 
-	si = (struct sys_info *)va_arg(ap, uintptr_t);
+	si = (struct sys_info *)va_arg(ap, u_int32_t);
 	if (si == NULL)
 		return API_ENOMEM;
 
@@ -148,7 +165,7 @@ static int API_udelay(va_list ap)
 {
 	unsigned long *d;
 
-	if ((d = (unsigned long *)va_arg(ap, unsigned long)) == NULL)
+	if ((d = (unsigned long *)va_arg(ap, u_int32_t)) == NULL)
 		return API_EINVAL;
 
 	udelay(*d);
@@ -164,11 +181,11 @@ static int API_get_timer(va_list ap)
 {
 	unsigned long *base, *cur;
 
-	cur = (unsigned long *)va_arg(ap, unsigned long);
+	cur = (unsigned long *)va_arg(ap, u_int32_t);
 	if (cur == NULL)
 		return API_EINVAL;
 
-	base = (unsigned long *)va_arg(ap, unsigned long);
+	base = (unsigned long *)va_arg(ap, u_int32_t);
 	if (base == NULL)
 		return API_EINVAL;
 
@@ -189,7 +206,7 @@ static int API_get_timer(va_list ap)
  *
  *   - net: &eth_device struct address from list pointed to by eth_devices
  *
- *   - storage: struct blk_desc struct address from &ide_dev_desc[n],
+ *   - storage: block_dev_desc_t struct address from &ide_dev_desc[n],
  *     &scsi_dev_desc[n] and similar tables
  *
  ****************************************************************************/
@@ -199,7 +216,7 @@ static int API_dev_enum(va_list ap)
 	struct device_info *di;
 
 	/* arg is ptr to the device_info struct we are going to fill out */
-	di = (struct device_info *)va_arg(ap, uintptr_t);
+	di = (struct device_info *)va_arg(ap, u_int32_t);
 	if (di == NULL)
 		return API_EINVAL;
 
@@ -233,7 +250,7 @@ static int API_dev_open(va_list ap)
 	int err = 0;
 
 	/* arg is ptr to the device_info struct */
-	di = (struct device_info *)va_arg(ap, uintptr_t);
+	di = (struct device_info *)va_arg(ap, u_int32_t);
 	if (di == NULL)
 		return API_EINVAL;
 
@@ -265,7 +282,7 @@ static int API_dev_close(va_list ap)
 	int err = 0;
 
 	/* arg is ptr to the device_info struct */
-	di = (struct device_info *)va_arg(ap, uintptr_t);
+	di = (struct device_info *)va_arg(ap, u_int32_t);
 	if (di == NULL)
 		return API_EINVAL;
 
@@ -319,7 +336,7 @@ static int API_dev_write(va_list ap)
 	int err = 0;
 
 	/* 1. arg is ptr to the device_info struct */
-	di = (struct device_info *)va_arg(ap, uintptr_t);
+	di = (struct device_info *)va_arg(ap, u_int32_t);
 	if (di == NULL)
 		return API_EINVAL;
 
@@ -329,12 +346,12 @@ static int API_dev_write(va_list ap)
 		return API_ENODEV;
 
 	/* 2. arg is ptr to buffer from where to get data to write */
-	buf = (void *)va_arg(ap, uintptr_t);
+	buf = (void *)va_arg(ap, u_int32_t);
 	if (buf == NULL)
 		return API_EINVAL;
 
 	/* 3. arg is length of buffer */
-	len = (int *)va_arg(ap, uintptr_t);
+	len = (int *)va_arg(ap, u_int32_t);
 	if (len == NULL)
 		return API_EINVAL;
 	if (*len <= 0)
@@ -387,7 +404,7 @@ static int API_dev_read(va_list ap)
 	int *len_net, *act_len_net;
 
 	/* 1. arg is ptr to the device_info struct */
-	di = (struct device_info *)va_arg(ap, uintptr_t);
+	di = (struct device_info *)va_arg(ap, u_int32_t);
 	if (di == NULL)
 		return API_EINVAL;
 
@@ -397,23 +414,23 @@ static int API_dev_read(va_list ap)
 		return API_ENODEV;
 
 	/* 2. arg is ptr to buffer from where to put the read data */
-	buf = (void *)va_arg(ap, uintptr_t);
+	buf = (void *)va_arg(ap, u_int32_t);
 	if (buf == NULL)
 		return API_EINVAL;
 
 	if (di->type & DEV_TYP_STOR) {
 		/* 3. arg - ptr to var with # of blocks to read */
-		len_stor = (lbasize_t *)va_arg(ap, uintptr_t);
+		len_stor = (lbasize_t *)va_arg(ap, u_int32_t);
 		if (!len_stor)
 			return API_EINVAL;
 		if (*len_stor <= 0)
 			return API_EINVAL;
 
 		/* 4. arg - ptr to var with start block */
-		start = (lbastart_t *)va_arg(ap, uintptr_t);
+		start = (lbastart_t *)va_arg(ap, u_int32_t);
 
 		/* 5. arg - ptr to var where to put the len actually read */
-		act_len_stor = (lbasize_t *)va_arg(ap, uintptr_t);
+		act_len_stor = (lbasize_t *)va_arg(ap, u_int32_t);
 		if (!act_len_stor)
 			return API_EINVAL;
 
@@ -422,14 +439,14 @@ static int API_dev_read(va_list ap)
 	} else if (di->type & DEV_TYP_NET) {
 
 		/* 3. arg points to the var with length of packet to read */
-		len_net = (int *)va_arg(ap, uintptr_t);
+		len_net = (int *)va_arg(ap, u_int32_t);
 		if (!len_net)
 			return API_EINVAL;
 		if (*len_net <= 0)
 			return API_EINVAL;
 
 		/* 4. - ptr to var where to put the len actually read */
-		act_len_net = (int *)va_arg(ap, uintptr_t);
+		act_len_net = (int *)va_arg(ap, u_int32_t);
 		if (!act_len_net)
 			return API_EINVAL;
 
@@ -453,9 +470,9 @@ static int API_env_get(va_list ap)
 {
 	char *name, **value;
 
-	if ((name = (char *)va_arg(ap, uintptr_t)) == NULL)
+	if ((name = (char *)va_arg(ap, u_int32_t)) == NULL)
 		return API_EINVAL;
-	if ((value = (char **)va_arg(ap, uintptr_t)) == NULL)
+	if ((value = (char **)va_arg(ap, u_int32_t)) == NULL)
 		return API_EINVAL;
 
 	*value = getenv(name);
@@ -476,9 +493,9 @@ static int API_env_set(va_list ap)
 {
 	char *name, *value;
 
-	if ((name = (char *)va_arg(ap, uintptr_t)) == NULL)
+	if ((name = (char *)va_arg(ap, u_int32_t)) == NULL)
 		return API_EINVAL;
-	if ((value = (char *)va_arg(ap, uintptr_t)) == NULL)
+	if ((value = (char *)va_arg(ap, u_int32_t)) == NULL)
 		return API_EINVAL;
 
 	setenv(name, value);
@@ -498,9 +515,9 @@ static int API_env_enum(va_list ap)
 	int i, n;
 	char *last, **next;
 
-	last = (char *)va_arg(ap, unsigned long);
+	last = (char *)va_arg(ap, u_int32_t);
 
-	if ((next = (char **)va_arg(ap, uintptr_t)) == NULL)
+	if ((next = (char **)va_arg(ap, u_int32_t)) == NULL)
 		return API_EINVAL;
 
 	if (last == NULL)
@@ -533,50 +550,6 @@ static int API_env_enum(va_list ap)
 		}
 	}
 
-	return 0;
-}
-
-/*
- * pseudo signature:
- *
- * int API_display_get_info(int type, struct display_info *di)
- */
-static int API_display_get_info(va_list ap)
-{
-	int type;
-	struct display_info *di;
-
-	type = va_arg(ap, int);
-	di = va_arg(ap, struct display_info *);
-
-	return display_get_info(type, di);
-}
-
-/*
- * pseudo signature:
- *
- * int API_display_draw_bitmap(ulong bitmap, int x, int y)
- */
-static int API_display_draw_bitmap(va_list ap)
-{
-	ulong bitmap;
-	int x, y;
-
-	bitmap = va_arg(ap, ulong);
-	x = va_arg(ap, int);
-	y = va_arg(ap, int);
-
-	return display_draw_bitmap(bitmap, x, y);
-}
-
-/*
- * pseudo signature:
- *
- * void API_display_clear(void)
- */
-static int API_display_clear(va_list ap)
-{
-	display_clear();
 	return 0;
 }
 
@@ -643,9 +616,6 @@ void api_init(void)
 	calls_table[API_ENV_GET] = &API_env_get;
 	calls_table[API_ENV_SET] = &API_env_set;
 	calls_table[API_ENV_ENUM] = &API_env_enum;
-	calls_table[API_DISPLAY_GET_INFO] = &API_display_get_info;
-	calls_table[API_DISPLAY_DRAW_BITMAP] = &API_display_draw_bitmap;
-	calls_table[API_DISPLAY_CLEAR] = &API_display_clear;
 	calls_no = API_MAXCALL;
 
 	debugf("API initialized with %d calls\n", calls_no);
@@ -661,15 +631,14 @@ void api_init(void)
 		return;
 	}
 
-	setenv_hex("api_address", (unsigned long)sig);
-	debugf("API sig @ 0x%lX\n", (unsigned long)sig);
+	debugf("API sig @ 0x%08x\n", sig);
 	memcpy(sig->magic, API_SIG_MAGIC, 8);
 	sig->version = API_SIG_VERSION;
 	sig->syscall = &syscall;
 	sig->checksum = 0;
 	sig->checksum = crc32(0, (unsigned char *)sig,
 			      sizeof(struct api_signature));
-	debugf("syscall entry: 0x%lX\n", (unsigned long)sig->syscall);
+	debugf("syscall entry: 0x%08x\n", sig->syscall);
 }
 
 void platform_set_mr(struct sys_info *si, unsigned long start, unsigned long size,

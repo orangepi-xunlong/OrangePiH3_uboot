@@ -2,7 +2,23 @@
  * Copyright 2011, Marvell Semiconductor Inc.
  * Lei Wen <leiwen@marvell.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  *
  * Back ported to the 8xx platform (from the 8260 platform) by
  * Murray.Jensen@cmst.csiro.au, 27-Jan-01.
@@ -11,9 +27,6 @@
 #define __SDHCI_HW_H
 
 #include <asm/io.h>
-#include <mmc.h>
-#include <asm/gpio.h>
-
 /*
  * Controller registers
  */
@@ -61,8 +74,6 @@
 #define  SDHCI_SPACE_AVAILABLE	0x00000400
 #define  SDHCI_DATA_AVAILABLE	0x00000800
 #define  SDHCI_CARD_PRESENT	0x00010000
-#define  SDHCI_CARD_STATE_STABLE	0x00020000
-#define  SDHCI_CARD_DETECT_PIN_LEVEL	0x00040000
 #define  SDHCI_WRITE_PROTECT	0x00080000
 
 #define SDHCI_HOST_CONTROL	0x28
@@ -74,9 +85,7 @@
 #define   SDHCI_CTRL_ADMA1	0x08
 #define   SDHCI_CTRL_ADMA32	0x10
 #define   SDHCI_CTRL_ADMA64	0x18
-#define  SDHCI_CTRL_8BITBUS	0x20
-#define  SDHCI_CTRL_CD_TEST_INS	0x40
-#define  SDHCI_CTRL_CD_TEST	0x80
+#define   SDHCI_CTRL_8BITBUS	0x20
 
 #define SDHCI_POWER_CONTROL	0x29
 #define  SDHCI_POWER_ON		0x01
@@ -166,8 +175,6 @@
 #define  SDHCI_CAN_64BIT	0x10000000
 
 #define SDHCI_CAPABILITIES_1	0x44
-#define  SDHCI_CLOCK_MUL_MASK	0x00FF0000
-#define  SDHCI_CLOCK_MUL_SHIFT	16
 
 #define SDHCI_MAX_CURRENT	0x48
 
@@ -195,8 +202,6 @@
 #define   SDHCI_SPEC_200	1
 #define   SDHCI_SPEC_300	2
 
-#define SDHCI_GET_VERSION(x) (x->version & SDHCI_SPEC_VER_MASK)
-
 /*
  * End of controller registers.
  */
@@ -208,17 +213,6 @@
  * quirks
  */
 #define SDHCI_QUIRK_32BIT_DMA_ADDR	(1 << 0)
-#define SDHCI_QUIRK_REG32_RW		(1 << 1)
-#define SDHCI_QUIRK_BROKEN_R1B		(1 << 2)
-#define SDHCI_QUIRK_NO_HISPD_BIT	(1 << 3)
-#define SDHCI_QUIRK_BROKEN_VOLTAGE	(1 << 4)
-#define SDHCI_QUIRK_NO_CD		(1 << 5)
-#define SDHCI_QUIRK_WAIT_SEND_CMD	(1 << 6)
-#define SDHCI_QUIRK_NO_SIMULT_VDD_AND_POWER (1 << 7)
-#define SDHCI_QUIRK_USE_WIDE8		(1 << 8)
-
-/* to make gcc happy */
-struct sdhci_host;
 
 /*
  * Host SDMA buffer boundary. Valid values from 4K to 512K in powers of 2.
@@ -237,25 +231,12 @@ struct sdhci_ops {
 };
 
 struct sdhci_host {
-	const char *name;
+	char *name;
 	void *ioaddr;
 	unsigned int quirks;
-	unsigned int host_caps;
 	unsigned int version;
 	unsigned int clock;
-	struct mmc *mmc;
 	const struct sdhci_ops *ops;
-	int index;
-
-	int bus_width;
-	struct gpio_desc pwr_gpio;	/* Power GPIO */
-	struct gpio_desc cd_gpio;		/* Card Detect GPIO */
-
-	void (*set_control_reg)(struct sdhci_host *host);
-	void (*set_clock)(int dev_index, unsigned int div);
-	uint	voltages;
-
-	struct mmc_config cfg;
 };
 
 #ifdef CONFIG_MMC_SDHCI_IO_ACCESSORS
@@ -340,78 +321,5 @@ static inline u8 sdhci_readb(struct sdhci_host *host, int reg)
 }
 #endif
 
-#ifdef CONFIG_BLK
-/**
- * sdhci_setup_cfg() - Set up the configuration for DWMMC
- *
- * This is used to set up an SDHCI device when you are using CONFIG_BLK.
- *
- * This should be called from your MMC driver's probe() method once you have
- * the information required.
- *
- * Generally your driver will have a platform data structure which holds both
- * the configuration (struct mmc_config) and the MMC device info (struct mmc).
- * For example:
- *
- * struct msm_sdhc_plat {
- *	struct mmc_config cfg;
- *	struct mmc mmc;
- * };
- *
- * ...
- *
- * Inside U_BOOT_DRIVER():
- *	.platdata_auto_alloc_size = sizeof(struct msm_sdhc_plat),
- *
- * To access platform data:
- *	struct msm_sdhc_plat *plat = dev_get_platdata(dev);
- *
- * See msm_sdhci.c for an example.
- *
- * @cfg:	Configuration structure to fill in (generally &plat->mmc)
- * @host:	SDHCI host structure
- * @max_clk:	Maximum supported clock speed in HZ (0 for default)
- * @min_clk:	Minimum supported clock speed in HZ (0 for default)
- */
-int sdhci_setup_cfg(struct mmc_config *cfg, struct sdhci_host *host,
-		    u32 max_clk, u32 min_clk);
-
-/**
- * sdhci_bind() - Set up a new MMC block device
- *
- * This is used to set up an SDHCI block device when you are using CONFIG_BLK.
- * It should be called from your driver's bind() method.
- *
- * See msm_sdhci.c for an example.
- *
- * @dev:	Device to set up
- * @mmc:	Pointer to mmc structure (normally &plat->mmc)
- * @cfg:	Empty configuration structure (generally &plat->cfg). This is
- *		normally all zeroes at this point. The only purpose of passing
- *		this in is to set mmc->cfg to it.
- * @return 0 if OK, -ve if the block device could not be created
- */
-int sdhci_bind(struct udevice *dev, struct mmc *mmc, struct mmc_config *cfg);
-#else
-
-/**
- * add_sdhci() - Add a new SDHCI interface
- *
- * This is used when you are not using CONFIG_BLK. Convert your driver over!
- *
- * @host:	SDHCI host structure
- * @max_clk:	Maximum supported clock speed in HZ (0 for default)
- * @min_clk:	Minimum supported clock speed in HZ (0 for default)
- * @return 0 if OK, -ve on error
- */
 int add_sdhci(struct sdhci_host *host, u32 max_clk, u32 min_clk);
-#endif /* !CONFIG_BLK */
-
-#ifdef CONFIG_DM_MMC_OPS
-/* Export the operations to drivers */
-int sdhci_probe(struct udevice *dev);
-extern const struct dm_mmc_ops sdhci_ops;
-#else
-#endif
-
 #endif /* __SDHCI_HW_H */

@@ -1,8 +1,21 @@
 /*
- * (C) Copyright 2007-2013
+ * (C) Copyright 2007-2010
  * Stefan Roese, DENX Software Engineering, sr@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -22,9 +35,11 @@
 #define CONFIG_LWMON5		1		/* Board is lwmon5	*/
 #define CONFIG_440EPX		1		/* Specific PPC440EPx	*/
 #define CONFIG_440		1		/* ... PPC440 family	*/
+#define CONFIG_4xx		1		/* ... PPC4xx family	*/
 
+#ifndef CONFIG_SYS_TEXT_BASE
 #define CONFIG_SYS_TEXT_BASE	0xFFF80000
-#define CONFIG_HOSTNAME		lwmon5
+#endif
 
 #define CONFIG_SYS_CLK_FREQ	33300000	/* external freq to pll	*/
 
@@ -41,7 +56,7 @@
  * actual resources get mapped (not physical addresses)
  */
 #define CONFIG_SYS_MONITOR_BASE		CONFIG_SYS_TEXT_BASE	/* Start of U-Boot	*/
-#define CONFIG_SYS_MONITOR_LEN		0x80000
+#define CONFIG_SYS_MONITOR_LEN		(0xFFFFFFFF - CONFIG_SYS_MONITOR_BASE + 1)
 #define CONFIG_SYS_MALLOC_LEN		(1 << 20)	/* Reserved for malloc	*/
 
 #define CONFIG_SYS_BOOT_BASE_ADDR	0xf0000000
@@ -78,7 +93,6 @@
 #define CONFIG_SYS_GBL_DATA_OFFSET	(CONFIG_SYS_INIT_RAM_SIZE - \
 					 GENERATED_GBL_DATA_SIZE)
 #define CONFIG_SYS_INIT_SP_OFFSET	CONFIG_SYS_GBL_DATA_OFFSET
-
 /* unused GPT0 COMP reg	*/
 #define CONFIG_SYS_POST_WORD_ADDR	(CONFIG_SYS_PERIPHERAL_BASE + GPT0_COMP6)
 #define CONFIG_SYS_OCM_SIZE		(16 << 10)
@@ -101,11 +115,13 @@
  * Serial Port
  */
 #define CONFIG_CONS_INDEX	2	/* Use UART1			*/
+#define CONFIG_SYS_NS16550
 #define CONFIG_SYS_NS16550_SERIAL
 #define CONFIG_SYS_NS16550_REG_SIZE	1
 #define CONFIG_SYS_NS16550_CLK		get_serial_clock()
 #undef CONFIG_SYS_EXT_SERIAL_CLOCK		/* no external clock provided	*/
 #define CONFIG_BAUDRATE		115200
+#define CONFIG_SERIAL_MULTI
 
 #define CONFIG_SYS_BAUDRATE_TABLE						\
 	{300, 600, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200}
@@ -265,11 +281,11 @@
 /*
  * I2C
  */
-#define CONFIG_SYS_I2C
-#define CONFIG_SYS_I2C_PPC4XX
-#define CONFIG_SYS_I2C_PPC4XX_CH0
-#define CONFIG_SYS_I2C_PPC4XX_SPEED_0		100000
-#define CONFIG_SYS_I2C_PPC4XX_SLAVE_0		0x7F
+#define CONFIG_HARD_I2C				/* I2C with hardware support	*/
+#undef	CONFIG_SOFT_I2C				/* I2C bit-banged		*/
+#define CONFIG_PPC4XX_I2C		/* use PPC4xx driver		*/
+#define CONFIG_SYS_I2C_SPEED		100000		/* I2C speed and slave address	*/
+#define CONFIG_SYS_I2C_SLAVE		0x7F
 
 #define CONFIG_SYS_I2C_RTC_ADDR	0x51	/* RTC				*/
 #define CONFIG_SYS_I2C_EEPROM_CPU_ADDR	0x52	/* EEPROM          (CPU Modul)	*/
@@ -299,8 +315,15 @@
 					 CONFIG_SYS_I2C_DSPIC_KEYB_ADDR,\
 					 CONFIG_SYS_I2C_DSPIC_IO_ADDR }
 
+/*
+ * Pass open firmware flat tree
+ */
+#define CONFIG_OF_LIBFDT
+#define CONFIG_OF_BOARD_SETUP
 /* Update size in "reg" property of NOR FLASH device tree nodes */
 #define CONFIG_FDT_FIXUP_NOR_FLASH_SIZE
+
+#define CONFIG_FIT			/* enable FIT image support	*/
 
 #define	CONFIG_POST_KEY_MAGIC	"3C+3E"	/* press F3 + F5 keys to force POST */
 
@@ -340,6 +363,7 @@
 	""
 #define CONFIG_BOOTCOMMAND	"run flash_self"
 
+#define CONFIG_BOOTDELAY	5	/* autoboot after 5 seconds	*/
 
 #define CONFIG_LOADS_ECHO	1	/* echo on for serial download	*/
 #define CONFIG_SYS_LOADS_BAUD_CHANGE	1	/* allow baudrate change	*/
@@ -355,6 +379,7 @@
 #define CONFIG_HAS_ETH0
 #define CONFIG_SYS_RX_ETH_BUFFER	32	/* Number of ethernet rx buffers & descriptors */
 
+#define CONFIG_NET_MULTI	1
 #define CONFIG_HAS_ETH1		1	/* add support for "eth1addr"	*/
 #define CONFIG_PHY1_ADDR	1
 
@@ -378,9 +403,11 @@
 #define CONFIG_USB_EHCI			/* Enable EHCI USB support	*/
 #define CONFIG_USB_EHCI_PPC4XX		/* on PPC4xx platform		*/
 #define CONFIG_SYS_PPC4XX_USB_ADDR	0xe0000300
+#define CONFIG_EHCI_DCACHE		/* with dcache handling support	*/
 #define CONFIG_EHCI_MMIO_BIG_ENDIAN
 #define CONFIG_EHCI_DESC_BIG_ENDIAN
 #define CONFIG_EHCI_HCD_INIT_AFTER_RESET /* re-init HCD after CMD_RESET */
+#define CONFIG_USB_STORAGE
 
 /* Partitions */
 #define CONFIG_MAC_PARTITION
@@ -398,10 +425,22 @@
 /*
  * Command line configuration.
  */
+#include <config_cmd_default.h>
+
+#define CONFIG_CMD_ASKENV
 #define CONFIG_CMD_DATE
+#define CONFIG_CMD_DHCP
 #define CONFIG_CMD_DIAG
 #define CONFIG_CMD_EEPROM
+#define CONFIG_CMD_ELF
+#define CONFIG_CMD_FAT
+#define CONFIG_CMD_I2C
 #define CONFIG_CMD_IRQ
+#define CONFIG_CMD_LOG
+#define CONFIG_CMD_MII
+#define CONFIG_CMD_NET
+#define CONFIG_CMD_NFS
+#define CONFIG_CMD_PING
 #define CONFIG_CMD_REGINFO
 #define CONFIG_CMD_SDRAM
 
@@ -410,6 +449,7 @@
 #endif
 
 #ifdef CONFIG_440EPX
+#define CONFIG_CMD_USB
 #endif
 
 /*
@@ -418,6 +458,12 @@
 #define CONFIG_SUPPORT_VFAT
 
 #define CONFIG_SYS_LONGHELP			/* undef to save memory		*/
+#define CONFIG_SYS_PROMPT	        "=> "	/* Monitor Command Prompt	*/
+
+#define CONFIG_SYS_HUSH_PARSER		1	/* Use the HUSH parser		*/
+#ifdef	CONFIG_SYS_HUSH_PARSER
+#define	CONFIG_SYS_PROMPT_HUSH_PS2	"> "
+#endif
 
 #if defined(CONFIG_CMD_KGDB)
 #define CONFIG_SYS_CBSIZE	        1024	/* Console I/O Buffer Size	*/
@@ -434,10 +480,12 @@
 #define CONFIG_SYS_LOAD_ADDR		0x100000  /* default load address	*/
 #define CONFIG_SYS_EXTBDINFO		1	/* To use extended board_into (bd_t) */
 
-#define CONFIG_CMDLINE_EDITING	1	/* add command line history	*/
-#define CONFIG_MX_CYCLIC        1       /* enable mdc/mwc commands      */
+#define CONFIG_SYS_HZ		        1000	/* decrementer freq: 1 ms ticks	*/
 
-#define CONFIG_SYS_CONSOLE_INFO_QUIET	/* don't print console @ startup*/
+#define CONFIG_CMDLINE_EDITING	1	/* add command line history	*/
+#define CONFIG_LOOPW            1       /* enable loopw command         */
+#define CONFIG_MX_CYCLIC        1       /* enable mdc/mwc commands      */
+#define CONFIG_VERSION_VARIABLE 1	/* include version env variable */
 
 #ifndef DEBUG
 #define CONFIG_HW_WATCHDOG	1	/* Use external HW-Watchdog	*/
@@ -511,7 +559,6 @@
 #define CONFIG_SYS_GPIO_PHY1_RST	12
 #define CONFIG_SYS_GPIO_FLASH_WP	14
 #define CONFIG_SYS_GPIO_PHY0_RST	22
-#define CONFIG_SYS_GPIO_PERM_VOLT_FEED	49
 #define CONFIG_SYS_GPIO_DSPIC_READY	51
 #define CONFIG_SYS_GPIO_CAN_ENABLE	53
 #define CONFIG_SYS_GPIO_LSB_ENABLE	54
@@ -523,8 +570,6 @@
 #define CONFIG_SYS_GPIO_LIME_RST	60
 #define CONFIG_SYS_GPIO_SYSMON_STATUS	62
 #define CONFIG_SYS_GPIO_WATCHDOG	63
-
-#define GPIO49_VAL	1
 
 /*
  * PPC440 GPIO Configuration
@@ -584,7 +629,7 @@
 {GPIO1_BASE, GPIO_IN , GPIO_ALT1, GPIO_OUT_0}, /* GPIO46 UIC_IRQ(7)	DMA_REQ(0)	*/	\
 {GPIO1_BASE, GPIO_IN , GPIO_ALT1, GPIO_OUT_0}, /* GPIO47 UIC_IRQ(8)	DMA_ACK(0)	*/	\
 {GPIO1_BASE, GPIO_IN , GPIO_ALT1, GPIO_OUT_0}, /* GPIO48 UIC_IRQ(9)	DMA_EOT/TC(0)	*/	\
-{GPIO1_BASE, GPIO_OUT, GPIO_SEL , GPIO49_VAL}, /* GPIO49  Unselect via TraceSelect Bit	*/	\
+{GPIO1_BASE, GPIO_OUT, GPIO_SEL , GPIO_OUT_1}, /* GPIO49  Unselect via TraceSelect Bit	*/	\
 {GPIO1_BASE, GPIO_IN,  GPIO_SEL , GPIO_OUT_0}, /* GPIO50  Unselect via TraceSelect Bit	*/	\
 {GPIO1_BASE, GPIO_IN , GPIO_SEL , GPIO_OUT_0}, /* GPIO51  Unselect via TraceSelect Bit	*/	\
 {GPIO1_BASE, GPIO_IN , GPIO_SEL , GPIO_OUT_0}, /* GPIO52  Unselect via TraceSelect Bit	*/	\
@@ -604,6 +649,6 @@
 
 #if defined(CONFIG_CMD_KGDB)
 #define CONFIG_KGDB_BAUDRATE	230400	/* speed to run kgdb serial port */
+#define CONFIG_KGDB_SER_INDEX	2	    /* which serial port to use */
 #endif
-
 #endif	/* __CONFIG_H */

@@ -3,11 +3,26 @@
  *
  * (C) Copyright 2002 Scott McNutt <smcnutt@artesyncp.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
-#include <console.h>
 #include <hwconfig.h>
 #include <pci.h>
 #include <asm/processor.h>
@@ -15,7 +30,7 @@
 #include <asm/cache.h>
 #include <asm/immap_85xx.h>
 #include <asm/fsl_pci.h>
-#include <fsl_ddr_sdram.h>
+#include <asm/fsl_ddr_sdram.h>
 #include <asm/fsl_serdes.h>
 #include <asm/io.h>
 #include <spd_sdram.h>
@@ -232,8 +247,7 @@ int checkboard (void)
 #if !defined(CONFIG_SPD_EEPROM)
 phys_size_t fixed_sdram(void)
 {
-	struct ccsr_ddr __iomem *ddr =
-		(struct ccsr_ddr __iomem *)CONFIG_SYS_FSL_DDR_ADDR;
+	volatile ccsr_ddr_t *ddr = (ccsr_ddr_t *)CONFIG_SYS_MPC85xx_DDR_ADDR;
 	uint d_init;
 
 	out_be32(&ddr->cs0_bnds, CONFIG_SYS_DDR_CS0_BNDS);
@@ -289,10 +303,12 @@ local_bus_init(void)
 	volatile fsl_lbc_t *lbc = LBC_BASE_ADDR;
 
 	uint clkdiv;
+	uint lbc_hz;
 	sys_info_t sysinfo;
 
 	get_sys_info(&sysinfo);
 	clkdiv = (lbc->lcrr & LCRR_CLKDIV) * 2;
+	lbc_hz = sysinfo.freqSystemBus / 1000000 / clkdiv;
 
 	out_be32(&gur->lbiuiplldcr1, 0x00078080);
 	if (clkdiv == 16)
@@ -515,7 +531,7 @@ void pci_init_board(void)
 #endif /* CONFIG_PCI */
 
 #if defined(CONFIG_OF_BOARD_SETUP)
-int ft_board_setup(void *blob, bd_t *bd)
+void ft_board_setup(void *blob, bd_t *bd)
 {
 #if defined(CONFIG_SYS_UCC_RMII_MODE)
 	int nodeoff, off, err;
@@ -580,7 +596,5 @@ int ft_board_setup(void *blob, bd_t *bd)
 	fdt_board_fixup_esdhc(blob, bd);
 	fdt_board_fixup_qe_uart(blob, bd);
 	fdt_board_fixup_qe_usb(blob, bd);
-
-	return 0;
 }
 #endif

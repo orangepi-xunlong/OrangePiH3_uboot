@@ -5,7 +5,23 @@
  * (C) Copyright 2002 Jun Gu <jung@artesyncp.com>
  * Add support for Am29F016D and dynamic switch setting.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -380,7 +396,7 @@ int flash_erase(flash_info_t * info, int s_first, int s_last)
 {
 	volatile CONFIG_SYS_FLASH_WORD_SIZE *addr = (CONFIG_SYS_FLASH_WORD_SIZE *) (info->start[0]);
 	volatile CONFIG_SYS_FLASH_WORD_SIZE *addr2;
-	int flag, prot, sect;
+	int flag, prot, sect, l_sect;
 	int i;
 
 	if ((s_first < 0) || (s_first > s_last)) {
@@ -411,6 +427,8 @@ int flash_erase(flash_info_t * info, int s_first, int s_last)
 		printf("\n");
 	}
 
+	l_sect = -1;
+
 	/* Disable interrupts which might cause a timeout here */
 	flag = disable_interrupts();
 
@@ -436,6 +454,7 @@ int flash_erase(flash_info_t * info, int s_first, int s_last)
 				addr[CONFIG_SYS_FLASH_ADDR1] = (CONFIG_SYS_FLASH_WORD_SIZE) 0x00550055;
 				addr2[0] = (CONFIG_SYS_FLASH_WORD_SIZE) 0x00300030;	/* sector erase */
 			}
+			l_sect = sect;
 			/*
 			 * Wait for each sector to complete, it's more
 			 * reliable.  According to AMD Spec, you must
@@ -806,7 +825,7 @@ static int flash_erase_2(flash_info_t * info, int s_first, int s_last)
 {
 	volatile CONFIG_SYS_FLASH_WORD_SIZE *addr = (CONFIG_SYS_FLASH_WORD_SIZE *) (info->start[0]);
 	volatile CONFIG_SYS_FLASH_WORD_SIZE *addr2;
-	int flag, prot, sect;
+	int flag, prot, sect, l_sect;
 	int i;
 
 	if ((s_first < 0) || (s_first > s_last)) {
@@ -837,6 +856,8 @@ static int flash_erase_2(flash_info_t * info, int s_first, int s_last)
 		printf("\n");
 	}
 
+	l_sect = -1;
+
 	/* Disable interrupts which might cause a timeout here */
 	flag = disable_interrupts();
 
@@ -862,6 +883,7 @@ static int flash_erase_2(flash_info_t * info, int s_first, int s_last)
 				addr[CONFIG_SYS_FLASH_ADDR1] = (CONFIG_SYS_FLASH_WORD_SIZE) 0x00550055;
 				addr2[0] = (CONFIG_SYS_FLASH_WORD_SIZE) 0x00300030;	/* sector erase */
 			}
+			l_sect = sect;
 			/*
 			 * Wait for each sector to complete, it's more
 			 * reliable.  According to AMD Spec, you must

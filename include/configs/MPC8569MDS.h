@@ -1,7 +1,23 @@
 /*
  * Copyright 2009-2011 Freescale Semiconductor, Inc.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -10,11 +26,10 @@
 #ifndef __CONFIG_H
 #define __CONFIG_H
 
-#define CONFIG_DISPLAY_BOARDINFO
-
 /* High Level Configuration Options */
 #define CONFIG_BOOKE		1	/* BOOKE */
 #define CONFIG_E500		1	/* BOOKE e500 family */
+#define CONFIG_MPC85xx		1	/* MPC8540/60/55/41/48/68 */
 #define CONFIG_MPC8569		1	/* MPC8569 specific */
 #define CONFIG_MPC8569MDS	1	/* MPC8569MDS board specific */
 
@@ -26,7 +41,6 @@
 #define CONFIG_PCI		1	/* Disable PCI/PCIE */
 #define CONFIG_PCIE1		1	/* PCIE controller */
 #define CONFIG_FSL_PCI_INIT	1	/* use common fsl pci init code */
-#define CONFIG_PCI_INDIRECT_BRIDGE 1	/* indirect PCI bridge support */
 #define CONFIG_FSL_PCIE_RESET	1	/* need PCIe reset errata */
 #define CONFIG_SYS_PCI_64BIT	1	/* enable 64-bit PCI resources */
 #define CONFIG_QE			/* Enable QE */
@@ -50,6 +64,18 @@ extern unsigned long get_clock_freq(void);
  */
 #define CONFIG_L2_CACHE				/* toggle L2 cache	*/
 #define CONFIG_BTB				/* toggle branch predition */
+
+#ifdef CONFIG_NAND
+#define CONFIG_NAND_U_BOOT		1
+#define CONFIG_RAMBOOT_NAND		1
+#ifdef CONFIG_NAND_SPL
+#define CONFIG_SYS_TEXT_BASE_SPL 0xfff00000
+#define CONFIG_SYS_MONITOR_BASE	CONFIG_SYS_TEXT_BASE_SPL /* start of monitor */
+#else
+#define CONFIG_SYS_LDSCRIPT $(TOPDIR)/$(CPUDIR)/u-boot-nand.lds
+#define CONFIG_SYS_TEXT_BASE	0xf8f82000
+#endif
+#endif
 
 #ifndef CONFIG_SYS_TEXT_BASE
 #define CONFIG_SYS_TEXT_BASE	0xfff80000
@@ -79,15 +105,24 @@ extern unsigned long get_clock_freq(void);
 #define CONFIG_SYS_L2_SIZE		(512 << 10)
 #define CONFIG_SYS_INIT_L2_END	(CONFIG_SYS_INIT_L2_ADDR + CONFIG_SYS_L2_SIZE)
 
-#define CONFIG_SYS_CCSRBAR		0xe0000000
-#define CONFIG_SYS_CCSRBAR_PHYS_LOW	CONFIG_SYS_CCSRBAR
+/*
+ * Base addresses -- Note these are effective addresses where the
+ * actual resources get mapped (not physical addresses)
+ */
+#define CONFIG_SYS_CCSRBAR		0xe0000000	/* relocated CCSRBAR */
+#define CONFIG_SYS_CCSRBAR_PHYS	CONFIG_SYS_CCSRBAR
+						/* physical addr of CCSRBAR */
+#define CONFIG_SYS_IMMR		CONFIG_SYS_CCSRBAR
+						/* PQII uses CONFIG_SYS_IMMR */
 
-#if defined(CONFIG_NAND_SPL)
-#define CONFIG_SYS_CCSR_DO_NOT_RELOCATE
+#if defined(CONFIG_RAMBOOT_NAND) && !defined(CONFIG_NAND_SPL)
+#define CONFIG_SYS_CCSRBAR_DEFAULT	CONFIG_SYS_CCSRBAR
+#else
+#define CONFIG_SYS_CCSRBAR_DEFAULT	0xff700000	/* CCSRBAR Default */
 #endif
 
 /* DDR Setup */
-#define CONFIG_SYS_FSL_DDR3
+#define CONFIG_FSL_DDR3
 #undef CONFIG_FSL_DDR_INTERACTIVE
 #define CONFIG_SPD_EEPROM		/* Use SPD EEPROM for DDR setup*/
 #define CONFIG_DDR_SPD
@@ -170,7 +205,12 @@ extern unsigned long get_clock_freq(void);
 #define CONFIG_SYS_FLASH_ERASE_TOUT	60000	/* Flash Erase Timeout (ms) */
 #define CONFIG_SYS_FLASH_WRITE_TOUT	500	/* Flash Write Timeout (ms) */
 
+#if defined(CONFIG_RAMBOOT_NAND)
+#define CONFIG_SYS_RAMBOOT
+#define CONFIG_SYS_EXTRA_ENV_RELOC
+#else
 #undef CONFIG_SYS_RAMBOOT
+#endif
 
 #define CONFIG_FLASH_CFI_DRIVER
 #define CONFIG_SYS_FLASH_CFI
@@ -196,6 +236,7 @@ extern unsigned long get_clock_freq(void);
 #define CONFIG_SYS_NAND_BASE_PHYS	CONFIG_SYS_NAND_BASE
 #define CONFIG_SYS_NAND_BASE_LIST	{ CONFIG_SYS_NAND_BASE, }
 #define CONFIG_SYS_MAX_NAND_DEVICE	1
+#define CONFIG_MTD_NAND_VERIFY_WRITE	1
 #define CONFIG_CMD_NAND			1
 #define CONFIG_NAND_FSL_ELBC		1
 #define CONFIG_SYS_NAND_BLOCK_SIZE	(128 * 1024)
@@ -212,10 +253,17 @@ extern unsigned long get_clock_freq(void);
 				| OR_FCM_TRLX \
 				| OR_FCM_EHTR)
 
+#ifdef CONFIG_RAMBOOT_NAND
+#define CONFIG_SYS_BR0_PRELIM	CONFIG_SYS_NAND_BR_PRELIM /* NAND Base Address */
+#define CONFIG_SYS_OR0_PRELIM	CONFIG_SYS_NAND_OR_PRELIM/* NAND Options */
+#define CONFIG_SYS_BR3_PRELIM	CONFIG_FLASH_BR_PRELIM	/* NOR Base Address */
+#define CONFIG_SYS_OR3_PRELIM	CONFIG_FLASH_OR_PRELIM	/* NOR Options */
+#else
 #define CONFIG_SYS_BR0_PRELIM	CONFIG_FLASH_BR_PRELIM	/* NOR Base Address */
 #define CONFIG_SYS_OR0_PRELIM	CONFIG_FLASH_OR_PRELIM	/* NOR Options */
 #define CONFIG_SYS_BR3_PRELIM	CONFIG_SYS_NAND_BR_PRELIM /* NAND Base Address */
 #define CONFIG_SYS_OR3_PRELIM	CONFIG_SYS_NAND_OR_PRELIM /* NAND Options */
+#endif
 
 #define CONFIG_SYS_LBC_LCRR	0x00000004	/* LB clock ratio reg */
 #define CONFIG_SYS_LBC_LBCR	0x00040000	/* LB config reg */
@@ -235,6 +283,8 @@ extern unsigned long get_clock_freq(void);
 
 /* Serial Port */
 #define CONFIG_CONS_INDEX		1
+#define CONFIG_SERIAL_MULTI		1
+#define CONFIG_SYS_NS16550
 #define CONFIG_SYS_NS16550_SERIAL
 #define CONFIG_SYS_NS16550_REG_SIZE    1
 #define CONFIG_SYS_NS16550_CLK		get_bus_freq(0)
@@ -248,18 +298,29 @@ extern unsigned long get_clock_freq(void);
 #define CONFIG_SYS_NS16550_COM1        (CONFIG_SYS_CCSRBAR+0x4500)
 #define CONFIG_SYS_NS16550_COM2        (CONFIG_SYS_CCSRBAR+0x4600)
 
+/* Use the HUSH parser*/
+#define CONFIG_SYS_HUSH_PARSER
+#ifdef  CONFIG_SYS_HUSH_PARSER
+#define CONFIG_SYS_PROMPT_HUSH_PS2 "> "
+#endif
+
+/* pass open firmware flat tree */
+#define CONFIG_OF_LIBFDT		1
+#define CONFIG_OF_BOARD_SETUP		1
+#define CONFIG_OF_STDOUT_VIA_ALIAS	1
+
 /*
  * I2C
  */
-#define CONFIG_SYS_I2C
-#define CONFIG_SYS_I2C_FSL
-#define CONFIG_SYS_FSL_I2C_SPEED	400000
-#define CONFIG_SYS_FSL_I2C_SLAVE	0x7F
-#define CONFIG_SYS_FSL_I2C2_SPEED	400000
-#define CONFIG_SYS_FSL_I2C2_SLAVE	0x7F
-#define CONFIG_SYS_FSL_I2C_OFFSET	0x3000
-#define CONFIG_SYS_FSL_I2C2_OFFSET	0x3100
-#define CONFIG_SYS_I2C_NOPROBES		{ {0, 0x69} }
+#define CONFIG_FSL_I2C		/* Use FSL common I2C driver */
+#define CONFIG_HARD_I2C		/* I2C with hardware support*/
+#undef	CONFIG_SOFT_I2C		/* I2C bit-banged */
+#define CONFIG_I2C_MULTI_BUS
+#define CONFIG_SYS_I2C_SPEED	400000	/* I2C speed and slave address */
+#define CONFIG_SYS_I2C_SLAVE	0x7F
+#define CONFIG_SYS_I2C_NOPROBES	{{0,0x69}}	/* Don't probe these addrs */
+#define CONFIG_SYS_I2C_OFFSET	0x3000
+#define CONFIG_SYS_I2C2_OFFSET	0x3100
 
 /*
  * I2C2 EEPROM
@@ -428,19 +489,30 @@ extern unsigned long get_clock_freq(void);
 
 #if defined(CONFIG_PCI)
 
+#define CONFIG_NET_MULTI
 #define CONFIG_PCI_PNP			/* do pci plug-and-play */
 
 #undef CONFIG_EEPRO100
 #undef CONFIG_TULIP
+#define CONFIG_E1000			/* Define e1000 pci Ethernet card */
 
 #undef CONFIG_PCI_SCAN_SHOW		/* show pci devices on startup */
 
 #endif	/* CONFIG_PCI */
 
+#ifndef CONFIG_NET_MULTI
+#define CONFIG_NET_MULTI	1
+#endif
+
 /*
  * Environment
  */
 #if defined(CONFIG_SYS_RAMBOOT)
+#if defined(CONFIG_RAMBOOT_NAND)
+#define CONFIG_ENV_IS_IN_NAND	1
+#define CONFIG_ENV_SIZE		CONFIG_SYS_NAND_BLOCK_SIZE
+#define CONFIG_ENV_OFFSET	((512 * 1024) + CONFIG_SYS_NAND_BLOCK_SIZE)
+#endif
 #else
 #define CONFIG_ENV_IS_IN_FLASH	1
 #define CONFIG_ENV_ADDR		(CONFIG_SYS_MONITOR_BASE - CONFIG_ENV_SECT_SIZE)
@@ -452,7 +524,6 @@ extern unsigned long get_clock_freq(void);
 #define CONFIG_SYS_LOADS_BAUD_CHANGE	1	/* allow baudrate change */
 
 /* QE microcode/firmware address */
-#define CONFIG_SYS_QE_FMAN_FW_IN_NOR
 #define CONFIG_SYS_QE_FW_ADDR	0xfff00000
 
 /*
@@ -463,15 +534,24 @@ extern unsigned long get_clock_freq(void);
 #define CONFIG_BOOTP_GATEWAY
 #define CONFIG_BOOTP_HOSTNAME
 
+
 /*
  * Command line configuration.
  */
+#include <config_cmd_default.h>
+
+#define CONFIG_CMD_PING
+#define CONFIG_CMD_I2C
+#define CONFIG_CMD_MII
+#define CONFIG_CMD_ELF
 #define CONFIG_CMD_IRQ
+#define CONFIG_CMD_SETEXPR
 #define CONFIG_CMD_REGINFO
 
 #if defined(CONFIG_PCI)
     #define CONFIG_CMD_PCI
 #endif
+
 
 #undef CONFIG_WATCHDOG			/* watchdog disabled */
 
@@ -481,7 +561,10 @@ extern unsigned long get_clock_freq(void);
 #define CONFIG_FSL_ESDHC
 #define CONFIG_FSL_ESDHC_PIN_MUX
 #define CONFIG_SYS_FSL_ESDHC_ADDR	CONFIG_SYS_MPC85xx_ESDHC_ADDR
+#define CONFIG_CMD_MMC
 #define CONFIG_GENERIC_MMC
+#define CONFIG_CMD_EXT2
+#define CONFIG_CMD_FAT
 #define CONFIG_DOS_PARTITION
 #endif
 
@@ -492,6 +575,7 @@ extern unsigned long get_clock_freq(void);
 #define CONFIG_CMDLINE_EDITING			/* Command-line editing */
 #define CONFIG_AUTO_COMPLETE			/* add autocompletion support */
 #define CONFIG_SYS_LOAD_ADDR	0x2000000	/* default load address */
+#define CONFIG_SYS_PROMPT	"=> "		/* Monitor Command Prompt */
 #if defined(CONFIG_CMD_KGDB)
 #define CONFIG_SYS_CBSIZE	2048		/* Console I/O Buffer Size */
 #else
@@ -502,6 +586,7 @@ extern unsigned long get_clock_freq(void);
 #define CONFIG_SYS_MAXARGS	32		/* max number of command args */
 #define CONFIG_SYS_BARGSIZE	CONFIG_SYS_CBSIZE
 						/* Boot Argument Buffer Size */
+#define CONFIG_SYS_HZ	1000		/* decrementer freq: 1ms ticks */
 
 /*
  * For booting Linux, the board info and command line data
@@ -513,14 +598,15 @@ extern unsigned long get_clock_freq(void);
 
 #if defined(CONFIG_CMD_KGDB)
 #define CONFIG_KGDB_BAUDRATE	230400	/* speed to run kgdb serial port */
+#define CONFIG_KGDB_SER_INDEX	2	/* which serial port to use */
 #endif
 
 /*
  * Environment Configuration
  */
 #define CONFIG_HOSTNAME mpc8569mds
-#define CONFIG_ROOTPATH  "/nfsroot"
-#define CONFIG_BOOTFILE  "your.uImage"
+#define CONFIG_ROOTPATH  /nfsroot
+#define CONFIG_BOOTFILE  your.uImage
 
 #define CONFIG_SERVERIP  192.168.1.1
 #define CONFIG_GATEWAYIP 192.168.1.1
@@ -528,6 +614,7 @@ extern unsigned long get_clock_freq(void);
 
 #define CONFIG_LOADADDR  200000   /*default location for tftp and bootm*/
 
+#define CONFIG_BOOTDELAY 10       /* -1 disables auto-boot */
 #undef  CONFIG_BOOTARGS           /* the boot command will set bootargs*/
 
 #define CONFIG_BAUDRATE	115200

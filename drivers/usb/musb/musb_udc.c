@@ -35,12 +35,24 @@
  *
  * -------------------------------------------------------------------------
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
-#include <usbdevice.h>
-#include <usb/udc.h>
+#include <usb/musb_udc.h>
 #include "../gadget/ep0.h"
 #include "musb_core.h"
 #if defined(CONFIG_USB_OMAP3)
@@ -150,6 +162,8 @@ static void musb_db_regs(void)
 static void musb_peri_softconnect(void)
 {
 	u8 power, devctl;
+	u8 intrusb;
+	u16 intrrx, intrtx;
 
 	/* Power off MUSB */
 	power = readb(&musbr->power);
@@ -157,9 +171,9 @@ static void musb_peri_softconnect(void)
 	writeb(power, &musbr->power);
 
 	/* Read intr to clear */
-	readb(&musbr->intrusb);
-	readw(&musbr->intrrx);
-	readw(&musbr->intrtx);
+	intrusb = readb(&musbr->intrusb);
+	intrrx = readw(&musbr->intrrx);
+	intrtx = readw(&musbr->intrtx);
 
 	udelay(1000 * 1000); /* 1 sec */
 
@@ -628,17 +642,8 @@ static void musb_peri_ep0(void)
 
 static void musb_peri_rx_ep(unsigned int ep)
 {
-	u16 peri_rxcount;
-	u8 peri_rxcsr = readw(&musbr->ep[ep].epN.rxcsr);
+	u16 peri_rxcount = readw(&musbr->ep[ep].epN.rxcount);
 
-	if (!(peri_rxcsr & MUSB_RXCSR_RXPKTRDY)) {
-		if (debug_level > 0)
-			serial_printf("ERROR : %s %d without MUSB_RXCSR_RXPKTRDY set\n",
-				      __PRETTY_FUNCTION__, ep);
-		return;
-	}
-
-	peri_rxcount = readw(&musbr->ep[ep].epN.rxcount);
 	if (peri_rxcount) {
 		struct usb_endpoint_instance *endpoint;
 		u32 length;
@@ -882,7 +887,8 @@ void udc_setup_ep(struct usb_device_instance *device, unsigned int id,
 			epinfo[id * 2].epsize = endpoint->rcv_packetSize;
 		}
 
-		musb_configure_ep(&epinfo[0], ARRAY_SIZE(epinfo));
+		musb_configure_ep(&epinfo[0],
+				  sizeof(epinfo) / sizeof(struct musb_epinfo));
 	} else {
 		if (debug_level > 0)
 			serial_printf("ERROR : %s endpoint request %d "

@@ -1,142 +1,77 @@
 /*
- * (C) Copyright 2008 - 2015 Michal Simek <monstr@monstr.eu>
+ * (C) Copyright 2008 Michal Simek <monstr@monstr.eu>
  * Clean driver and add xilinx constant from header file
  *
  * (C) Copyright 2004 Atmark Techno, Inc.
  * Yasushi SHOJI <yashi@atmark-techno.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <config.h>
-#include <common.h>
-#include <dm.h>
 #include <asm/io.h>
-#include <linux/compiler.h>
-#include <serial.h>
 
-DECLARE_GLOBAL_DATA_PTR;
+#define RX_FIFO_OFFSET		0 /* receive FIFO, read only */
+#define TX_FIFO_OFFSET		4 /* transmit FIFO, write only */
+#define STATUS_REG_OFFSET	8 /* status register, read only */
 
-#define SR_TX_FIFO_FULL		BIT(3) /* transmit FIFO full */
-#define SR_TX_FIFO_EMPTY	BIT(2) /* transmit FIFO empty */
-#define SR_RX_FIFO_VALID_DATA	BIT(0) /* data in receive FIFO */
-#define SR_RX_FIFO_FULL		BIT(1) /* receive FIFO full */
+#define SR_TX_FIFO_FULL		0x08 /* transmit FIFO full */
+#define SR_RX_FIFO_VALID_DATA	0x01 /* data in receive FIFO */
+#define SR_RX_FIFO_FULL		0x02 /* receive FIFO full */
 
-#define ULITE_CONTROL_RST_TX	0x01
-#define ULITE_CONTROL_RST_RX	0x02
+#define UARTLITE_STATUS		(CONFIG_SERIAL_BASE + STATUS_REG_OFFSET)
+#define UARTLITE_TX_FIFO	(CONFIG_SERIAL_BASE + TX_FIFO_OFFSET)
+#define UARTLITE_RX_FIFO	(CONFIG_SERIAL_BASE + RX_FIFO_OFFSET)
 
-struct uartlite {
-	unsigned int rx_fifo;
-	unsigned int tx_fifo;
-	unsigned int status;
-	unsigned int control;
-};
-
-struct uartlite_platdata {
-	struct uartlite *regs;
-};
-
-static int uartlite_serial_putc(struct udevice *dev, const char ch)
+int serial_init(void)
 {
-	struct uartlite_platdata *plat = dev_get_platdata(dev);
-	struct uartlite *regs = plat->regs;
-
-	if (in_be32(&regs->status) & SR_TX_FIFO_FULL)
-		return -EAGAIN;
-
-	out_be32(&regs->tx_fifo, ch & 0xff);
-
+	/* FIXME: Nothing for now. We should initialize fifo, etc */
 	return 0;
 }
 
-static int uartlite_serial_getc(struct udevice *dev)
+void serial_setbrg(void)
 {
-	struct uartlite_platdata *plat = dev_get_platdata(dev);
-	struct uartlite *regs = plat->regs;
-
-	if (!(in_be32(&regs->status) & SR_RX_FIFO_VALID_DATA))
-		return -EAGAIN;
-
-	return in_be32(&regs->rx_fifo) & 0xff;
+	/* FIXME: what's this for? */
 }
 
-static int uartlite_serial_pending(struct udevice *dev, bool input)
+void serial_putc(const char c)
 {
-	struct uartlite_platdata *plat = dev_get_platdata(dev);
-	struct uartlite *regs = plat->regs;
-
-	if (input)
-		return in_be32(&regs->status) & SR_RX_FIFO_VALID_DATA;
-
-	return !(in_be32(&regs->status) & SR_TX_FIFO_EMPTY);
+	if (c == '\n')
+		serial_putc('\r');
+	while (in_be32((u32 *) UARTLITE_STATUS) & SR_TX_FIFO_FULL);
+	out_be32((u32 *) UARTLITE_TX_FIFO, (unsigned char) (c & 0xff));
 }
 
-static int uartlite_serial_probe(struct udevice *dev)
+void serial_puts(const char * s)
 {
-	struct uartlite_platdata *plat = dev_get_platdata(dev);
-	struct uartlite *regs = plat->regs;
-
-	out_be32(&regs->control, 0);
-	out_be32(&regs->control, ULITE_CONTROL_RST_RX | ULITE_CONTROL_RST_TX);
-	in_be32(&regs->control);
-
-	return 0;
+	while (*s) {
+		serial_putc(*s++);
+	}
 }
 
-static int uartlite_serial_ofdata_to_platdata(struct udevice *dev)
+int serial_getc(void)
 {
-	struct uartlite_platdata *plat = dev_get_platdata(dev);
-
-	plat->regs = (struct uartlite *)dev_get_addr(dev);
-
-	return 0;
+	while (!(in_be32((u32 *) UARTLITE_STATUS) & SR_RX_FIFO_VALID_DATA));
+	return in_be32((u32 *) UARTLITE_RX_FIFO) & 0xff;
 }
 
-static const struct dm_serial_ops uartlite_serial_ops = {
-	.putc = uartlite_serial_putc,
-	.pending = uartlite_serial_pending,
-	.getc = uartlite_serial_getc,
-};
-
-static const struct udevice_id uartlite_serial_ids[] = {
-	{ .compatible = "xlnx,opb-uartlite-1.00.b", },
-	{ .compatible = "xlnx,xps-uartlite-1.00.a" },
-	{ }
-};
-
-U_BOOT_DRIVER(serial_uartlite) = {
-	.name	= "serial_uartlite",
-	.id	= UCLASS_SERIAL,
-	.of_match = uartlite_serial_ids,
-	.ofdata_to_platdata = uartlite_serial_ofdata_to_platdata,
-	.platdata_auto_alloc_size = sizeof(struct uartlite_platdata),
-	.probe = uartlite_serial_probe,
-	.ops	= &uartlite_serial_ops,
-	.flags = DM_FLAG_PRE_RELOC,
-};
-
-#ifdef CONFIG_DEBUG_UART_UARTLITE
-
-#include <debug_uart.h>
-
-static inline void _debug_uart_init(void)
+int serial_tstc(void)
 {
-	struct uartlite *regs = (struct uartlite *)CONFIG_DEBUG_UART_BASE;
-
-	out_be32(&regs->control, 0);
-	out_be32(&regs->control, ULITE_CONTROL_RST_RX | ULITE_CONTROL_RST_TX);
-	in_be32(&regs->control);
+	return (in_be32((u32 *) UARTLITE_STATUS) & SR_RX_FIFO_VALID_DATA);
 }
-
-static inline void _debug_uart_putc(int ch)
-{
-	struct uartlite *regs = (struct uartlite *)CONFIG_DEBUG_UART_BASE;
-
-	while (in_be32(&regs->status) & SR_TX_FIFO_FULL)
-		;
-
-	out_be32(&regs->tx_fifo, ch & 0xff);
-}
-
-DEBUG_UART_FUNCS
-#endif

@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2011 Freescale Semiconductor, Inc.
+ * Copyright 2004-2009 Freescale Semiconductor, Inc.
  *
  * MPC83xx Internal Memory Map
  *
@@ -9,12 +9,25 @@
  *	Mandy Lavi <mandy.lavi@freescale.com>
  *	Eran Liberty <liberty@freescale.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
  */
 #ifndef __IMMAP_83xx__
 #define __IMMAP_83xx__
 
-#include <fsl_immap.h>
 #include <asm/types.h>
 #include <asm/fsl_i2c.h>
 #include <asm/mpc8xxx_spi.h>
@@ -60,19 +73,12 @@ typedef struct sysconf83xx {
 	u32 obir;		/* Output Buffer Impedance Register */
 	u8 res8[0xC];
 	u32 pecr1;		/* PCI Express control register 1 */
-#if defined(CONFIG_MPC830x)
-	u32 sdhccr;		/* eSDHC Control Registers for MPC830x */
+#ifdef CONFIG_MPC8308
+	u32 sdhccr;		/* eSDHC Control Registers for MPC8308 */
 #else
 	u32 pecr2;		/* PCI Express control register 2 */
 #endif
-#if defined(CONFIG_MPC8309)
-	u32 can_dbg_ctrl;
-	u32 res9a;
-	u32 gpr1;
-	u8 res9b[0xAC];
-#else
 	u8 res9[0xB8];
-#endif
 } sysconf83xx_t;
 
 /*
@@ -107,7 +113,7 @@ typedef struct gtm83xx {
 	u8 cfr1;		/* Timer1/2 Configuration */
 	u8 res0[3];
 	u8 cfr2;		/* Timer3/4 Configuration */
-	u8 res1[11];
+	u8 res1[10];
 	u16 mdr1;		/* Timer1 Mode Register */
 	u16 mdr2;		/* Timer2 Mode Register */
 	u16 rfr1;		/* Timer1 Reference Register */
@@ -144,12 +150,11 @@ typedef struct ipic83xx {
 	u32 sipnr_h;		/* System Internal Interrupt Pending Register - High */
 	u32 sipnr_l;		/* System Internal Interrupt Pending Register - Low */
 	u32 siprr_a;		/* System Internal Interrupt Group A Priority Register */
-	u32 siprr_b;		/* System Internal Interrupt Group B Priority Register */
-	u32 siprr_c;		/* System Internal Interrupt Group C Priority Register */
+	u8 res0[8];
 	u32 siprr_d;		/* System Internal Interrupt Group D Priority Register */
 	u32 simsr_h;		/* System Internal Interrupt Mask Register - High */
 	u32 simsr_l;		/* System Internal Interrupt Mask Register - Low */
-	u32 sicnr;		/* System Internal Interrupt Control Register */
+	u8 res1[4];
 	u32 sepnr;		/* System External Interrupt Pending Register */
 	u32 smprr_a;		/* System Mixed Interrupt Group A Priority Register */
 	u32 smprr_b;		/* System Mixed Interrupt Group B Priority Register */
@@ -158,14 +163,14 @@ typedef struct ipic83xx {
 	u32 sersr;		/* System Error Status Register */
 	u32 sermr;		/* System Error Mask Register */
 	u32 sercr;		/* System Error Control Register */
-	u32 sepcr;		/* System External Interrupt Polarity Control Register */
+	u8 res2[4];
 	u32 sifcr_h;		/* System Internal Interrupt Force Register - High */
 	u32 sifcr_l;		/* System Internal Interrupt Force Register - Low */
 	u32 sefcr;		/* System External Interrupt Force Register */
 	u32 serfr;		/* System Error Force Register */
 	u32 scvcr;		/* System Critical Interrupt Vector Register */
 	u32 smvcr;		/* System Management Interrupt Vector Register */
-	u8 res[0x98];
+	u8 res3[0x98];
 } ipic83xx_t;
 
 /*
@@ -278,10 +283,8 @@ typedef struct qesba83xx {
 } qesba83xx_t;
 
 /*
- * DDR Memory Controller Memory Map for DDR1
- * The structure of DDR2, or DDR3 is defined in fsl_immap.h
+ * DDR Memory Controller Memory Map
  */
-#if !defined(CONFIG_SYS_FSL_DDR2) && !defined(CONFIG_SYS_FSL_DDR3)
 typedef struct ddr_cs_bnds {
 	u32 csbnds;
 	u8 res0[4];
@@ -331,7 +334,6 @@ typedef struct ddr83xx {
 	u32 debug_reg;
 	u8 res9[0xFC];
 } ddr83xx_t;
-#endif
 
 /*
  * DUART
@@ -605,11 +607,7 @@ typedef struct serdes83xx {
  * On Chip ROM
  */
 typedef struct rom83xx {
-#if defined(CONFIG_MPC8309)
-	u8 mem[0x8000];
-#else
 	u8 mem[0x10000];
-#endif
 } rom83xx_t;
 
 /*
@@ -643,11 +641,7 @@ typedef struct immap {
 	u8			dll_ddr[0x100];
 	u8			dll_lbc[0x100];
 	u8			res1[0xE00];
-#if defined(CONFIG_SYS_FSL_DDR2) || defined(CONFIG_SYS_FSL_DDR3)
-	struct ccsr_ddr		ddr;	/* DDR Memory Controller Memory */
-#else
-	ddr83xx_t		ddr;	/* DDR Memory Controller Memory */
-#endif
+	ddr83xx_t		ddr;		/* DDR Memory Controller Memory */
 	fsl_i2c_t		i2c[2];		/* I2C Controllers */
 	u8			res2[0x1300];
 	duart83xx_t		duart[2];	/* DUART */
@@ -667,17 +661,10 @@ typedef struct immap {
 	u8			res7[0xC0000];
 } immap_t;
 
-#ifndef	CONFIG_MPC834x
 #ifdef CONFIG_HAS_FSL_MPH_USB
-#define CONFIG_SYS_MPC83xx_USB1_OFFSET  0x22000	/* use the MPH controller */
-#define CONFIG_SYS_MPC83xx_USB2_OFFSET	0
+#define CONFIG_SYS_MPC83xx_USB_OFFSET  0x22000	/* use the MPH controller */
 #else
-#define CONFIG_SYS_MPC83xx_USB1_OFFSET	0
-#define CONFIG_SYS_MPC83xx_USB2_OFFSET  0x23000	/* use the DR controller */
-#endif
-#else
-#define CONFIG_SYS_MPC83xx_USB1_OFFSET	0x22000
-#define CONFIG_SYS_MPC83xx_USB2_OFFSET  0x23000
+#define CONFIG_SYS_MPC83xx_USB_OFFSET  0x23000	/* use the DR controller */
 #endif
 
 #elif defined(CONFIG_MPC8313)
@@ -880,77 +867,18 @@ typedef struct immap {
 	u8			res8[0xC0000];
 	u8			qe[0x100000];	/* QE block */
 } immap_t;
-#elif defined(CONFIG_MPC8309)
-typedef struct immap {
-	sysconf83xx_t		sysconf;	/* System configuration */
-	wdt83xx_t		wdt;		/* Watch Dog Timer (WDT) Registers */
-	rtclk83xx_t		rtc;		/* Real Time Clock Module Registers */
-	rtclk83xx_t		pit;		/* Periodic Interval Timer */
-	gtm83xx_t		gtm[2];		/* Global Timers Module */
-	ipic83xx_t		ipic;		/* Integrated Programmable Interrupt Controller */
-	arbiter83xx_t		arbiter;	/* System Arbiter Registers */
-	reset83xx_t		reset;		/* Reset Module */
-	clk83xx_t		clk;		/* System Clock Module */
-	pmc83xx_t		pmc;		/* Power Management Control Module */
-	gpio83xx_t		gpio[2];	/* General purpose I/O module */
-	u8			res0[0x500];	/* res0 1.25 KBytes added for 8309 */
-	qepi83xx_t		qepi;		/* QE Ports Interrupts Registers */
-	qepio83xx_t		qepio;		/* QE Parallel I/O ports */
-	u8			res1[0x800];
-	ddr83xx_t		ddr;		/* DDR Memory Controller Memory */
-	fsl_i2c_t		i2c[2];		/* I2C Controllers */
-	u8			res2[0x1300];
-	duart83xx_t		duart[2];	/* DUART */
-	u8			res3[0x200];
-	duart83xx_t		duart1[2];	/* DUART */
-	u8			res4[0x500];
-	fsl_lbc_t		im_lbc;		/* Local Bus Controller Regs */
-	u8			res5[0x1000];
-	u8			spi[0x100];
-	u8			res6[0xf00];
-	dma83xx_t		dma;		/* DMA */
-	pciconf83xx_t		pci_conf[1];	/* PCI Configuration Registers */
-	u8			res7[0x80];
-	ios83xx_t		ios;		/* Sequencer (IOS) */
-	pcictrl83xx_t		pci_ctrl[1];	/* PCI Control & Status Registers */
-	u8			res8[0x13A00];
-	u8			can1[0x1000];	/* Flexcan 1 */
-	u8			can2[0x1000];	/* Flexcan 2 */
-	u8			res9[0x5000];
-	usb83xx_t		usb;
-	u8			res10[0x5000];
-	u8			can3[0x1000];	/* Flexcan 3 */
-	u8			can4[0x1000];	/* Flexcan 4 */
-	u8			res11[0x1000];
-	u8			dma1[0x2000];	/* DMA */
-	sdhc83xx_t		sdhc;		/* SDHC Controller */
-	u8			res12[0xC1000];
-	rom83xx_t		rom;		/* On Chip ROM */
-	u8			res13[0x8000];
-	u8			qe[0x100000];	/* QE block */
-	u8			res14[0xE00000];/* Added for 8309 */
-} immap_t;
 #endif
 
-#define CONFIG_SYS_MPC8xxx_DDR_OFFSET	(0x2000)
-#define CONFIG_SYS_FSL_DDR_ADDR \
-			(CONFIG_SYS_IMMR + CONFIG_SYS_MPC8xxx_DDR_OFFSET)
 #define CONFIG_SYS_MPC83xx_DMA_OFFSET	(0x8000)
-#define CONFIG_SYS_MPC83xx_DMA_ADDR \
-			(CONFIG_SYS_IMMR + CONFIG_SYS_MPC83xx_DMA_OFFSET)
+#define CONFIG_SYS_MPC83xx_DMA_ADDR	(CONFIG_SYS_IMMR + CONFIG_SYS_MPC83xx_DMA_OFFSET)
 #define CONFIG_SYS_MPC83xx_ESDHC_OFFSET	(0x2e000)
-#define CONFIG_SYS_MPC83xx_ESDHC_ADDR \
-			(CONFIG_SYS_IMMR + CONFIG_SYS_MPC83xx_ESDHC_OFFSET)
+#define CONFIG_SYS_MPC83xx_ESDHC_ADDR	(CONFIG_SYS_IMMR + CONFIG_SYS_MPC83xx_ESDHC_OFFSET)
 
-#ifndef CONFIG_SYS_MPC83xx_USB1_OFFSET
-#define CONFIG_SYS_MPC83xx_USB1_OFFSET  0x23000
+#ifndef CONFIG_SYS_MPC83xx_USB_OFFSET
+#define CONFIG_SYS_MPC83xx_USB_OFFSET  0x23000
 #endif
-#define CONFIG_SYS_MPC83xx_USB1_ADDR \
-			(CONFIG_SYS_IMMR + CONFIG_SYS_MPC83xx_USB1_OFFSET)
-#if defined(CONFIG_MPC834x)
-#define CONFIG_SYS_MPC83xx_USB2_ADDR \
-			(CONFIG_SYS_IMMR + CONFIG_SYS_MPC83xx_USB2_OFFSET)
-#endif
+#define CONFIG_SYS_MPC83xx_USB_ADDR \
+			(CONFIG_SYS_IMMR + CONFIG_SYS_MPC83xx_USB_OFFSET)
 #define CONFIG_SYS_LBC_ADDR (&((immap_t *)CONFIG_SYS_IMMR)->im_lbc)
 
 #define CONFIG_SYS_TSEC1_OFFSET		0x24000

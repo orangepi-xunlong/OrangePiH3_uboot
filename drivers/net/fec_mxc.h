@@ -11,14 +11,26 @@
  * This file is based on mpc4200fec.h
  * (C) Copyright Motorola, Inc., 2000
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
  */
 
 
 #ifndef __FEC_MXC_H
 #define __FEC_MXC_H
-
-void imx_get_mac_from_fuse(int dev_id, unsigned char *mac);
 
 /**
  * Layout description of the FEC
@@ -135,7 +147,7 @@ struct ethernet_regs {
 
 	uint32_t res14[7];		/* MBAR_ETH + 0x2E4-2FC */
 
-#if defined(CONFIG_MX25) || defined(CONFIG_MX53) || defined(CONFIG_MX6SL)
+#if defined(CONFIG_MX25) || defined(CONFIG_MX53)
 	uint16_t miigsk_cfgr;		/* MBAR_ETH + 0x300 */
 	uint16_t res15[3];		/* MBAR_ETH + 0x302-306 */
 	uint16_t miigsk_enr;		/* MBAR_ETH + 0x308 */
@@ -182,9 +194,6 @@ struct ethernet_regs {
 #define FEC_RCNTRL_PROM			0x00000008
 #define FEC_RCNTRL_BC_REJ		0x00000010
 #define FEC_RCNTRL_FCE			0x00000020
-#define FEC_RCNTRL_RGMII		0x00000040
-#define FEC_RCNTRL_RMII			0x00000100
-#define FEC_RCNTRL_RMII_10T		0x00000200
 
 #define FEC_TCNTRL_GTS			0x00000001
 #define FEC_TCNTRL_HBC			0x00000002
@@ -194,15 +203,8 @@ struct ethernet_regs {
 
 #define FEC_ECNTRL_RESET		0x00000001	/* reset the FEC */
 #define FEC_ECNTRL_ETHER_EN		0x00000002	/* enable the FEC */
-#define FEC_ECNTRL_SPEED		0x00000020
-#define FEC_ECNTRL_DBSWAP		0x00000100
 
-#define FEC_X_WMRK_STRFWD		0x00000100
-
-#define FEC_X_DES_ACTIVE_TDAR		0x01000000
-#define FEC_R_DES_ACTIVE_RDAR		0x01000000
-
-#if defined(CONFIG_MX25) || defined(CONFIG_MX53) || defined(CONFIG_MX6SL)
+#if defined(CONFIG_MX25) || defined(CONFIG_MX53)
 /* defines for MIIGSK */
 /* RMII frequency control: 0=50MHz, 1=5MHz */
 #define MIIGSK_CFGR_FRCONT		(1 << 6)
@@ -223,6 +225,22 @@ struct ethernet_regs {
 #endif
 
 /**
+ * @brief Descriptor buffer alignment
+ *
+ * i.MX27 requires a 16 byte alignment (but for the first element only)
+ */
+#define DB_ALIGNMENT		16
+
+/**
+ * @brief Data buffer alignment
+ *
+ * i.MX27 requires a four byte alignment for transmit and 16 bits
+ * alignment for receive so take 16
+ * Note: Valid for member data_pointer in struct buffer_descriptor
+ */
+#define DB_DATA_ALIGNMENT	16
+
+/**
  * @brief Receive & Transmit Buffer Descriptor definitions
  *
  * Note: The first BD must be aligned (see DB_ALIGNMENT)
@@ -239,9 +257,7 @@ struct fec_bd {
 enum xceiver_type {
 	SEVENWIRE,	/* 7-wire       */
 	MII10,		/* MII 10Mbps   */
-	MII100,		/* MII 100Mbps  */
-	RMII,		/* RMII */
-	RGMII,		/* RGMII */
+	MII100		/* MII 100Mbps  */
 };
 
 /**
@@ -255,15 +271,8 @@ struct fec_priv {
 	struct fec_bd *tbd_base;	/* TBD ring */
 	int tbd_index;			/* next transmit BD to write */
 	bd_t *bd;
-	uint8_t *tdb_ptr;
-	int dev_id;
-	struct mii_dev *bus;
-#ifdef CONFIG_PHYLIB
-	struct phy_device *phydev;
-#else
-	int phy_id;
-	int (*mii_postcall)(int);
-#endif
+	void *rdb_ptr;
+	void *base_ptr;
 };
 
 /**

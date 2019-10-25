@@ -1,5 +1,5 @@
 /*
- * U-Boot - Configuration file for SSV DNP5370 board
+ * U-boot - Configuration file for SSV DNP5370 board
  */
 
 #ifndef __CONFIG_DNP5370_H__
@@ -47,12 +47,15 @@
  * Network Settings
  */
 #ifndef __ADSPBF534__
-#define CONFIG_ROOTPATH        "/romfs"
+#define CONFIG_ROOTPATH        /romfs
 
+#define CONFIG_NET_MULTI        1
 #define CONFIG_BFIN_MAC         1
 #define CONFIG_PHY_ADDR         0
 #define CONFIG_RMII             1
 
+#define CONFIG_CMD_MII
+#define CONFIG_CMD_PING
 #endif
 
 /*
@@ -83,14 +86,15 @@
 
 #define ENV_IS_EMBEDDED
 #define LDS_BOARD_TEXT \
-	arch/blackfin/lib/built-in.o (.text*); \
-	arch/blackfin/cpu/built-in.o (.text*); \
+	arch/blackfin/lib/libblackfin.o (.text*); \
+	arch/blackfin/cpu/libblackfin.o (.text*); \
 	. = DEFINED(env_offset) ? env_offset : .; \
 	common/env_embedded.o (.text*);
 
 /*
  * Misc Settings
  */
+#define CONFIG_CMD_GPIO
 #define CONFIG_CMD_STRINGS
 #define CONFIG_MISC_INIT_R
 #define CONFIG_RTC_BFIN
@@ -100,7 +104,6 @@
 #define CONFIG_DNP5370_EXT_WD_DISABLE 1
 
 #define CONFIG_UART_CONSOLE 0
-#define CONFIG_BFIN_SERIAL
 #define CONFIG_BAUDRATE     115200
 #define CONFIG_BOOTCOMMAND  "bootm 0x20030000"
 #define CONFIG_BOOTARGS     "console=ttyBF0,115200 root=/dev/mtdblock3 rootfstype=ext2"
@@ -113,5 +116,13 @@
 		"erase 0x20030000 0x202effff;" \
 		"cp.b 0x01000000 0x20030000 0x2c0000\0" \
 	"runme=bootm 0x01000000\0"
+
+/* this sets up the default list of enabled commands */
+#include <config_cmd_default.h>
+
+#ifndef CONFIG_BFIN_MAC
+# undef CONFIG_CMD_NET
+# undef CONFIG_CMD_NFS
+#endif
 
 #endif

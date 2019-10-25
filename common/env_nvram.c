@@ -5,7 +5,23 @@
  * (C) Copyright 2001 Sysgo Real-Time Solutions, GmbH <www.elinos.com>
  * Andreas Heppel <aheppel@sysgo.de>
 
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -36,23 +52,27 @@ DECLARE_GLOBAL_DATA_PTR;
 #ifdef CONFIG_SYS_NVRAM_ACCESS_ROUTINE
 extern void *nvram_read(void *dest, const long src, size_t count);
 extern void nvram_write(long dest, const void *src, size_t count);
-env_t *env_ptr;
+env_t *env_ptr = NULL;
 #else
 env_t *env_ptr = (env_t *)CONFIG_ENV_ADDR;
 #endif
 
-char *env_name_spec = "NVRAM";
+char * env_name_spec = "NVRAM";
 
-#ifdef CONFIG_SYS_NVRAM_ACCESS_ROUTINE
+extern uchar default_environment[];
+
 uchar env_get_char_spec(int index)
 {
+#ifdef CONFIG_SYS_NVRAM_ACCESS_ROUTINE
 	uchar c;
 
-	nvram_read(&c, CONFIG_ENV_ADDR + index, 1);
+	nvram_read(&c, CONFIG_ENV_ADDR+index, 1);
 
 	return c;
-}
+#else
+	return *((uchar *)(gd->env_addr + index));
 #endif
+}
 
 void env_relocate_spec(void)
 {
@@ -61,7 +81,7 @@ void env_relocate_spec(void)
 #if defined(CONFIG_SYS_NVRAM_ACCESS_ROUTINE)
 	nvram_read(buf, CONFIG_ENV_ADDR, CONFIG_ENV_SIZE);
 #else
-	memcpy(buf, (void *)CONFIG_ENV_ADDR, CONFIG_ENV_SIZE);
+	memcpy(buf, (void*)CONFIG_ENV_ADDR, CONFIG_ENV_SIZE);
 #endif
 	env_import(buf, 1);
 }
@@ -69,11 +89,17 @@ void env_relocate_spec(void)
 int saveenv(void)
 {
 	env_t	env_new;
+	ssize_t	len;
+	char	*res;
 	int	rcode = 0;
 
-	rcode = env_export(&env_new);
-	if (rcode)
-		return rcode;
+	res = (char *)&env_new.data;
+	len = hexport_r(&env_htab, '\0', &res, ENV_SIZE);
+	if (len < 0) {
+		error("Cannot export environment: errno = %d\n", errno);
+		return 1;
+	}
+	env_new.crc = crc32(0, env_new.data, ENV_SIZE);
 
 #ifdef CONFIG_SYS_NVRAM_ACCESS_ROUTINE
 	nvram_write(CONFIG_ENV_ADDR, &env_new, CONFIG_ENV_SIZE);
@@ -83,6 +109,7 @@ int saveenv(void)
 #endif
 	return rcode;
 }
+
 
 /*
  * Initialize Environment use
@@ -96,19 +123,18 @@ int env_init(void)
 	uchar data[ENV_SIZE];
 
 	nvram_read(&crc, CONFIG_ENV_ADDR, sizeof(ulong));
-	nvram_read(data, CONFIG_ENV_ADDR + sizeof(ulong), ENV_SIZE);
+	nvram_read(data, CONFIG_ENV_ADDR+sizeof(ulong), ENV_SIZE);
 
 	if (crc32(0, data, ENV_SIZE) == crc) {
-		gd->env_addr	= (ulong)CONFIG_ENV_ADDR + sizeof(long);
+		gd->env_addr  = (ulong)CONFIG_ENV_ADDR + sizeof(long);
 #else
 	if (crc32(0, env_ptr->data, ENV_SIZE) == env_ptr->crc) {
-		gd->env_addr	= (ulong)&env_ptr->data;
+		gd->env_addr  = (ulong)&(env_ptr->data);
 #endif
-		gd->env_valid	= 1;
+		gd->env_valid = 1;
 	} else {
-		gd->env_addr	= (ulong)&default_environment[0];
-		gd->env_valid	= 0;
+		gd->env_addr  = (ulong)&default_environment[0];
+		gd->env_valid = 0;
 	}
-
-	return 0;
+	return (0);
 }

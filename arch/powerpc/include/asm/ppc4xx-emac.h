@@ -1,6 +1,25 @@
-/*
- * SPDX-License-Identifier:	GPL-2.0	IBM-pibs
- */
+/*----------------------------------------------------------------------------+
+|   This source code is dual-licensed.  You may use it under the terms of the
+|   GNU General Public License version 2, or under the license below.
+|
+|	This source code has been made available to you by IBM on an AS-IS
+|	basis.	Anyone receiving this source is licensed under IBM
+|	copyrights to use it in any way he or she deems fit, including
+|	copying it, modifying it, compiling it, and redistributing it either
+|	with or without modifications.	No license under IBM patents or
+|	patent applications is to be implied by the copyright license.
+|
+|	Any user of this software should understand that IBM cannot provide
+|	technical support for this software and will not be responsible for
+|	any consequences resulting from the use of this software.
+|
+|	Any person who transfers this source code or any derivative work
+|	must include the IBM copyright notice, this paragraph, and the
+|	preceding two paragraphs in the transferred software.
+|
+|	COPYRIGHT   I B M   CORPORATION 1999
+|	LICENSED MATERIAL  -  PROGRAM PROPERTY OF I B M
++----------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------+
 |
 |  File Name:	enetemac.h
@@ -117,6 +136,7 @@ typedef struct emac_4xx_hw_st {
 #if defined(CONFIG_440GX) || defined(CONFIG_460GT)
 #define EMAC_NUM_DEV		4
 #elif (defined(CONFIG_440) || defined(CONFIG_405EP)) &&	\
+	defined(CONFIG_NET_MULTI) &&			\
 	!defined(CONFIG_440SP) && !defined(CONFIG_440SPE)
 #define EMAC_NUM_DEV		2
 #else

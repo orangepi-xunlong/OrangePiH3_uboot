@@ -7,7 +7,23 @@
  *
  * Configuation settings for the SAMSUNG SMDK2410 board.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef __CONFIG_H
@@ -17,7 +33,8 @@
  * High Level Configuration Options
  * (easy to change)
  */
-#define CONFIG_S3C24X0		/* This is a SAMSUNG S3C24x0-type SoC */
+#define CONFIG_ARM920T		/* This is an ARM920T Core */
+#define CONFIG_S3C24X0		/* in a SAMSUNG S3C24x0-type SoC */
 #define CONFIG_S3C2410		/* specifically a SAMSUNG S3C2410 SoC */
 #define CONFIG_SMDK2410		/* on a SAMSUNG SMDK2410 Board */
 
@@ -28,6 +45,8 @@
 /* input clock of PLL (the SMDK2410 has 12MHz input clock) */
 #define CONFIG_SYS_CLK_FREQ	12000000
 
+#undef CONFIG_USE_IRQ		/* we don't need IRQ/FIQ stuff */
+
 #define CONFIG_CMDLINE_TAG	/* enable passing of ATAGs */
 #define CONFIG_SETUP_MEMORY_TAGS
 #define CONFIG_INITRD_TAG
@@ -35,6 +54,7 @@
 /*
  * Hardware drivers
  */
+#define CONFIG_NET_MULTI
 #define CONFIG_CS8900		/* we have a CS8900 on-board */
 #define CONFIG_CS8900_BASE	0x19000300
 #define CONFIG_CS8900_BUS16	/* the Linux driver does accesses as shorts */
@@ -49,14 +69,15 @@
  * USB support (currently only works with D-cache off)
  ************************************************************/
 #define CONFIG_USB_OHCI
-#define CONFIG_USB_OHCI_S3C24XX
 #define CONFIG_USB_KEYBOARD
+#define CONFIG_USB_STORAGE
 #define CONFIG_DOS_PARTITION
 
 /************************************************************
  * RTC
  ************************************************************/
 #define CONFIG_RTC_S3C24X0
+
 
 #define CONFIG_BAUDRATE		115200
 
@@ -71,16 +92,27 @@
 /*
  * Command line configuration.
  */
-#define CONFIG_CMD_BSP
-#define CONFIG_CMD_DATE
-#define CONFIG_CMD_NAND
-#define CONFIG_CMD_REGINFO
+#include <config_cmd_default.h>
 
+#define CONFIG_CMD_BSP
+#define CONFIG_CMD_CACHE
+#define CONFIG_CMD_DATE
+#define CONFIG_CMD_DHCP
+#define CONFIG_CMD_ELF
+#define CONFIG_CMD_NAND
+#define CONFIG_CMD_PING
+#define CONFIG_CMD_REGINFO
+#define CONFIG_CMD_USB
+
+#define CONFIG_SYS_HUSH_PARSER
+#define CONFIG_SYS_PROMPT_HUSH_PS2	"> "
 #define CONFIG_CMDLINE_EDITING
 
 /* autoboot */
+#define CONFIG_BOOTDELAY	5
 #define CONFIG_BOOT_RETRY_TIME	-1
 #define CONFIG_RESET_TO_RETRY
+#define CONFIG_ZERO_BOOTDELAY_CHECK
 
 #define CONFIG_NETMASK		255.255.255.0
 #define CONFIG_IPADDR		10.0.0.110
@@ -88,12 +120,15 @@
 
 #if defined(CONFIG_CMD_KGDB)
 #define CONFIG_KGDB_BAUDRATE	115200	/* speed to run kgdb serial port */
+/* what's this ? it's not used anywhere */
+#define CONFIG_KGDB_SER_INDEX	2	/* which serial port to use */
 #endif
 
 /*
  * Miscellaneous configurable options
  */
 #define CONFIG_SYS_LONGHELP		/* undef to save memory */
+#define CONFIG_SYS_PROMPT	"SMDK2410 # "
 #define CONFIG_SYS_CBSIZE	256
 /* Print Buffer Size */
 #define CONFIG_SYS_PBSIZE	(CONFIG_SYS_CBSIZE + \
@@ -101,17 +136,34 @@
 #define CONFIG_SYS_MAXARGS	16
 #define CONFIG_SYS_BARGSIZE	CONFIG_SYS_CBSIZE
 
-#define CONFIG_DISPLAY_CPUINFO				/* Display cpu info */
+/* may be activated as soon as s3c24x0 has print_cpuinfo support */
+/*#define CONFIG_DISPLAY_CPUINFO*/		/* Display cpu info */
 
 #define CONFIG_SYS_MEMTEST_START	0x30000000	/* memtest works on */
 #define CONFIG_SYS_MEMTEST_END		0x33F00000	/* 63 MB in DRAM */
 
 #define CONFIG_SYS_LOAD_ADDR		0x30800000
 
+#define CONFIG_SYS_HZ			1000
+
+/* valid baudrates */
+#define CONFIG_SYS_BAUDRATE_TABLE	{ 9600, 19200, 38400, 57600, 115200 }
+
 /* support additional compression methods */
 #define CONFIG_BZIP2
 #define CONFIG_LZO
 #define CONFIG_LZMA
+
+/*-----------------------------------------------------------------------
+ * Stack sizes
+ *
+ * The stack sizes are set up in start.S using the settings below
+ */
+#define CONFIG_STACKSIZE	(128*1024)	/* regular stack */
+#ifdef CONFIG_USE_IRQ
+#define CONFIG_STACKSIZE_IRQ	(4*1024)	/* IRQ stack */
+#define CONFIG_STACKSIZE_FIQ	(4*1024)	/* FIQ stack */
+#endif
 
 /*-----------------------------------------------------------------------
  * Physical Memory Map
@@ -160,12 +212,15 @@
 #define CONFIG_NAND_S3C2410
 #define CONFIG_SYS_S3C2410_NAND_HWECC
 #define CONFIG_SYS_MAX_NAND_DEVICE	1
+#define NAND_MAX_CHIPS			1
 #define CONFIG_SYS_NAND_BASE		0x4E000000
 #endif
 
 /*
  * File system
  */
+#define CONFIG_CMD_FAT
+#define CONFIG_CMD_EXT2
 #define CONFIG_CMD_UBI
 #define CONFIG_CMD_UBIFS
 #define CONFIG_CMD_MTDPARTS

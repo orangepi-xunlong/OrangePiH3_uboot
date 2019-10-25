@@ -2,7 +2,23 @@
  * (C) Copyright 2007
  * Matthias Fuchs, esd gmbh, matthias.fuchs@esd-electronics.com.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -20,7 +36,7 @@ DECLARE_GLOBAL_DATA_PTR;
 #define USE_SP_CODE
 
 #ifdef USE_SP_CODE
-xilinx_spartan3_slave_parallel_fns pmc440_fpga_fns = {
+Xilinx_Spartan3_Slave_Parallel_fns pmc440_fpga_fns = {
 	fpga_pre_config_fn,
 	fpga_pgm_fn,
 	fpga_init_fn,
@@ -36,7 +52,7 @@ xilinx_spartan3_slave_parallel_fns pmc440_fpga_fns = {
 	fpga_post_config_fn,
 };
 #else
-xilinx_spartan3_slave_serial_fns pmc440_fpga_fns = {
+Xilinx_Spartan3_Slave_Serial_fns pmc440_fpga_fns = {
 	fpga_pre_config_fn,
 	fpga_pgm_fn,
 	fpga_clk_fn,
@@ -47,7 +63,7 @@ xilinx_spartan3_slave_serial_fns pmc440_fpga_fns = {
 };
 #endif
 
-xilinx_spartan2_slave_serial_fns ngcc_fpga_fns = {
+Xilinx_Spartan2_Slave_Serial_fns ngcc_fpga_fns = {
 	ngcc_fpga_pre_config_fn,
 	ngcc_fpga_pgm_fn,
 	ngcc_fpga_clk_fn,
@@ -57,7 +73,7 @@ xilinx_spartan2_slave_serial_fns ngcc_fpga_fns = {
 	ngcc_fpga_post_config_fn
 };
 
-xilinx_desc fpga[CONFIG_FPGA_COUNT] = {
+Xilinx_desc fpga[CONFIG_FPGA_COUNT] = {
 	XILINX_XC3S1200E_DESC(
 #ifdef USE_SP_CODE
 		slave_parallel,
@@ -97,7 +113,7 @@ void fpga_serialslave_init(void)
 {
 	debug("%s:%d: Initialize serial slave interface\n", __FUNCTION__,
 	      __LINE__);
-	fpga_pgm_fn(false, false, 0);	/* make sure program pin is inactive */
+	fpga_pgm_fn(FALSE, FALSE, 0);	/* make sure program pin is inactive */
 }
 
 
@@ -172,7 +188,7 @@ int fpga_done_fn(int cookie)
 int fpga_pre_config_fn(int cookie)
 {
 	debug("%s:%d: FPGA pre-configuration\n", __FUNCTION__, __LINE__);
-	fpga_reset(true);
+	fpga_reset(TRUE);
 
 	/* release init# */
 	out_be32((void*)GPIO0_OR, in_be32((void*)GPIO0_OR) | GPIO0_FPGA_FORCEINIT);
@@ -197,9 +213,9 @@ int fpga_post_config_fn(int cookie)
 	/* enable PLD0..7 pins */
 	out_be32((void*)GPIO1_OR, in_be32((void*)GPIO1_OR) & ~GPIO1_IOEN_N);
 
-	fpga_reset(true);
+	fpga_reset(TRUE);
 	udelay (100);
-	fpga_reset(false);
+	fpga_reset(FALSE);
 	udelay (100);
 
 	FPGA_OUT32(&fpga->status, (gd->board_type << STATUS_HWREV_SHIFT) & STATUS_HWREV_MASK);
@@ -280,7 +296,7 @@ void ngcc_fpga_serialslave_init(void)
 	      __FUNCTION__, __LINE__);
 
 	/* make sure program pin is inactive */
-	ngcc_fpga_pgm_fn(false, false, 0);
+	ngcc_fpga_pgm_fn (FALSE, FALSE, 0);
 }
 
 /*
@@ -366,10 +382,10 @@ int ngcc_fpga_pre_config_fn(int cookie)
 	pmc440_fpga_t *fpga = (pmc440_fpga_t *)FPGA_BA;
 	debug("%s:%d: FPGA pre-configuration\n", __FUNCTION__, __LINE__);
 
-	ngcc_fpga_reset(true);
+	ngcc_fpga_reset(TRUE);
 	FPGA_CLRBITS(&fpga->ctrla, 0xfffffe00);
 
-	ngcc_fpga_reset(true);
+	ngcc_fpga_reset(TRUE);
 	return 0;
 }
 
@@ -385,7 +401,7 @@ int ngcc_fpga_post_config_fn(int cookie)
 	debug("%s:%d: NGCC FPGA post configuration\n", __FUNCTION__, __LINE__);
 
 	udelay (100);
-	ngcc_fpga_reset(false);
+	ngcc_fpga_reset(FALSE);
 
 	FPGA_SETBITS(&fpga->ctrla, 0x29f8c000);
 

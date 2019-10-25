@@ -3,11 +3,27 @@
  *
  * (C) Copyright 2003 Josef Baumgartner <josef.baumgartner@telex.de>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /* ---
- * Version: U-Boot 1.0.0 - initial release for Sentec COBRA5272 board
+ * Version: U-boot 1.0.0 - initial release for Sentec COBRA5272 board
  * Date: 2004-03-29
  * Author: Florian Schlote
  *
@@ -25,11 +41,23 @@
 #define _CONFIG_COBRA5272_H
 
 /* ---
- * Defines processor clock - important for correct timings concerning serial
- * interface etc.
+ * Define processor
+ * possible values for Sentec board: only Coldfire M5272 processor supported
+ * (please do not change)
  * ---
  */
 
+#define CONFIG_MCF52x2			/* define processor family */
+#define CONFIG_M5272			/* define processor type */
+
+/* ---
+ * Defines processor clock - important for correct timings concerning serial
+ * interface etc.
+ * CONFIG_SYS_HZ gives unit: 1000 -> 1 Hz ^= 1000 ms
+ * ---
+ */
+
+#define CONFIG_SYS_HZ			1000
 #define CONFIG_SYS_CLK			66000000
 #define CONFIG_SYS_SDRAM_SIZE		16		/* SDRAM size in MB */
 
@@ -53,6 +81,7 @@
 #define CONFIG_MCFUART
 #define CONFIG_SYS_UART_PORT		(0)
 #define CONFIG_BAUDRATE		19200
+#define CONFIG_SYS_BAUDRATE_TABLE { 9600 , 19200 , 38400 , 57600, 115200 }
 
 /* ---
  * set "#if 0" to "#if 1" if (Hardware)-WATCHDOG should be enabled & change
@@ -104,9 +133,6 @@
 #define CONFIG_ENV_IS_IN_FLASH	1
 #endif
 
-#define LDS_BOARD_TEXT \
-        . = DEFINED(env_offset) ? env_offset : .; \
-        common/env_embedded.o (.text);
 
 /*
  * BOOTP options
@@ -116,11 +142,20 @@
 #define CONFIG_BOOTP_GATEWAY
 #define CONFIG_BOOTP_HOSTNAME
 
+
 /*
  * Command line configuration.
  */
+#include <config_cmd_default.h>
+
+#define CONFIG_CMD_PING
+
+#undef CONFIG_CMD_LOADS
+#undef CONFIG_CMD_LOADB
+#undef CONFIG_CMD_MII
 
 #ifdef CONFIG_MCFFEC
+#	define CONFIG_NET_MULTI		1
 #	define CONFIG_MII		1
 #	define CONFIG_MII_INIT		1
 #	define CONFIG_SYS_DISCOVER_PHY
@@ -149,6 +184,12 @@
 
 /*AUTOBOOT settings - booting images automatically by u-boot after power on*/
 
+#define CONFIG_BOOTDELAY	5		/* used for autoboot, delay in
+seconds u-boot will wait before starting defined (auto-)boot command, setting
+to -1 disables delay, setting to 0 will too prevent access to u-boot command
+interface: u-boot then has to reflashed */
+
+
 /* The following settings will be contained in the environment block ; if you
 want to use a neutral environment all those settings can be manually set in
 u-boot: 'set' command */
@@ -163,10 +204,13 @@ considered during boot */
 
 /* User network settings */
 
+#define CONFIG_ETHADDR 00:00:00:00:00:09	/* default ethernet MAC addr. */
 #define CONFIG_IPADDR 192.168.100.2		/* default board IP address */
 #define CONFIG_SERVERIP 192.168.100.1	/* default tftp server IP address */
 
 #endif
+
+#define CONFIG_SYS_PROMPT		"COBRA > "	/* Layout of u-boot prompt*/
 
 #define CONFIG_SYS_LOAD_ADDR		0x20000		/*Defines default RAM address
 from which user programs will be started */

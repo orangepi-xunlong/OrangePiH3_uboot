@@ -78,6 +78,7 @@ Add SNMP
 /* NE2000 base header file */
 #include "ne2000_base.h"
 
+#define mdelay(n) udelay((n)*1000)
 /* find prom (taken from pc_net_cs.c from Linux) */
 
 #include "8390.h"
@@ -228,7 +229,7 @@ int get_prom(u8* mac_addr, u8* base_addr)
 
 	mdelay (10);
 
-	for (i = 0; i < ARRAY_SIZE(program_seq); i++)
+	for (i = 0; i < sizeof (program_seq) / sizeof (program_seq[0]); i++)
 		n2k_outb (program_seq[i].value, program_seq[i].offset);
 
 	PRINTK ("PROM:");

@@ -4,7 +4,23 @@
  * Haiying Wang (haiying.wang@freescale.com)
  * Timur Tabi (timur@freescale.com)
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -18,11 +34,7 @@
 #endif
 
 #ifdef CONFIG_SYS_I2C_EEPROM_NXID
-/* some boards with non-256-bytes EEPROM have special define */
-/* for MAX_NUM_PORTS in board-specific file */
-#ifndef MAX_NUM_PORTS
-#define MAX_NUM_PORTS	16
-#endif
+#define MAX_NUM_PORTS	23
 #define NXID_VERSION	1
 #endif
 
@@ -58,9 +70,8 @@ static struct __attribute__ ((__packed__)) eeprom {
 	u8 res_1[21];     /* 0x2b - 0x3f Reserved */
 	u8 mac_count;     /* 0x40        Number of MAC addresses */
 	u8 mac_flag;      /* 0x41        MAC table flags */
-	u8 mac[MAX_NUM_PORTS][6];     /* 0x42 - 0xa1 MAC addresses */
-	u8 res_2[90];     /* 0xa2 - 0xfb Reserved */	
-	u32 crc;          /* 0xfc - 0xff CRC32 checksum */
+	u8 mac[MAX_NUM_PORTS][6];     /* 0x42 - x MAC addresses */
+	u32 crc;          /* x+1         CRC32 checksum */
 #endif
 } e;
 
@@ -90,7 +101,7 @@ static void show_eeprom(void)
 	/* EEPROM tag ID, either CCID or NXID */
 #ifdef CONFIG_SYS_I2C_EEPROM_NXID
 	printf("ID: %c%c%c%c v%u\n", e.id[0], e.id[1], e.id[2], e.id[3],
-	       be32_to_cpu(e.version));
+		be32_to_cpu(e.version));
 #else
 	printf("ID: %c%c%c%c\n", e.id[0], e.id[1], e.id[2], e.id[3]);
 #endif
@@ -114,7 +125,7 @@ static void show_eeprom(void)
 		e.date[3] & 0x80 ? "PM" : "");
 
 	/* Show MAC addresses  */
-	for (i = 0; i < min(e.mac_count, (u8)MAX_NUM_PORTS); i++) {
+	for (i = 0; i < min(e.mac_count, MAX_NUM_PORTS); i++) {
 
 		u8 *p = e.mac[i];
 
@@ -223,7 +234,7 @@ static int prog_eeprom(void)
 	 */
 	for (i = 0, p = &e; i < sizeof(e); i += 8, p += 8) {
 		ret = i2c_write(CONFIG_SYS_I2C_EEPROM_ADDR, i, CONFIG_SYS_I2C_EEPROM_ADDR_LEN,
-				p, min((int)(sizeof(e) - i), 8));
+			p, min((sizeof(e) - i), 8));
 		if (ret)
 			break;
 		udelay(5000);	/* 5ms write cycle timing */
@@ -340,7 +351,7 @@ int do_mac(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	if (cmd == 'i') {
 #ifdef CONFIG_SYS_I2C_EEPROM_NXID
 		memcpy(e.id, "NXID", sizeof(e.id));
-		e.version = cpu_to_be32(NXID_VERSION);
+		e.version = NXID_VERSION;
 #else
 		memcpy(e.id, "CCID", sizeof(e.id));
 #endif
@@ -426,13 +437,13 @@ int mac_read_from_eeprom(void)
 
 	if (read_eeprom()) {
 		printf("Read failed.\n");
-		return 0;
+		return -1;
 	}
 
 	if (!is_valid) {
 		printf("Invalid ID (%02x %02x %02x %02x)\n",
 		       e.id[0], e.id[1], e.id[2], e.id[3]);
-		return 0;
+		return -1;
 	}
 
 #ifdef CONFIG_SYS_I2C_EEPROM_NXID
@@ -448,7 +459,7 @@ int mac_read_from_eeprom(void)
 	crcp = (void *)&e + crc_offset;
 	if (crc != be32_to_cpu(*crcp)) {
 		printf("CRC mismatch (%08x != %08x)\n", crc, be32_to_cpu(e.crc));
-		return 0;
+		return -1;
 	}
 
 #ifdef CONFIG_SYS_I2C_EEPROM_NXID
@@ -461,7 +472,7 @@ int mac_read_from_eeprom(void)
 		memset(e.mac[8], 0xff, 6);
 #endif
 
-	for (i = 0; i < min(e.mac_count, (u8)MAX_NUM_PORTS); i++) {
+	for (i = 0; i < min(e.mac_count, MAX_NUM_PORTS); i++) {
 		if (memcmp(&e.mac[i], "\0\0\0\0\0\0", 6) &&
 		    memcmp(&e.mac[i], "\xFF\xFF\xFF\xFF\xFF\xFF", 6)) {
 			char ethaddr[18];
@@ -485,7 +496,7 @@ int mac_read_from_eeprom(void)
 
 #ifdef CONFIG_SYS_I2C_EEPROM_NXID
 	printf("%c%c%c%c v%u\n", e.id[0], e.id[1], e.id[2], e.id[3],
-	       be32_to_cpu(e.version));
+		be32_to_cpu(e.version));
 #else
 	printf("%c%c%c%c\n", e.id[0], e.id[1], e.id[2], e.id[3]);
 #endif
@@ -496,7 +507,7 @@ int mac_read_from_eeprom(void)
 	 * that at boot time, U-Boot will still say "NXID v0".
 	 */
 	if (e.version == 0) {
-		e.version = cpu_to_be32(NXID_VERSION);
+		e.version = NXID_VERSION;
 		update_crc();
 	}
 #endif

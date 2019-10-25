@@ -8,7 +8,23 @@
  * (C) Copyright 2002
  * Gary Jennejohn, DENX Software Engineering, <garyj@denx.de>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -20,11 +36,15 @@
 #include <asm/system.h>
 #include <asm/cache.h>
 #include <asm/armv7.h>
-#include <linux/compiler.h>
 
-void __weak cpu_cache_initialization(void){}
+void save_boot_params_default(u32 r0, u32 r1, u32 r2, u32 r3)
+{
+}
 
-int cleanup_before_linux_select(int flags)
+void save_boot_params(u32 r0, u32 r1, u32 r2, u32 r3)
+	__attribute__((weak, alias("save_boot_params_default")));
+
+int cleanup_before_linux(void)
 {
 	/*
 	 * this function is called just before we call linux
@@ -32,53 +52,49 @@ int cleanup_before_linux_select(int flags)
 	 *
 	 * we turn off caches etc ...
 	 */
-#ifndef CONFIG_SPL_BUILD
 	disable_interrupts();
-#endif
-
-	if (flags & CBL_DISABLE_CACHES) {
-		/*
-		* turn off D-cache
-		* dcache_disable() in turn flushes the d-cache and disables MMU
-		*/
-		dcache_disable();
-		v7_outer_cache_disable();
-
-		/*
-		* After D-cache is flushed and before it is disabled there may
-		* be some new valid entries brought into the cache. We are
-		* sure that these lines are not dirty and will not affect our
-		* execution. (because unwinding the call-stack and setting a
-		* bit in CP15 SCTRL is all we did during this. We have not
-		* pushed anything on to the stack. Neither have we affected
-		* any static data) So just invalidate the entire d-cache again
-		* to avoid coherency problems for kernel
-		*/
-		invalidate_dcache_all();
-
-		icache_disable();
-		invalidate_icache_all();
-	} else {
-		/*
-		 * Turn off I-cache and invalidate it
-		 */
-		icache_disable();
-		invalidate_icache_all();
-
-		flush_dcache_all();
-		invalidate_icache_all();
-		icache_enable();
-	}
 
 	/*
-	 * Some CPU need more cache attention before starting the kernel.
+	 * Turn off I-cache and invalidate it
 	 */
-	cpu_cache_initialization();
+	icache_disable();
+	invalidate_icache_all();
+
+	/*
+	 * turn off D-cache
+	 * dcache_disable() in turn flushes the d-cache and disables MMU
+	 */
+	dcache_disable();
+
+	/*
+	 * After D-cache is flushed and before it is disabled there may
+	 * be some new valid entries brought into the cache. We are sure
+	 * that these lines are not dirty and will not affect our execution.
+	 * (because unwinding the call-stack and setting a bit in CP15 SCTRL
+	 * is all we did during this. We have not pushed anything on to the
+	 * stack. Neither have we affected any static data)
+	 * So just invalidate the entire d-cache again to avoid coherency
+	 * problems for kernel
+	 */
+	invalidate_dcache_all();
 
 	return 0;
 }
 
-int cleanup_before_linux(void)
+void __cpu0_set_detected_paras(void)
 {
-	return cleanup_before_linux_select(CBL_ALL);
 }
+
+void cpu0_set_detected_paras(void)
+	__attribute__((weak, alias("__cpu0_set_detected_paras")));
+
+
+int arch_cpu_init (void)
+{
+	cpu0_set_detected_paras();		//add by jerry
+
+	icache_enable();
+
+	return 0;
+}
+

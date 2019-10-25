@@ -1,7 +1,23 @@
 /*
  * Copyright 2009-2011 Freescale Semiconductor, Inc.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -14,23 +30,21 @@
 #include <asm/immap_85xx.h>
 #include <asm/fsl_law.h>
 #include <asm/fsl_serdes.h>
+#include <asm/fsl_portals.h>
 #include <asm/fsl_liodn.h>
-#include <fm_eth.h>
+
+extern void pci_of_setup(void *blob, bd_t *bd);
 
 #include "../common/ngpixis.h"
-#include "corenet_ds.h"
 
 DECLARE_GLOBAL_DATA_PTR;
 
 int checkboard (void)
 {
 	u8 sw;
-	struct cpu_type *cpu = gd->arch.cpu;
-#if defined(CONFIG_P3041DS) || defined(CONFIG_P5020DS) || \
-	defined(CONFIG_P5040DS)
+	struct cpu_type *cpu = gd->cpu;
+	ccsr_gur_t *gur = (void *)CONFIG_SYS_MPC85xx_GUTS_ADDR;
 	unsigned int i;
-#endif
-	static const char * const freq[] = {"100", "125", "156.25", "212.5" };
 
 	printf("Board: %sDS, ", cpu->name);
 	printf("Sys ID: 0x%02x, Sys Ver: 0x%02x, FPGA Ver: 0x%02x, ",
@@ -48,6 +62,23 @@ int checkboard (void)
 	else
 		printf("invalid setting of SW%u\n", PIXIS_LBMAP_SWITCH);
 
+#ifdef CONFIG_PHYS_64BIT
+	puts("36-bit Addressing\n");
+#endif
+
+	/* Display the RCW, so that no one gets confused as to what RCW
+	 * we're actually using for this boot.
+	 */
+	puts("Reset Configuration Word (RCW):");
+	for (i = 0; i < ARRAY_SIZE(gur->rcwsr); i++) {
+		u32 rcw = in_be32(&gur->rcwsr[i]);
+
+		if ((i % 4) == 0)
+			printf("\n       %08x:", i * 4);
+		printf(" %08x", rcw);
+	}
+	puts("\n");
+
 	/* Display the actual SERDES reference clocks as configured by the
 	 * dip switches on the board.  Note that the SWx registers could
 	 * technically be set to force the reference clocks to match the
@@ -56,28 +87,20 @@ int checkboard (void)
 	 * don't match.
 	 */
 	puts("SERDES Reference Clocks: ");
-#if defined(CONFIG_P3041DS) || defined(CONFIG_P5020DS) \
-	|| defined(CONFIG_P5040DS)
+#if defined(CONFIG_P3041DS) || defined(CONFIG_P5020DS)
 	sw = in_8(&PIXIS_SW(5));
 	for (i = 0; i < 3; i++) {
+		static const char *freq[] = {"100", "125", "156.25", "212.5" };
 		unsigned int clock = (sw >> (6 - (2 * i))) & 3;
 
 		printf("Bank%u=%sMhz ", i+1, freq[clock]);
 	}
-#ifdef CONFIG_P5040DS
-	/* On P5040DS, SW11[7:8] determines the Bank 4 frequency */
-	sw = in_8(&PIXIS_SW(9));
-	printf("Bank4=%sMhz ", freq[sw & 3]);
-#endif
 	puts("\n");
 #else
 	sw = in_8(&PIXIS_SW(3));
-	/* SW3[2]: 0 = 100 Mhz, 1 = 125 MHz */
-	/* SW3[3]: 0 = 125 Mhz, 1 = 156.25 MHz */
-	/* SW3[4]: 0 = 125 Mhz, 1 = 156.25 MHz */
-	printf("Bank1=%sMHz ", freq[!!(sw & 0x40)]);
-	printf("Bank2=%sMHz ", freq[1 + !!(sw & 0x20)]);
-	printf("Bank3=%sMHz\n", freq[1 + !!(sw & 0x10)]);
+	printf("Bank1=%uMHz ", (sw & 0x40) ? 125 : 100);
+	printf("Bank2=%sMHz ", (sw & 0x20) ? "156.25" : "125");
+	printf("Bank3=%sMHz\n", (sw & 0x10) ? "156.25" : "125");
 #endif
 
 	return 0;
@@ -100,7 +123,7 @@ int board_early_init_f(void)
 int board_early_init_r(void)
 {
 	const unsigned int flashbase = CONFIG_SYS_FLASH_BASE;
-	int flash_esel = find_tlb_idx((void *)flashbase, 1);
+	const u8 flash_esel = find_tlb_idx((void *)flashbase, 1);
 
 	/*
 	 * Remap Boot flash + PROMJET region to caching-inhibited
@@ -111,20 +134,33 @@ int board_early_init_r(void)
 	flush_dcache();
 	invalidate_icache();
 
-	if (flash_esel == -1) {
-		/* very unlikely unless something is messed up */
-		puts("Error: Could not find TLB for FLASH BASE\n");
-		flash_esel = 2;	/* give our best effort to continue */
-	} else {
-		/* invalidate existing TLB entry for flash + promjet */
-		disable_tlb(flash_esel);
-	}
+	/* invalidate existing TLB entry for flash + promjet */
+	disable_tlb(flash_esel);
 
 	set_tlb(1, flashbase, CONFIG_SYS_FLASH_BASE_PHYS,	/* tlb, epn, rpn */
 			MAS3_SX|MAS3_SW|MAS3_SR, MAS2_I|MAS2_G,	/* perms, wimge */
 			0, flash_esel, BOOKE_PAGESZ_256M, 1);	/* ts, esel, tsize, iprot */
 
+	set_liodns();
+#ifdef CONFIG_SYS_DPAA_QBMAN
+	setup_portals();
+#endif
+
 	return 0;
+}
+
+static const char *serdes_clock_to_string(u32 clock)
+{
+	switch(clock) {
+	case SRDS_PLLCR0_RFCK_SEL_100:
+		return "100";
+	case SRDS_PLLCR0_RFCK_SEL_125:
+		return "125";
+	case SRDS_PLLCR0_RFCK_SEL_156_25:
+		return "156.25";
+	default:
+		return "150";
+	}
 }
 
 #define NUM_SRDS_BANKS	3
@@ -136,8 +172,7 @@ int misc_init_r(void)
 	unsigned int i;
 	u8 sw;
 
-#if defined(CONFIG_P3041DS) || defined(CONFIG_P5020DS) \
-	|| defined(CONFIG_P5040DS)
+#if defined(CONFIG_P3041DS) || defined(CONFIG_P5020DS)
 	sw = in_8(&PIXIS_SW(5));
 	for (i = 0; i < 3; i++) {
 		unsigned int clock = (sw >> (6 - (2 * i))) & 3;
@@ -184,7 +219,7 @@ int misc_init_r(void)
 	return 0;
 }
 
-int ft_board_setup(void *blob, bd_t *bd)
+void ft_board_setup(void *blob, bd_t *bd)
 {
 	phys_addr_t base;
 	phys_size_t size;
@@ -202,11 +237,9 @@ int ft_board_setup(void *blob, bd_t *bd)
 
 	fdt_fixup_liodn(blob);
 	fdt_fixup_dr_usb(blob, bd);
+}
 
-#ifdef CONFIG_SYS_DPAA_FMAN
-	fdt_fixup_fman_ethernet(blob);
-	fdt_fixup_board_enet(blob);
-#endif
-
-	return 0;
+int board_eth_init(bd_t *bis)
+{
+	return pci_eth_init(bis);
 }

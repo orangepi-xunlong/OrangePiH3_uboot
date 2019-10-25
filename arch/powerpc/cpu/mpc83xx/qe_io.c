@@ -4,7 +4,20 @@
  * Dave Liu <daveliu@freescale.com>
  * based on source code of Shlomi Gridish
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include "common.h"
@@ -23,7 +36,7 @@ void qe_config_iopin(u8 port, u8 pin, int dir, int open_drain, int assign)
 	volatile immap_t	*im = (volatile immap_t *)CONFIG_SYS_IMMR;
 	volatile qepio83xx_t	*par_io = (volatile qepio83xx_t *)&im->qepio;
 
-	/* Calculate pin location and 2bit mask and dir */
+	/* Caculate pin location and 2bit mask and dir */
 	pin_2bit_mask = (u32)(0x3 << (NUM_OF_PINS-(pin%(NUM_OF_PINS/2)+1)*2));
 	pin_2bit_dir = (u32)(dir << (NUM_OF_PINS-(pin%(NUM_OF_PINS/2)+1)*2));
 

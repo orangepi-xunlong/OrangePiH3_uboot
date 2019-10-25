@@ -83,10 +83,6 @@ extern const char * const z_errmsg[10]; /* indexed by 2-zlib_error */
 /* The minimum and maximum match lengths */
 
 	 /* functions */
-#ifdef CONFIG_GZIP_COMPRESSED
-#define PRESET_DICT 0x20 /* preset dictionary flag in zlib header */
-#  define OS_CODE  0x03  /* assume Unix */
-#endif
 
 #include <linux/string.h>
 #define zmemcpy memcpy
@@ -95,7 +91,7 @@ extern const char * const z_errmsg[10]; /* indexed by 2-zlib_error */
 
 /* Diagnostic functions */
 #ifdef DEBUG
-/* Not valid for U-Boot
+/* Not valid for U-boot
 #  include <stdio.h> */
    extern int z_verbose;
    extern void z_error    OF((char *m));

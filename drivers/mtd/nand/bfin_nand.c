@@ -15,7 +15,6 @@
  */
 
 #include <common.h>
-#include <console.h>
 #include <asm/io.h>
 
 #ifdef DEBUG
@@ -74,7 +73,7 @@ static void bfin_nfc_cmd_ctrl(struct mtd_info *mtd, int cmd, unsigned int ctrl)
 	SSYNC();
 }
 
-static int bfin_nfc_devready(struct mtd_info *mtd)
+int bfin_nfc_devready(struct mtd_info *mtd)
 {
 	pr_stamp();
 	return (bfin_read_NFC_STAT() & NBUSY) ? 1 : 0;
@@ -375,11 +374,9 @@ int board_nand_init(struct nand_chip *chip)
 		if (!NAND_IS_512()) {
 			chip->ecc.bytes = 3;
 			chip->ecc.size = 256;
-			chip->ecc.strength = 1;
 		} else {
 			chip->ecc.bytes = 6;
 			chip->ecc.size = 512;
-			chip->ecc.strength = 2;
 		}
 		chip->ecc.mode = NAND_ECC_HW;
 		chip->ecc.calculate = bfin_nfc_calculate_ecc;

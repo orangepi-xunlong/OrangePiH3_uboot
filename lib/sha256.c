@@ -3,17 +3,27 @@
  *
  * Copyright (C) 2001-2003  Christophe Devine
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
 #ifndef USE_HOSTCC
 #include <common.h>
-#include <linux/string.h>
-#else
-#include <string.h>
 #endif /* USE_HOSTCC */
 #include <watchdog.h>
-#include <u-boot/sha256.h>
+#include <linux/string.h>
+#include <sha256.h>
 
 /*
  * 32-bit integer manipulation macros (big endian)
@@ -50,7 +60,7 @@ void sha256_starts(sha256_context * ctx)
 	ctx->state[7] = 0x5BE0CD19;
 }
 
-static void sha256_process(sha256_context *ctx, const uint8_t data[64])
+void sha256_process(sha256_context * ctx, uint8_t data[64])
 {
 	uint32_t temp1, temp2;
 	uint32_t W[64];
@@ -181,7 +191,7 @@ static void sha256_process(sha256_context *ctx, const uint8_t data[64])
 	ctx->state[7] += H;
 }
 
-void sha256_update(sha256_context *ctx, const uint8_t *input, uint32_t length)
+void sha256_update(sha256_context * ctx, uint8_t * input, uint32_t length)
 {
 	uint32_t left, fill;
 
@@ -249,38 +259,4 @@ void sha256_finish(sha256_context * ctx, uint8_t digest[32])
 	PUT_UINT32_BE(ctx->state[5], digest, 20);
 	PUT_UINT32_BE(ctx->state[6], digest, 24);
 	PUT_UINT32_BE(ctx->state[7], digest, 28);
-}
-
-/*
- * Output = SHA-256( input buffer ). Trigger the watchdog every 'chunk_sz'
- * bytes of input processed.
- */
-void sha256_csum_wd(const unsigned char *input, unsigned int ilen,
-		unsigned char *output, unsigned int chunk_sz)
-{
-	sha256_context ctx;
-#if defined(CONFIG_HW_WATCHDOG) || defined(CONFIG_WATCHDOG)
-	const unsigned char *end;
-	unsigned char *curr;
-	int chunk;
-#endif
-
-	sha256_starts(&ctx);
-
-#if defined(CONFIG_HW_WATCHDOG) || defined(CONFIG_WATCHDOG)
-	curr = (unsigned char *)input;
-	end = input + ilen;
-	while (curr < end) {
-		chunk = end - curr;
-		if (chunk > chunk_sz)
-			chunk = chunk_sz;
-		sha256_update(&ctx, curr, chunk);
-		curr += chunk;
-		WATCHDOG_RESET();
-	}
-#else
-	sha256_update(&ctx, input, ilen);
-#endif
-
-	sha256_finish(&ctx, output);
 }

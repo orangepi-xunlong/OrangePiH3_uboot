@@ -16,7 +16,6 @@
  * bcc and gcc. */
 
 #include <linux/types.h>
-#include <common.h>
 #include <exports.h>
 
 void qsort(void  *base,

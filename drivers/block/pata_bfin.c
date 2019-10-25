@@ -12,13 +12,11 @@
 #include <command.h>
 #include <config.h>
 #include <asm/byteorder.h>
-#include <asm/clock.h>
 #include <asm/io.h>
 #include <asm/errno.h>
 #include <asm/portmux.h>
 #include <asm/mach-common/bits/pata.h>
 #include <ata.h>
-#include <sata.h>
 #include <libata.h>
 #include "pata_bfin.h"
 
@@ -886,7 +884,7 @@ static void bfin_ata_identify(struct ata_port *ap, int dev)
 		sata_dev_desc[ap->port_no].removable = 0;
 
 	sata_dev_desc[ap->port_no].lba = (u32) n_sectors;
-	debug("lba=0x%lx\n", sata_dev_desc[ap->port_no].lba);
+	debug("lba=0x%x\n", sata_dev_desc[ap->port_no].lba);
 
 #ifdef CONFIG_LBA48
 	if (iop->command_set_2 & 0x0400)
@@ -898,8 +896,6 @@ static void bfin_ata_identify(struct ata_port *ap, int dev)
 	/* assuming HD */
 	sata_dev_desc[ap->port_no].type = DEV_TYPE_HARDDISK;
 	sata_dev_desc[ap->port_no].blksz = ATA_SECT_SIZE;
-	sata_dev_desc[ap->port_no].log2blksz =
-		LOG2(sata_dev_desc[ap->port_no].blksz);
 	sata_dev_desc[ap->port_no].lun = 0;	/* just to fill something in... */
 
 	printf("PATA device#%d %s is found on ata port#%d.\n",
@@ -965,7 +961,7 @@ int scan_sata(int dev)
 		/* Probe device and set xfer mode */
 		bfin_ata_identify(ap, dev%PATA_DEV_NUM_PER_PORT);
 		bfin_ata_set_Feature_cmd(ap, dev%PATA_DEV_NUM_PER_PORT);
-		part_init(&sata_dev_desc[dev]);
+		init_part(&sata_dev_desc[dev]);
 		return 0;
 	}
 
@@ -1007,11 +1003,6 @@ int init_sata(int dev)
 
 	res = 0;
 	return res;
-}
-
-int reset_sata(int dev)
-{
-	return 0;
 }
 
 /* Read up to 255 sectors
@@ -1088,7 +1079,7 @@ static u8 do_one_read(struct ata_port *ap, u64 blknr, u8 blkcnt, u16 *buffer,
 	return sr;
 }
 
-ulong sata_read(int dev, ulong block, lbaint_t blkcnt, void *buff)
+ulong sata_read(int dev, ulong block, ulong blkcnt, void *buff)
 {
 	struct ata_port *ap = &port[dev];
 	ulong n = 0, sread;
@@ -1130,7 +1121,7 @@ ulong sata_read(int dev, ulong block, lbaint_t blkcnt, void *buff)
 	return n;
 }
 
-ulong sata_write(int dev, ulong block, lbaint_t blkcnt, const void *buff)
+ulong sata_write(int dev, ulong block, ulong blkcnt, const void *buff)
 {
 	struct ata_port *ap = &port[dev];
 	void __iomem *base = (void __iomem *)ap->ioaddr.ctl_addr;

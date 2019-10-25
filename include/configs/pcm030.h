@@ -8,7 +8,23 @@
  * (C) Copyright 2009
  * Jon Smirl <jonsmirl@gmail.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef __CONFIG_H
@@ -20,7 +36,8 @@
 High Level Configuration Options
 (easy to change)
 -----------------------------------------------------------------------------*/
-#define CONFIG_MPC5200		1	/* This is an MPC5200 CPU */
+#define CONFIG_MPC5xxx		1	/* This is an MPC5xxx CPU */
+#define CONFIG_MPC5200		1	/* (more precisely an MPC5200 CPU) */
 #define CONFIG_MPC5200_DDR	1	/* (with DDR-SDRAM) */
 #define CONFIG_PHYCORE_MPC5200B_TINY 1	/* phyCORE-MPC5200B -> */
 					/* FEC configuration and IDE */
@@ -50,9 +67,15 @@ Serial console configuration
 /*
  * Command line configuration.
  */
+#include <config_cmd_default.h>
+
 #define CONFIG_CMD_DATE
+#define CONFIG_CMD_DHCP
 #define CONFIG_CMD_EEPROM
+#define CONFIG_CMD_I2C
 #define CONFIG_CMD_JFFS2
+#define CONFIG_CMD_MII
+#define CONFIG_CMD_NFS
 #define CONFIG_CMD_PCI
 
 #define	CONFIG_TIMESTAMP	1	/* Print image info with timestamp */
@@ -67,7 +90,14 @@ Serial console configuration
 #define MTDPARTS_DEFAULT   	"mtdparts=physmap-flash.0:256k(ubootl)," \
 	"1792k(kernel),13312k(jffs2),256k(uboot)ro,256k(oftree),-(space)"
 
+/*-----------------------------------------------------------------------------
+Autobooting
+-----------------------------------------------------------------------------*/
+#define CONFIG_BOOTDELAY	3	/* autoboot after 3 seconds */
+#define CONFIG_ZERO_BOOTDELAY_CHECK	/* allow stopping of boot process */
+					/* even with bootdelay=0 */
 #undef	CONFIG_BOOTARGS
+
 
 #define CONFIG_PREBOOT	"echo;"	\
 	"echo Type \"run bootcmd_net\" to load Kernel over TFTP and to "\
@@ -327,6 +357,7 @@ RTC configuration
  Miscellaneous configurable options
 -------------------------------------------------------------------------------*/
 #define CONFIG_SYS_LONGHELP	/* undef to save memory */
+#define CONFIG_SYS_PROMPT "uboot> " /* Monitor Command Prompt */
 
 #define CONFIG_CMDLINE_EDITING 1 /* add command line history */
 
@@ -349,6 +380,7 @@ RTC configuration
 #define CONFIG_SYS_MEMTEST_END 0x00f00000 /* 1 ... 15 MB in DRAM */
 
 #define CONFIG_SYS_LOAD_ADDR 0x400000 /* default load address */
+#define CONFIG_SYS_HZ 1000 /* decrementer freq: 1 ms ticks */
 
 #define CONFIG_DISPLAY_BOARDINFO 1
 
@@ -405,8 +437,12 @@ RTC configuration
 
 /* USB */
 #define CONFIG_USB_OHCI
+#define CONFIG_USB_STORAGE
 
 /* pass open firmware flat tree */
+#define CONFIG_OF_LIBFDT		1
+#define CONFIG_OF_BOARD_SETUP		1
+
 #define OF_CPU				"PowerPC,5200@0"
 #define OF_TBCLK			CONFIG_SYS_MPC5XXX_CLKIN
 #define OF_SOC				"soc5200@f0000000"

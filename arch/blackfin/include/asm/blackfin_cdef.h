@@ -84,8 +84,5 @@
 #ifdef __ADSPBF561__
 # include "mach-bf561/BF561_cdef.h"
 #endif
-#ifdef __ADSPBF609__
-# include "mach-bf609/BF609_cdef.h"
-#endif
 
 #endif /* __MACH_CDEF_BLACKFIN__ */

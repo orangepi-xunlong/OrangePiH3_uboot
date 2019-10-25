@@ -11,9 +11,8 @@
 
 #include <common.h>
 #include <command.h>
-#include <linux/compiler.h>
 
-#if defined(CONFIG_OMAP)
+#if defined(CONFIG_DISPLAY_CPUINFO) && defined(CONFIG_OMAP)
 
 #define omap_readw(x)		*(volatile unsigned short *)(x)
 #define omap_readl(x)		*(volatile unsigned long *)(x)
@@ -152,8 +151,8 @@ int print_cpuinfo (void)
 	u8 die_rev;
 	u32 omap_id;
 	u8 cpu_type;
-	__maybe_unused u32 system_serial_high;
-	__maybe_unused u32 system_serial_low;
+	u32 system_serial_high;
+	u32 system_serial_low;
 	u32 system_rev = 0;
 
 	jtag_id = omap_get_jtag_id();
@@ -239,4 +238,4 @@ int print_cpuinfo (void)
 	return 0;
 }
 
-#endif /* #if defined(CONFIG_OMAP) */
+#endif /* #if defined(CONFIG_DISPLAY_CPUINFO) && defined(CONFIG_OMAP) */

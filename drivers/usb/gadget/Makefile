@@ -2,39 +2,60 @@
 # (C) Copyright 2000-2007
 # Wolfgang Denk, DENX Software Engineering, wd@denx.de.
 #
-# SPDX-License-Identifier:	GPL-2.0+
+# See file CREDITS for list of people who contributed to this
+# project.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 2 of
+# the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+# MA 02111-1307 USA
 #
 
-obj-$(CONFIG_USB_GADGET) += epautoconf.o config.o usbstring.o
-obj-$(CONFIG_USB_ETHER) += epautoconf.o config.o usbstring.o
+include $(TOPDIR)/config.mk
+
+LIB	:= $(obj)libusb_gadget.o
 
 # new USB gadget layer dependencies
-ifdef CONFIG_USB_GADGET
-obj-$(CONFIG_USB_GADGET_AT91) += at91_udc.o
-obj-$(CONFIG_USB_GADGET_ATMEL_USBA) += atmel_usba_udc.o
-obj-$(CONFIG_USB_GADGET_BCM_UDC_OTG_PHY) += bcm_udc_otg_phy.o
-obj-$(CONFIG_USB_GADGET_DWC2_OTG) += dwc2_udc_otg.o
-obj-$(CONFIG_USB_GADGET_DWC2_OTG_PHY) += dwc2_udc_otg_phy.o
-obj-$(CONFIG_USB_GADGET_FOTG210) += fotg210.o
-obj-$(CONFIG_CI_UDC)	+= ci_udc.o
-obj-$(CONFIG_USB_GADGET_DOWNLOAD) += g_dnl.o
-obj-$(CONFIG_USB_FUNCTION_THOR) += f_thor.o
-obj-$(CONFIG_USB_FUNCTION_DFU) += f_dfu.o
-obj-$(CONFIG_USB_FUNCTION_MASS_STORAGE) += f_mass_storage.o
-obj-$(CONFIG_USB_FUNCTION_FASTBOOT) += f_fastboot.o
-endif
 ifdef CONFIG_USB_ETHER
-obj-y += ether.o
-obj-$(CONFIG_USB_ETH_RNDIS) += rndis.o
-obj-$(CONFIG_CI_UDC)	+= ci_udc.o
-obj-$(CONFIG_CPU_PXA25X) += pxa25x_udc.o
+COBJS-y += ether.o epautoconf.o config.o usbstring.o
+COBJS-$(CONFIG_USB_ETH_RNDIS) += rndis.o
 else
 # Devices not related to the new gadget layer depend on CONFIG_USB_DEVICE
 ifdef CONFIG_USB_DEVICE
-obj-y += core.o
-obj-y += ep0.o
-obj-$(CONFIG_DW_UDC) += designware_udc.o
-obj-$(CONFIG_MPC885_FAMILY) += mpc8xx_udc.o
-obj-$(CONFIG_CPU_PXA27X) += pxa27x_udc.o
+COBJS-y += core.o
+COBJS-y += ep0.o
+COBJS-$(CONFIG_OMAP1510) += omap1510_udc.o
+COBJS-$(CONFIG_OMAP1610) += omap1510_udc.o
+COBJS-$(CONFIG_MPC885_FAMILY) += mpc8xx_udc.o
+COBJS-$(CONFIG_PXA27X) += pxa27x_udc.o
+COBJS-$(CONFIG_SPEARUDC) += spr_udc.o
 endif
 endif
+
+COBJS	:= $(COBJS-y)
+SRCS	:= $(COBJS:.o=.c)
+OBJS	:= $(addprefix $(obj),$(COBJS))
+
+all:	$(LIB)
+
+$(LIB):	$(obj).depend $(OBJS)
+	$(call cmd_link_o_target, $(OBJS))
+
+#########################################################################
+
+# defines $(obj).depend target
+include $(SRCTREE)/rules.mk
+
+sinclude $(obj).depend
+
+#########################################################################

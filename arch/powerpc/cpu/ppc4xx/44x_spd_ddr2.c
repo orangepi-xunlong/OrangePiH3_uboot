@@ -14,7 +14,24 @@
  *
  * COPYRIGHT   AMCC   CORPORATION 2004
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
  */
 
 /* define DEBUG for debugging output (obviously ;-)) */
@@ -49,6 +66,7 @@
 		       "SDRAM_" #mnemonic, SDRAM_##mnemonic, data);	\
 	} while (0)
 
+#if !defined(CONFIG_NAND_U_BOOT) || defined(CONFIG_NAND_SPL)
 static void update_rdcc(void)
 {
 	u32 val;
@@ -71,6 +89,7 @@ static void update_rdcc(void)
 		}
 	}
 }
+#endif
 
 #if defined(CONFIG_440)
 /*
@@ -99,6 +118,7 @@ void dcbz_area(u32 start_address, u32 num_bytes);
 
 #define MULDIV64(m1, m2, d)	(u32)(((u64)(m1) * (u64)(m2)) / (u64)(d))
 
+#if !defined(CONFIG_NAND_SPL)
 /*-----------------------------------------------------------------------------+
  * sdram_memsize
  *-----------------------------------------------------------------------------*/
@@ -214,12 +234,20 @@ void board_add_ram_info(int use_default)
 	val = (val & SDRAM_MMODE_DCL_MASK) >> 4;
 	printf(", CL%d)", val);
 }
+#endif /* !CONFIG_NAND_SPL */
 
 #if defined(CONFIG_SPD_EEPROM)
 
 /*-----------------------------------------------------------------------------+
  * Defines
  *-----------------------------------------------------------------------------*/
+#ifndef	TRUE
+#define TRUE		1
+#endif
+#ifndef FALSE
+#define FALSE		0
+#endif
+
 #define SDRAM_DDR1	1
 #define SDRAM_DDR2	2
 #define SDRAM_NONE	0
@@ -417,6 +445,9 @@ static unsigned char spd_read(uchar chip, uint addr)
 phys_size_t initdram(int board_type)
 {
 	unsigned char iic0_dimm_addr[] = SPD_EEPROM_ADDRESS;
+	unsigned char spd0[MAX_SPD_BYTES];
+	unsigned char spd1[MAX_SPD_BYTES];
+	unsigned char *dimm_spd[MAXDIMMS];
 	unsigned long dimm_populated[MAXDIMMS] = {SDRAM_NONE, SDRAM_NONE};
 	unsigned long num_dimm_banks;		/* on board dimm banks */
 	unsigned long val;
@@ -424,15 +455,13 @@ phys_size_t initdram(int board_type)
 	int write_recovery;
 	phys_size_t dram_size = 0;
 
-	if (IS_ENABLED(CONFIG_SYS_RAMBOOT)) {
-		/*
-		 * Reduce RAM size to avoid overwriting memory used by
-		 * current stack? Not sure what is happening.
-		 */
-		return sdram_memsize() / 2;
-	}
-
 	num_dimm_banks = sizeof(iic0_dimm_addr);
+
+	/*------------------------------------------------------------------
+	 * Set up an array of SPD matrixes.
+	 *-----------------------------------------------------------------*/
+	dimm_spd[0] = spd0;
+	dimm_spd[1] = spd1;
 
 	/*------------------------------------------------------------------
 	 * Reset the DDR-SDRAM controller.
@@ -446,7 +475,8 @@ phys_size_t initdram(int board_type)
 	 */
 
 	/* switch to correct I2C bus */
-	i2c_set_bus_num(CONFIG_SYS_SPD_BUS_NUM);
+	I2C_SET_BUS(CONFIG_SYS_SPD_BUS_NUM);
+	i2c_init(CONFIG_SYS_I2C_SPEED, CONFIG_SYS_I2C_SLAVE);
 
 	/*------------------------------------------------------------------
 	 * Clear out the serial presence detect buffers.
@@ -627,13 +657,6 @@ phys_size_t initdram(int board_type)
 #endif
 
 	/*
-	 * Flush the dcache before removing the TLB with caches
-	 * enabled. Otherwise this might lead to problems later on,
-	 * e.g. while booting Linux (as seen on ICON-440SPe).
-	 */
-	flush_dcache();
-
-	/*
 	 * Now after initialization (auto-calibration and ECC generation)
 	 * remove the TLB entries with caches enabled and program again with
 	 * desired cache functionality
@@ -662,7 +685,7 @@ static void get_spd_info(unsigned long *dimm_populated,
 	unsigned char num_of_bytes;
 	unsigned char total_size;
 
-	dimm_found = false;
+	dimm_found = FALSE;
 	for (dimm_num = 0; dimm_num < num_dimm_banks; dimm_num++) {
 		num_of_bytes = 0;
 		total_size = 0;
@@ -675,16 +698,16 @@ static void get_spd_info(unsigned long *dimm_populated,
 		      iic0_dimm_addr[dimm_num], total_size);
 
 		if ((num_of_bytes != 0) && (total_size != 0)) {
-			dimm_populated[dimm_num] = true;
-			dimm_found = true;
+			dimm_populated[dimm_num] = TRUE;
+			dimm_found = TRUE;
 			debug("DIMM slot %lu: populated\n", dimm_num);
 		} else {
-			dimm_populated[dimm_num] = false;
+			dimm_populated[dimm_num] = FALSE;
 			debug("DIMM slot %lu: Not populated\n", dimm_num);
 		}
 	}
 
-	if (dimm_found == false) {
+	if (dimm_found == FALSE) {
 		printf("ERROR - No memory installed. Install a DDR-SDRAM DIMM.\n\n");
 		spd_ddr_init_hang ();
 	}
@@ -703,7 +726,7 @@ static void check_mem_type(unsigned long *dimm_populated,
 	unsigned long dimm_type;
 
 	for (dimm_num = 0; dimm_num < num_dimm_banks; dimm_num++) {
-		if (dimm_populated[dimm_num] == true) {
+		if (dimm_populated[dimm_num] == TRUE) {
 			dimm_type = spd_read(iic0_dimm_addr[dimm_num], 2);
 			switch (dimm_type) {
 			case 1:
@@ -970,17 +993,18 @@ static void program_copt1(unsigned long *dimm_populated,
 	unsigned long attribute = 0;
 	unsigned long buf0, buf1; /* TODO: code to be changed for IOP1.6 to support 4 DIMMs */
 	unsigned long bankcount;
+	unsigned long ddrtype;
 	unsigned long val;
 
 #ifdef CONFIG_DDR_ECC
-	ecc_enabled = true;
+	ecc_enabled = TRUE;
 #else
-	ecc_enabled = false;
+	ecc_enabled = FALSE;
 #endif
-	dimm_32bit = false;
-	dimm_64bit = false;
-	buf0 = false;
-	buf1 = false;
+	dimm_32bit = FALSE;
+	dimm_64bit = FALSE;
+	buf0 = FALSE;
+	buf1 = FALSE;
 
 	/*------------------------------------------------------------------
 	 * Set memory controller options reg 1, SDRAM_MCOPT1.
@@ -1005,7 +1029,7 @@ static void program_copt1(unsigned long *dimm_populated,
 			/* test ecc support */
 			ecc = (unsigned long)spd_read(iic0_dimm_addr[dimm_num], 11);
 			if (ecc != 0x02) /* ecc not supported */
-				ecc_enabled = false;
+				ecc_enabled = FALSE;
 
 			/* test bank count */
 			bankcount = (unsigned long)spd_read(iic0_dimm_addr[dimm_num], 17);
@@ -1014,6 +1038,8 @@ static void program_copt1(unsigned long *dimm_populated,
 			else /* bank count = 8 */
 				mcopt1 |= SDRAM_MCOPT1_8_BANKS;
 
+			/* test DDR type */
+			ddrtype = (unsigned long)spd_read(iic0_dimm_addr[dimm_num], 2);
 			/* test for buffered/unbuffered, registered, differential clocks */
 			registered = (unsigned long)spd_read(iic0_dimm_addr[dimm_num], 20);
 			attribute = (unsigned long)spd_read(iic0_dimm_addr[dimm_num], 21);
@@ -1027,15 +1053,15 @@ static void program_copt1(unsigned long *dimm_populated,
 				if (registered == 1) { /* DDR2 always buffered */
 					/* TODO: what about above  comments ? */
 					mcopt1 |= SDRAM_MCOPT1_RDEN;
-					buf0 = true;
+					buf0 = TRUE;
 				} else {
 					/* TODO: the mask 0x02 doesn't match Samsung def for byte 21. */
 					if ((attribute & 0x02) == 0x00) {
 						/* buffered not supported */
-						buf0 = false;
+						buf0 = FALSE;
 					} else {
 						mcopt1 |= SDRAM_MCOPT1_RDEN;
-						buf0 = true;
+						buf0 = TRUE;
 					}
 				}
 			}
@@ -1047,14 +1073,14 @@ static void program_copt1(unsigned long *dimm_populated,
 				if (registered == 1) {
 					/* DDR2 always buffered */
 					mcopt1 |= SDRAM_MCOPT1_RDEN;
-					buf1 = true;
+					buf1 = TRUE;
 				} else {
 					if ((attribute & 0x02) == 0x00) {
 						/* buffered not supported */
-						buf1 = false;
+						buf1 = FALSE;
 					} else {
 						mcopt1 |= SDRAM_MCOPT1_RDEN;
-						buf1 = true;
+						buf1 = TRUE;
 					}
 				}
 			}
@@ -1066,11 +1092,11 @@ static void program_copt1(unsigned long *dimm_populated,
 			switch (data_width) {
 			case 72:
 			case 64:
-				dimm_64bit = true;
+				dimm_64bit = TRUE;
 				break;
 			case 40:
 			case 32:
-				dimm_32bit = true;
+				dimm_32bit = TRUE;
 				break;
 			default:
 				printf("WARNING: Detected a DIMM with a data width of %lu bits.\n",
@@ -1089,19 +1115,20 @@ static void program_copt1(unsigned long *dimm_populated,
 		}
 	}
 
-	if ((dimm_64bit == true) && (dimm_32bit == true)) {
+	if ((dimm_64bit == TRUE) && (dimm_32bit == TRUE)) {
 		printf("ERROR: Cannot mix 32 bit and 64 bit DDR-SDRAM DIMMs together.\n");
 		spd_ddr_init_hang ();
-	} else if ((dimm_64bit == true) && (dimm_32bit == false)) {
+	}
+	else if ((dimm_64bit == TRUE) && (dimm_32bit == FALSE)) {
 		mcopt1 |= SDRAM_MCOPT1_DMWD_64;
-	} else if ((dimm_64bit == false) && (dimm_32bit == true)) {
+	} else if ((dimm_64bit == FALSE) && (dimm_32bit == TRUE)) {
 		mcopt1 |= SDRAM_MCOPT1_DMWD_32;
 	} else {
 		printf("ERROR: Please install only 32 or 64 bit DDR-SDRAM DIMMs.\n\n");
 		spd_ddr_init_hang ();
 	}
 
-	if (ecc_enabled == true)
+	if (ecc_enabled == TRUE)
 		mcopt1 |= SDRAM_MCOPT1_MCHK_GEN;
 	else
 		mcopt1 |= SDRAM_MCOPT1_MCHK_NON;
@@ -1149,14 +1176,14 @@ static void program_codt(unsigned long *dimm_populated,
 			total_rank += dimm_rank;
 			total_dimm++;
 			if ((dimm_num == 0) && (total_dimm == 1))
-				firstSlot = true;
+				firstSlot = TRUE;
 			else
-				firstSlot = false;
+				firstSlot = FALSE;
 		}
 	}
 	if (dimm_type == SDRAM_DDR2) {
 		codt |= SDRAM_CODT_DQS_1_8_V_DDR2;
-		if ((total_dimm == 1) && (firstSlot == true)) {
+		if ((total_dimm == 1) && (firstSlot == TRUE)) {
 			if (total_rank == 1) {	/* PUUU */
 				codt |= CALC_ODT_R(0);
 				modt0 = CALC_ODT_W(0);
@@ -1171,7 +1198,7 @@ static void program_codt(unsigned long *dimm_populated,
 				modt2 = 0x00000000;
 				modt3 = 0x00000000;
 			}
-		} else if ((total_dimm == 1) && (firstSlot != true)) {
+		} else if ((total_dimm == 1) && (firstSlot != TRUE)) {
 			if (total_rank == 1) {	/* UUPU */
 				codt |= CALC_ODT_R(2);
 				modt0 = 0x00000000;
@@ -1445,27 +1472,28 @@ static void program_mode(unsigned long *dimm_populated,
 	 * the dimm modules installed.
 	 *-----------------------------------------------------------------*/
 	t_wr_ns = 0;
-	cas_2_0_available = true;
-	cas_2_5_available = true;
-	cas_3_0_available = true;
-	cas_4_0_available = true;
-	cas_5_0_available = true;
+	cas_2_0_available = TRUE;
+	cas_2_5_available = TRUE;
+	cas_3_0_available = TRUE;
+	cas_4_0_available = TRUE;
+	cas_5_0_available = TRUE;
 	max_2_0_tcyc_ns_x_100 = 10;
 	max_2_5_tcyc_ns_x_100 = 10;
 	max_3_0_tcyc_ns_x_100 = 10;
 	max_4_0_tcyc_ns_x_100 = 10;
 	max_5_0_tcyc_ns_x_100 = 10;
-	sdram_ddr1 = true;
+	sdram_ddr1 = TRUE;
 
 	/* loop through all the DIMM slots on the board */
 	for (dimm_num = 0; dimm_num < num_dimm_banks; dimm_num++) {
 		/* If a dimm is installed in a particular slot ... */
 		if (dimm_populated[dimm_num] != SDRAM_NONE) {
 			if (dimm_populated[dimm_num] == SDRAM_DDR1)
-				sdram_ddr1 = true;
+				sdram_ddr1 = TRUE;
 			else
-				sdram_ddr1 = false;
+				sdram_ddr1 = FALSE;
 
+			/* t_wr_ns = max(t_wr_ns, (unsigned long)dimm_spd[dimm_num][36] >> 2); */ /*  not used in this loop. */
 			cas_bit = spd_read(iic0_dimm_addr[dimm_num], 18);
 			debug("cas_bit[SPD byte 18]=%02lx\n", cas_bit);
 
@@ -1521,7 +1549,7 @@ static void program_mode(unsigned long *dimm_populated,
 				} else {
 					if (cas_index != 0)
 						cas_index++;
-					cas_4_0_available = false;
+					cas_4_0_available = FALSE;
 				}
 
 				if (((cas_bit & 0x10) == 0x10) && (cas_index < 3) &&
@@ -1532,7 +1560,7 @@ static void program_mode(unsigned long *dimm_populated,
 				} else {
 					if (cas_index != 0)
 						cas_index++;
-					cas_3_0_available = false;
+					cas_3_0_available = FALSE;
 				}
 
 				if (((cas_bit & 0x08) == 0x08) && (cas_index < 3) &&
@@ -1543,7 +1571,7 @@ static void program_mode(unsigned long *dimm_populated,
 				} else {
 					if (cas_index != 0)
 						cas_index++;
-					cas_2_5_available = false;
+					cas_2_5_available = FALSE;
 				}
 
 				if (((cas_bit & 0x04) == 0x04) && (cas_index < 3) &&
@@ -1554,7 +1582,7 @@ static void program_mode(unsigned long *dimm_populated,
 				} else {
 					if (cas_index != 0)
 						cas_index++;
-					cas_2_0_available = false;
+					cas_2_0_available = FALSE;
 				}
 			} else {
 				/*
@@ -1570,7 +1598,7 @@ static void program_mode(unsigned long *dimm_populated,
 				} else {
 					if (cas_index != 0)
 						cas_index++;
-					cas_5_0_available = false;
+					cas_5_0_available = FALSE;
 				}
 
 				if (((cas_bit & 0x10) == 0x10) && (cas_index < 3) &&
@@ -1581,7 +1609,7 @@ static void program_mode(unsigned long *dimm_populated,
 				} else {
 					if (cas_index != 0)
 						cas_index++;
-					cas_4_0_available = false;
+					cas_4_0_available = FALSE;
 				}
 
 				if (((cas_bit & 0x08) == 0x08) && (cas_index < 3) &&
@@ -1592,7 +1620,7 @@ static void program_mode(unsigned long *dimm_populated,
 				} else {
 					if (cas_index != 0)
 						cas_index++;
-					cas_3_0_available = false;
+					cas_3_0_available = FALSE;
 				}
 			}
 		}
@@ -1614,17 +1642,14 @@ static void program_mode(unsigned long *dimm_populated,
 	debug("cycle_4_0_clk=%lu\n", cycle_4_0_clk);
 	debug("cycle_5_0_clk=%lu\n", cycle_5_0_clk);
 
-	if (sdram_ddr1 == true) { /* DDR1 */
-		if ((cas_2_0_available == true) &&
-			(sdram_freq <= cycle_2_0_clk)) {
+	if (sdram_ddr1 == TRUE) { /* DDR1 */
+		if ((cas_2_0_available == TRUE) && (sdram_freq <= cycle_2_0_clk)) {
 			mmode |= SDRAM_MMODE_DCL_DDR1_2_0_CLK;
 			*selected_cas = DDR_CAS_2;
-		} else if ((cas_2_5_available == true) &&
-			(sdram_freq <= cycle_2_5_clk)) {
+		} else if ((cas_2_5_available == TRUE) && (sdram_freq <= cycle_2_5_clk)) {
 			mmode |= SDRAM_MMODE_DCL_DDR1_2_5_CLK;
 			*selected_cas = DDR_CAS_2_5;
-		} else if ((cas_3_0_available == true) &&
-			(sdram_freq <= cycle_3_0_clk)) {
+		} else if ((cas_3_0_available == TRUE) && (sdram_freq <= cycle_3_0_clk)) {
 			mmode |= SDRAM_MMODE_DCL_DDR1_3_0_CLK;
 			*selected_cas = DDR_CAS_3;
 		} else {
@@ -1637,16 +1662,13 @@ static void program_mode(unsigned long *dimm_populated,
 		debug("cas_3_0_available=%d\n", cas_3_0_available);
 		debug("cas_4_0_available=%d\n", cas_4_0_available);
 		debug("cas_5_0_available=%d\n", cas_5_0_available);
-		if ((cas_3_0_available == true) &&
-			(sdram_freq <= cycle_3_0_clk)) {
+		if ((cas_3_0_available == TRUE) && (sdram_freq <= cycle_3_0_clk)) {
 			mmode |= SDRAM_MMODE_DCL_DDR2_3_0_CLK;
 			*selected_cas = DDR_CAS_3;
-		} else if ((cas_4_0_available == true) &&
-			(sdram_freq <= cycle_4_0_clk)) {
+		} else if ((cas_4_0_available == TRUE) && (sdram_freq <= cycle_4_0_clk)) {
 			mmode |= SDRAM_MMODE_DCL_DDR2_4_0_CLK;
 			*selected_cas = DDR_CAS_4;
-		} else if ((cas_5_0_available == true) &&
-			(sdram_freq <= cycle_5_0_clk)) {
+		} else if ((cas_5_0_available == TRUE) && (sdram_freq <= cycle_5_0_clk)) {
 			mmode |= SDRAM_MMODE_DCL_DDR2_5_0_CLK;
 			*selected_cas = DDR_CAS_5;
 		} else {
@@ -1661,7 +1683,7 @@ static void program_mode(unsigned long *dimm_populated,
 		}
 	}
 
-	if (sdram_ddr1 == true)
+	if (sdram_ddr1 == TRUE)
 		mmode |= SDRAM_MMODE_WR_DDR1;
 	else {
 
@@ -1669,7 +1691,7 @@ static void program_mode(unsigned long *dimm_populated,
 		for (dimm_num = 0; dimm_num < num_dimm_banks; dimm_num++) {
 			/* If a dimm is installed in a particular slot ... */
 			if (dimm_populated[dimm_num] != SDRAM_NONE)
-				t_wr_ns = max(t_wr_ns, (unsigned long)
+				t_wr_ns = max(t_wr_ns,
 					      spd_read(iic0_dimm_addr[dimm_num], 36) >> 2);
 		}
 
@@ -1835,29 +1857,23 @@ static void program_tr(unsigned long *dimm_populated,
 	t_wpc_ns = 0;
 	t_wtr_ns = 0;
 	t_rpc_ns = 0;
-	sdram_ddr1 = true;
+	sdram_ddr1 = TRUE;
 
 	/* loop through all the DIMM slots on the board */
 	for (dimm_num = 0; dimm_num < num_dimm_banks; dimm_num++) {
 		/* If a dimm is installed in a particular slot ... */
 		if (dimm_populated[dimm_num] != SDRAM_NONE) {
 			if (dimm_populated[dimm_num] == SDRAM_DDR2)
-				sdram_ddr1 = true;
+				sdram_ddr1 = TRUE;
 			else
-				sdram_ddr1 = false;
+				sdram_ddr1 = FALSE;
 
-			t_rcd_ns = max(t_rcd_ns,
-				       (unsigned long)spd_read(iic0_dimm_addr[dimm_num], 29) >> 2);
-			t_rrd_ns = max(t_rrd_ns,
-				       (unsigned long)spd_read(iic0_dimm_addr[dimm_num], 28) >> 2);
-			t_rp_ns  = max(t_rp_ns,
-				       (unsigned long)spd_read(iic0_dimm_addr[dimm_num], 27) >> 2);
-			t_ras_ns = max(t_ras_ns,
-				       (unsigned long)spd_read(iic0_dimm_addr[dimm_num], 30));
-			t_rc_ns  = max(t_rc_ns,
-				       (unsigned long)spd_read(iic0_dimm_addr[dimm_num], 41));
-			t_rfc_ns = max(t_rfc_ns,
-				       (unsigned long)spd_read(iic0_dimm_addr[dimm_num], 42));
+			t_rcd_ns = max(t_rcd_ns, spd_read(iic0_dimm_addr[dimm_num], 29) >> 2);
+			t_rrd_ns = max(t_rrd_ns, spd_read(iic0_dimm_addr[dimm_num], 28) >> 2);
+			t_rp_ns  = max(t_rp_ns,  spd_read(iic0_dimm_addr[dimm_num], 27) >> 2);
+			t_ras_ns = max(t_ras_ns, spd_read(iic0_dimm_addr[dimm_num], 30));
+			t_rc_ns  = max(t_rc_ns,  spd_read(iic0_dimm_addr[dimm_num], 41));
+			t_rfc_ns = max(t_rfc_ns, spd_read(iic0_dimm_addr[dimm_num], 42));
 		}
 	}
 
@@ -1915,7 +1931,7 @@ static void program_tr(unsigned long *dimm_populated,
 		break;
 	}
 
-	if (sdram_ddr1 == true) { /* DDR1 */
+	if (sdram_ddr1 == TRUE) { /* DDR1 */
 		if (sdram_freq < 200000000) {
 			sdtr2 |= SDRAM_SDTR2_WTR_1_CLK;
 			sdtr2 |= SDRAM_SDTR2_WPC_2_CLK;
@@ -1930,12 +1946,9 @@ static void program_tr(unsigned long *dimm_populated,
 		for (dimm_num = 0; dimm_num < num_dimm_banks; dimm_num++) {
 			/* If a dimm is installed in a particular slot ... */
 			if (dimm_populated[dimm_num] != SDRAM_NONE) {
-				t_wpc_ns = max(t_wtr_ns,
-					       (unsigned long)spd_read(iic0_dimm_addr[dimm_num], 36) >> 2);
-				t_wtr_ns = max(t_wtr_ns,
-					       (unsigned long)spd_read(iic0_dimm_addr[dimm_num], 37) >> 2);
-				t_rpc_ns = max(t_rpc_ns,
-					       (unsigned long)spd_read(iic0_dimm_addr[dimm_num], 38) >> 2);
+				t_wpc_ns = max(t_wtr_ns, spd_read(iic0_dimm_addr[dimm_num], 36) >> 2);
+				t_wtr_ns = max(t_wtr_ns, spd_read(iic0_dimm_addr[dimm_num], 37) >> 2);
+				t_rpc_ns = max(t_rpc_ns, spd_read(iic0_dimm_addr[dimm_num], 38) >> 2);
 			}
 		}
 
@@ -2331,8 +2344,7 @@ static void program_ecc(unsigned long *dimm_populated,
 	for (dimm_num = 0; dimm_num < MAXDIMMS; dimm_num++) {
 		/* If a dimm is installed in a particular slot ... */
 		if (dimm_populated[dimm_num] != SDRAM_NONE)
-			ecc = max(ecc,
-				  (unsigned long)spd_read(iic0_dimm_addr[dimm_num], 11));
+			ecc = max(ecc, spd_read(iic0_dimm_addr[dimm_num], 11));
 	}
 	if (ecc == 0)
 		return;
@@ -2471,6 +2483,12 @@ static void DQS_calibration_process(void)
 	unsigned long val;
 	long rffd_average;
 	long max_start;
+	long min_end;
+	unsigned long begin_rqfd[MAXRANKS];
+	unsigned long begin_rffd[MAXRANKS];
+	unsigned long end_rqfd[MAXRANKS];
+	unsigned long end_rffd[MAXRANKS];
+	char window_found;
 	unsigned long dlycal;
 	unsigned long dly_val;
 	unsigned long max_pass_length;
@@ -2481,7 +2499,6 @@ static void DQS_calibration_process(void)
 	unsigned char fail_found;
 	unsigned char pass_found;
 #if !defined(CONFIG_DDR_RQDC_FIXED)
-	int window_found;
 	u32 rqdc_reg;
 	u32 rqfd;
 	u32 rqfd_start;
@@ -2535,6 +2552,16 @@ calibration_loop:
 #endif /* CONFIG_DDR_RQDC_FIXED */
 
 	max_start = 0;
+	min_end = 0;
+	begin_rqfd[0] = 0;
+	begin_rffd[0] = 0;
+	begin_rqfd[1] = 0;
+	begin_rffd[1] = 0;
+	end_rqfd[0] = 0;
+	end_rffd[0] = 0;
+	end_rqfd[1] = 0;
+	end_rffd[1] = 0;
+	window_found = FALSE;
 
 	max_pass_length = 0;
 	max_start = 0;
@@ -2542,8 +2569,9 @@ calibration_loop:
 	current_pass_length = 0;
 	current_fail_length = 0;
 	current_start = 0;
-	fail_found = false;
-	pass_found = false;
+	window_found = FALSE;
+	fail_found = FALSE;
+	pass_found = FALSE;
 
 	/*
 	 * get the delay line calibration register value
@@ -2564,8 +2592,8 @@ calibration_loop:
 		 * See if the rffd value passed.
 		 *-----------------------------------------------------------------*/
 		if (short_mem_test()) {
-			if (fail_found == true) {
-				pass_found = true;
+			if (fail_found == TRUE) {
+				pass_found = TRUE;
 				if (current_pass_length == 0)
 					current_start = rffd;
 
@@ -2583,10 +2611,12 @@ calibration_loop:
 			current_fail_length++;
 
 			if (current_fail_length >= (dly_val >> 2)) {
-				if (fail_found == false)
-					fail_found = true;
-				else if (pass_found == true)
+				if (fail_found == FALSE) {
+					fail_found = TRUE;
+				} else if (pass_found == TRUE) {
+					window_found = TRUE;
 					break;
+				}
 			}
 		}
 	}		/* for rffd */
@@ -2611,9 +2641,9 @@ calibration_loop:
 	current_pass_length = 0;
 	current_fail_length = 0;
 	current_start = 0;
-	window_found = false;
-	fail_found = false;
-	pass_found = false;
+	window_found = FALSE;
+	fail_found = FALSE;
+	pass_found = FALSE;
 
 	for (rqfd = 0; rqfd <= SDRAM_RQDC_RQFD_MAX; rqfd++) {
 		mfsdram(SDRAM_RQDC, rqdc_reg);
@@ -2628,8 +2658,8 @@ calibration_loop:
 		 * See if the rffd value passed.
 		 *-----------------------------------------------------------------*/
 		if (short_mem_test()) {
-			if (fail_found == true) {
-				pass_found = true;
+			if (fail_found == TRUE) {
+				pass_found = TRUE;
 				if (current_pass_length == 0)
 					current_start = rqfd;
 
@@ -2646,10 +2676,10 @@ calibration_loop:
 			current_pass_length = 0;
 			current_fail_length++;
 
-			if (fail_found == false) {
-				fail_found = true;
-			} else if (pass_found == true) {
-				window_found = true;
+			if (fail_found == FALSE) {
+				fail_found = TRUE;
+			} else if (pass_found == TRUE) {
+				window_found = TRUE;
 				break;
 			}
 		}
@@ -2660,7 +2690,7 @@ calibration_loop:
 	/*------------------------------------------------------------------
 	 * Make sure we found the valid read passing window.  Halt if not
 	 *-----------------------------------------------------------------*/
-	if (window_found == false) {
+	if (window_found == FALSE) {
 		if (rqfd_start < SDRAM_RQDC_RQFD_MAX) {
 			putc('\b');
 			putc(slash[loopi++ % 8]);
@@ -2762,13 +2792,13 @@ static void test(void)
 	mtsdram(SDRAM_MCOPT1, (val & ~SDRAM_MCOPT1_MCHK_MASK) |
 		SDRAM_MCOPT1_MCHK_NON);
 
-	window_found = false;
-	begin_found[0] = false;
-	end_found[0] = false;
-	search_end[0] = false;
-	begin_found[1] = false;
-	end_found[1] = false;
-	search_end[1] = false;
+	window_found = FALSE;
+	begin_found[0] = FALSE;
+	end_found[0] = FALSE;
+	search_end[0] = FALSE;
+	begin_found[1] = FALSE;
+	end_found[1] = FALSE;
+	search_end[1] = FALSE;
 
 	for (dimm_num = 0; dimm_num < MAXDIMMS; dimm_num++) {
 		mfsdram(SDRAM_MB0CF + (bxcr_num << 2), bxcf[bxcr_num]);
@@ -2805,32 +2835,32 @@ static void test(void)
 			 * See if the rffd value passed.
 			 *-----------------------------------------------------------------*/
 			if (i < NUMMEMTESTS) {
-				if ((end_found[dimm_num] == false) &&
-				    (search_end[dimm_num] == true)) {
-					end_found[dimm_num] = true;
+				if ((end_found[dimm_num] == FALSE) &&
+				    (search_end[dimm_num] == TRUE)) {
+					end_found[dimm_num] = TRUE;
 				}
-				if ((end_found[0] == true) &&
-				    (end_found[1] == true))
+				if ((end_found[0] == TRUE) &&
+				    (end_found[1] == TRUE))
 					break;
 			} else {
-				if (begin_found[dimm_num] == false) {
-					begin_found[dimm_num] = true;
-					search_end[dimm_num] = true;
+				if (begin_found[dimm_num] == FALSE) {
+					begin_found[dimm_num] = TRUE;
+					search_end[dimm_num] = TRUE;
 				}
 			}
 		} else {
-			begin_found[dimm_num] = true;
-			end_found[dimm_num] = true;
+			begin_found[dimm_num] = TRUE;
+			end_found[dimm_num] = TRUE;
 		}
 	}
 
-	if ((begin_found[0] == true) && (begin_found[1] == true))
-		window_found = true;
+	if ((begin_found[0] == TRUE) && (begin_found[1] == TRUE))
+		window_found = TRUE;
 
 	/*------------------------------------------------------------------
 	 * Make sure we found the valid read passing window.  Halt if not
 	 *-----------------------------------------------------------------*/
-	if (window_found == false) {
+	if (window_found == FALSE) {
 		printf("ERROR: Cannot determine a common read delay for the "
 		       "DIMM(s) installed.\n");
 		spd_ddr_init_hang ();
@@ -2857,6 +2887,16 @@ static void test(void)
  *---------------------------------------------------------------------------*/
 phys_size_t initdram(int board_type)
 {
+	/*
+	 * Only run this SDRAM init code once. For NAND booting
+	 * targets like Kilauea, we call initdram() early from the
+	 * 4k NAND booting image (CONFIG_NAND_SPL) from nand_boot().
+	 * Later on the NAND U-Boot image runs (CONFIG_NAND_U_BOOT)
+	 * which calls initdram() again. This time the controller
+	 * mustn't be reconfigured again since we're already running
+	 * from SDRAM.
+	 */
+#if !defined(CONFIG_NAND_U_BOOT) || defined(CONFIG_NAND_SPL)
 	unsigned long val;
 
 #if defined(CONFIG_440)
@@ -2973,10 +3013,12 @@ phys_size_t initdram(int board_type)
 #endif
 
 #if defined(CONFIG_PPC4xx_DDR_AUTOCALIBRATION)
+#if !defined(CONFIG_NAND_U_BOOT) && !defined(CONFIG_NAND_SPL)
 	/*------------------------------------------------------------------
 	 | DQS calibration.
 	 +-----------------------------------------------------------------*/
 	DQS_autocalibration();
+#endif /* !defined(CONFIG_NAND_U_BOOT) && !defined(CONFIG_NAND_SPL) */
 #endif /* CONFIG_PPC4xx_DDR_AUTOCALIBRATION */
 
 	/*
@@ -3011,10 +3053,13 @@ phys_size_t initdram(int board_type)
 	set_mcsr(get_mcsr());
 #endif /* CONFIG_PPC4xx_DDR_AUTOCALIBRATION */
 
+#endif /* !defined(CONFIG_NAND_U_BOOT) || defined(CONFIG_NAND_SPL) */
+
 	return (CONFIG_SYS_MBYTES_SDRAM << 20);
 }
 #endif /* CONFIG_SPD_EEPROM */
 
+#if !defined(CONFIG_NAND_U_BOOT) && !defined(CONFIG_NAND_SPL)
 #if defined(CONFIG_440)
 u32 mfdcr_any(u32 dcr)
 {
@@ -3061,6 +3106,7 @@ void mtdcr_any(u32 dcr, u32 val)
 	}
 }
 #endif /* defined(CONFIG_440) */
+#endif /* !defined(CONFIG_NAND_U_BOOT) &&  !defined(CONFIG_NAND_SPL) */
 
 inline void ppc4xx_ibm_ddr2_register_dump(void)
 {

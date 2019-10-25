@@ -4,7 +4,23 @@
  * (C) Copyright 2004, Li-Pro.Net <www.li-pro.net>
  * Stephan Linz <linz@li-pro.net>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -110,7 +126,7 @@ int rtc_get (struct rtc_time *tmp)
 	immap->im_cpm.cp_pbdat &= ~PB_SPI_CE;	/* Disable DS1306 Chip */
 	udelay (10);
 
-	rtc_calc_weekday(tmp);	/* Determine the day of week */
+	GregorianDay (tmp);	/* Determine the day of week */
 
 	debug ("Get DATE: %4d-%02d-%02d (wday=%d)  TIME: %2d:%02d:%02d\n",
 	       tmp->tm_year, tmp->tm_mon, tmp->tm_mday, tmp->tm_wday,
@@ -180,7 +196,8 @@ int rtc_set (struct rtc_time *tmp)
 	{
 		ulong tim;
 
-		tim = rtc_mktime(tmp);
+		tim = mktime (tmp->tm_year, tmp->tm_mon, tmp->tm_mday,
+			      tmp->tm_hour, tmp->tm_min, tmp->tm_sec);
 
 		immap->im_sitk.sitk_rtck = KAPWR_KEY;
 		immap->im_sit.sit_rtc = tim;

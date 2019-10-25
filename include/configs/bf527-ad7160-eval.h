@@ -1,5 +1,5 @@
 /*
- * U-Boot - Configuration file for BF527 AD7160-EVAL board
+ * U-boot - Configuration file for BF527 AD7160-EVAL board
  */
 
 #ifndef __CONFIG_BF527_AD7160_EVAL_H__
@@ -7,11 +7,13 @@
 
 #include <asm/config-pre.h>
 
+
 /*
  * Processor Settings
  */
 #define CONFIG_BFIN_CPU             bf527-0.2
 #define CONFIG_BFIN_BOOT_MODE       BFIN_BOOT_SPI_MASTER
+
 
 /*
  * Clock Settings
@@ -36,6 +38,7 @@
 /* Values can range from 1-15						*/
 #define CONFIG_SCLK_DIV			5
 
+
 /*
  * Memory Settings
  */
@@ -52,6 +55,7 @@
 #define CONFIG_SYS_MONITOR_LEN	(768 * 1024)
 #define CONFIG_SYS_MALLOC_LEN	(640 * 1024)
 
+
 /*
  * NAND Settings
  * (can't be used same time as ethernet)
@@ -65,7 +69,9 @@
 #define CONFIG_DRIVER_NAND_BFIN
 #define CONFIG_SYS_NAND_BASE		0 /* not actually used */
 #define CONFIG_SYS_MAX_NAND_DEVICE	1
+#define NAND_MAX_CHIPS		1
 #endif
+
 
 /*
  * Flash Settings
@@ -77,12 +83,16 @@
 #define CONFIG_SYS_MAX_FLASH_BANKS	1
 #define CONFIG_SYS_MAX_FLASH_SECT	259
 
+
 /*
  * SPI Settings
  */
 #define CONFIG_BFIN_SPI
 #define CONFIG_ENV_SPI_MAX_HZ	30000000
 #define CONFIG_SF_DEFAULT_SPEED	30000000
+#define CONFIG_SPI_FLASH
+#define CONFIG_SPI_FLASH_STMICRO
+
 
 /*
  * Env Storage Settings
@@ -106,11 +116,13 @@
 #define CONFIG_ENV_IS_EMBEDDED_IN_LDR
 #endif
 
+
 /*
  * I2C Settings
  */
-#define CONFIG_SYS_I2C
-#define CONFIG_SYS_I2C_ADI
+#define CONFIG_BFIN_TWI_I2C	1
+#define CONFIG_HARD_I2C		1
+
 
 /*
  * SPI_MMC Settings
@@ -119,11 +131,13 @@
 #define CONFIG_GENERIC_MMC
 #define CONFIG_MMC_SPI
 
+
 /*
  * Misc Settings
  */
 #define CONFIG_MISC_INIT_R
 #define CONFIG_UART_CONSOLE	0
+
 
 /*
  * Pull in common ADI header for remaining command/environment setup

@@ -4,6 +4,10 @@
  * Authors:	Benedikt Spranger, Pengutronix
  *		Robert Schwebel, Pengutronix
  *
+ *              This program is free software; you can redistribute it and/or
+ *              modify it under the terms of the GNU General Public License
+ *              version 2, as published by the Free Software Foundation.
+ *
  *		This software was originally developed in conformance with
  *		Microsoft's Remote NDIS Specification License Agreement.
  *
@@ -15,8 +19,6 @@
  *
  * Copyright (C) 2004 by David Brownell
  *		updates to merge with Linux 2.6, better match RNDIS spec
- *
- * SPDX-License-Identifier:	GPL-2.0
  */
 
 #include <common.h>
@@ -41,6 +43,7 @@
 #define ETH_ZLEN	60		/* Min. octets in frame sans FCS */
 #define ETH_DATA_LEN	1500		/* Max. octets in payload	 */
 #define ETH_FRAME_LEN	PKTSIZE_ALIGN	/* Max. octets in frame sans FCS */
+#define ETH_FCS_LEN	4		/* Octets in the FCS		 */
 #define ENOTSUPP        524     /* Operation is not supported */
 
 

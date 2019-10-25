@@ -136,10 +136,5 @@
 # include "mach-bf561/anomaly.h"
 # include "mach-bf561/def_local.h"
 #endif
-#ifdef __ADSPBF609__
-# include "mach-bf609/BF609_def.h"
-# include "mach-bf609/anomaly.h"
-# include "mach-bf609/def_local.h"
-#endif
 
 #endif /* __MACH_DEF_BLACKFIN__ */

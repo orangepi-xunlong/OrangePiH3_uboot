@@ -4,14 +4,27 @@
  * Copyright (C) 2000, 2001,2002 Wolfgang Denk <wd@denx.de>
  * Copyright Freescale Semiconductor, Inc. 2004, 2006.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <config.h>
 #include <ppc_asm.tmpl>
-#include <ppc_defs.h>
-
-#include <asm/cache.h>
 
 /*------------------------------------------------------------------------------- */
 /* Function:	 ppcDcbf */
@@ -57,52 +70,3 @@ ppcDcbz:
 ppcSync:
 	sync
 	blr
-
-/*
- * Write any modified data cache blocks out to memory and invalidate them.
- * Does not invalidate the corresponding instruction cache blocks.
- *
- * flush_dcache_range(unsigned long start, unsigned long stop)
- */
-_GLOBAL(flush_dcache_range)
-#if defined(CONFIG_4xx) || defined(CONFIG_MPC86xx)
-	li	r5,L1_CACHE_BYTES-1
-	andc	r3,r3,r5
-	subf	r4,r3,r4
-	add	r4,r4,r5
-	srwi.	r4,r4,L1_CACHE_SHIFT
-	beqlr
-	mtctr	r4
-
-1:	dcbf	0,r3
-	addi	r3,r3,L1_CACHE_BYTES
-	bdnz	1b
-	sync				/* wait for dcbst's to get to ram */
-#endif
-	blr
-
-/*
- * Like above, but invalidate the D-cache.  This is used by the 8xx
- * to invalidate the cache so the PPC core doesn't get stale data
- * from the CPM (no cache snooping here :-).
- *
- * invalidate_dcache_range(unsigned long start, unsigned long stop)
- */
-_GLOBAL(invalidate_dcache_range)
-#if defined(CONFIG_4xx) || defined(CONFIG_MPC86xx)
-	li	r5,L1_CACHE_BYTES-1
-	andc	r3,r3,r5
-	subf	r4,r3,r4
-	add	r4,r4,r5
-	srwi.	r4,r4,L1_CACHE_SHIFT
-	beqlr
-	mtctr	r4
-
-	sync
-1:	dcbi	0,r3
-	addi	r3,r3,L1_CACHE_BYTES
-	bdnz	1b
-	sync				/* wait for dcbi's to get to ram */
-#endif
-	blr
-

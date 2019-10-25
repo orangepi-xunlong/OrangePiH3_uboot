@@ -1,19 +1,35 @@
 /*
- * U-Boot - string.c Contains library routines.
+ * U-boot - string.c Contains library routines.
  *
  * Copyright (c) 2005-2008 Analog Devices Inc.
  *
  * (C) Copyright 2000-2004
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
+ * MA 02110-1301 USA
  */
 
 #include <common.h>
 #include <config.h>
 #include <asm/blackfin.h>
 #include <asm/io.h>
-#include <asm/dma.h>
+#include <asm/mach-common/bits/dma.h>
 
 char *strcpy(char *dest, const char *src)
 {
@@ -101,91 +117,81 @@ int strncmp(const char *cs, const char *ct, size_t count)
 	return __res1;
 }
 
-#ifdef MDMA1_D0_NEXT_DESC_PTR
-# define MDMA_D0_NEXT_DESC_PTR MDMA1_D0_NEXT_DESC_PTR
-# define MDMA_S0_NEXT_DESC_PTR MDMA1_S0_NEXT_DESC_PTR
+#ifdef bfin_write_MDMA1_D0_IRQ_STATUS
+# define bfin_write_MDMA_D0_IRQ_STATUS bfin_write_MDMA1_D0_IRQ_STATUS
+# define bfin_write_MDMA_D0_START_ADDR bfin_write_MDMA1_D0_START_ADDR
+# define bfin_write_MDMA_D0_X_COUNT    bfin_write_MDMA1_D0_X_COUNT
+# define bfin_write_MDMA_D0_X_MODIFY   bfin_write_MDMA1_D0_X_MODIFY
+# define bfin_write_MDMA_D0_CONFIG     bfin_write_MDMA1_D0_CONFIG
+# define bfin_write_MDMA_S0_START_ADDR bfin_write_MDMA1_S0_START_ADDR
+# define bfin_write_MDMA_S0_X_COUNT    bfin_write_MDMA1_S0_X_COUNT
+# define bfin_write_MDMA_S0_X_MODIFY   bfin_write_MDMA1_S0_X_MODIFY
+# define bfin_write_MDMA_S0_CONFIG     bfin_write_MDMA1_S0_CONFIG
+# define bfin_write_MDMA_D0_IRQ_STATUS bfin_write_MDMA1_D0_IRQ_STATUS
+# define bfin_read_MDMA_D0_IRQ_STATUS  bfin_read_MDMA1_D0_IRQ_STATUS
 #endif
-
-static void dma_calc_size(unsigned long ldst, unsigned long lsrc, size_t count,
-			unsigned long *dshift, unsigned long *bpos)
-{
-	unsigned long limit;
-
-#ifdef MSIZE
-	/* The max memory DMA memory transfer size is 32 bytes. */
-	limit = 5;
-	*dshift = MSIZE_P;
-#else
-	/* The max memory DMA memory transfer size is 4 bytes. */
-	limit = 2;
-	*dshift = WDSIZE_P;
-#endif
-
-	*bpos = min(limit, (unsigned long)ffs(ldst | lsrc | count)) - 1;
-}
-
 /* This version misbehaves for count values of 0 and 2^16+.
  * Perhaps we should detect that ?  Nowhere do we actually
  * use dma memcpy for those types of lengths though ...
  */
 void dma_memcpy_nocache(void *dst, const void *src, size_t count)
 {
-	struct dma_register *mdma_d0 = (void *)MDMA_D0_NEXT_DESC_PTR;
-	struct dma_register *mdma_s0 = (void *)MDMA_S0_NEXT_DESC_PTR;
-	unsigned long ldst = (unsigned long)dst;
-	unsigned long lsrc = (unsigned long)src;
-	unsigned long dshift, bpos;
-	uint32_t dsize, mod;
+	uint16_t wdsize, mod;
 
 	/* Disable DMA in case it's still running (older u-boot's did not
 	 * always turn them off).  Do it before the if statement below so
 	 * we can be cheap and not do a SSYNC() due to the forced abort.
 	 */
-	bfin_write(&mdma_d0->config, 0);
-	bfin_write(&mdma_s0->config, 0);
-	bfin_write(&mdma_d0->status, DMA_RUN | DMA_DONE | DMA_ERR);
+	bfin_write_MDMA_D0_CONFIG(0);
+	bfin_write_MDMA_S0_CONFIG(0);
+	bfin_write_MDMA_D0_IRQ_STATUS(DMA_RUN | DMA_DONE | DMA_ERR);
 
 	/* Scratchpad cannot be a DMA source or destination */
-	if ((lsrc >= L1_SRAM_SCRATCH && lsrc < L1_SRAM_SCRATCH_END) ||
-	    (ldst >= L1_SRAM_SCRATCH && ldst < L1_SRAM_SCRATCH_END))
+	if (((unsigned long)src >= L1_SRAM_SCRATCH &&
+	     (unsigned long)src < L1_SRAM_SCRATCH_END) ||
+	    ((unsigned long)dst >= L1_SRAM_SCRATCH &&
+	     (unsigned long)dst < L1_SRAM_SCRATCH_END))
 		hang();
 
-	dma_calc_size(ldst, lsrc, count, &dshift, &bpos);
-	dsize = bpos << dshift;
-	count >>= bpos;
-	mod = 1 << bpos;
-
-#ifdef PSIZE
-	/* The max memory DMA peripheral transfer size is 4 bytes. */
-	dsize |= min(2UL, bpos) << PSIZE_P;
-#endif
+	if (((unsigned long)dst | (unsigned long)src | count) & 0x1) {
+		wdsize = WDSIZE_8;
+		mod = 1;
+	} else if (((unsigned long)dst | (unsigned long)src | count) & 0x2) {
+		wdsize = WDSIZE_16;
+		count >>= 1;
+		mod = 2;
+	} else {
+		wdsize = WDSIZE_32;
+		count >>= 2;
+		mod = 4;
+	}
 
 	/* Copy sram functions from sdram to sram */
 	/* Setup destination start address */
-	bfin_write(&mdma_d0->start_addr, ldst);
+	bfin_write_MDMA_D0_START_ADDR(dst);
 	/* Setup destination xcount */
-	bfin_write(&mdma_d0->x_count, count);
+	bfin_write_MDMA_D0_X_COUNT(count);
 	/* Setup destination xmodify */
-	bfin_write(&mdma_d0->x_modify, mod);
+	bfin_write_MDMA_D0_X_MODIFY(mod);
 
 	/* Setup Source start address */
-	bfin_write(&mdma_s0->start_addr, lsrc);
+	bfin_write_MDMA_S0_START_ADDR(src);
 	/* Setup Source xcount */
-	bfin_write(&mdma_s0->x_count, count);
+	bfin_write_MDMA_S0_X_COUNT(count);
 	/* Setup Source xmodify */
-	bfin_write(&mdma_s0->x_modify, mod);
+	bfin_write_MDMA_S0_X_MODIFY(mod);
 
 	/* Enable source DMA */
-	bfin_write(&mdma_s0->config, dsize | DMAEN);
-	bfin_write(&mdma_d0->config, dsize | DMAEN | WNR | DI_EN);
+	bfin_write_MDMA_S0_CONFIG(wdsize | DMAEN);
+	bfin_write_MDMA_D0_CONFIG(wdsize | DMAEN | WNR | DI_EN);
 	SSYNC();
 
-	while (!(bfin_read(&mdma_d0->status) & DMA_DONE))
+	while (!(bfin_read_MDMA_D0_IRQ_STATUS() & DMA_DONE))
 		continue;
 
-	bfin_write(&mdma_d0->status, DMA_RUN | DMA_DONE | DMA_ERR);
-	bfin_write(&mdma_d0->config, 0);
-	bfin_write(&mdma_s0->config, 0);
+	bfin_write_MDMA_D0_IRQ_STATUS(DMA_RUN | DMA_DONE | DMA_ERR);
+	bfin_write_MDMA_D0_CONFIG(0);
+	bfin_write_MDMA_S0_CONFIG(0);
 }
 /* We should do a dcache invalidate on the destination after the dma, but since
  * we lack such hardware capability, we'll flush/invalidate the destination

@@ -12,14 +12,6 @@
  * - added inflateIncomp
  */
 
-#include <common.h>
-
-#ifdef CONFIG_GZIP_COMPRESSED
-#define NO_DUMMY_DECL
-#include "deflate.c"
-#include "trees.c"
-#endif
-
 #include "zutil.h"
 #include "inftrees.h"
 #include "inflate.h"

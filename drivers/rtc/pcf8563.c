@@ -2,7 +2,23 @@
  * (C) Copyright 2001
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -56,7 +72,7 @@ int rtc_get (struct rtc_time *tmp)
 	tmp->tm_hour = bcd2bin (hour & 0x3F);
 	tmp->tm_mday = bcd2bin (mday & 0x3F);
 	tmp->tm_mon  = bcd2bin (mon_cent & 0x1F);
-	tmp->tm_year = bcd2bin (year) + ((mon_cent & 0x80) ? 1900 : 2000);
+	tmp->tm_year = bcd2bin (year) + ((mon_cent & 0x80) ? 2000 : 1900);
 	tmp->tm_wday = bcd2bin (wday & 0x07);
 	tmp->tm_yday = 0;
 	tmp->tm_isdst= 0;
@@ -78,7 +94,7 @@ int rtc_set (struct rtc_time *tmp)
 
 	rtc_write (0x08, bin2bcd(tmp->tm_year % 100));
 
-	century = (tmp->tm_year >= 2000) ? 0 : 0x80;
+	century = (tmp->tm_year >= 2000) ? 0x80 : 0;
 	rtc_write (0x07, bin2bcd(tmp->tm_mon) | century);
 
 	rtc_write (0x06, bin2bcd(tmp->tm_wday));

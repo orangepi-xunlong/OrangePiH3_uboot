@@ -3,14 +3,25 @@
  *
  * Copyright (C) 2003 David Brownell
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
- * Ported to U-Boot by: Thomas Smits <ts.smits@gmail.com> and
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ * Ported to U-boot by: Thomas Smits <ts.smits@gmail.com> and
  *                      Remy Bohmer <linux@bohmer.net>
  */
 
 #include <common.h>
-#include <asm/unaligned.h>
 #include <asm/errno.h>
 #include <linux/list.h>
 #include <linux/string.h>
@@ -87,8 +98,7 @@ int usb_gadget_config_buf(
 	/* config descriptor first */
 	if (length < USB_DT_CONFIG_SIZE || !desc)
 		return -EINVAL;
-	/* config need not be aligned */
-	memcpy(cp, config, sizeof(*cp));
+	*cp = *config;
 
 	/* then interface/endpoint/class/vendor/... */
 	len = usb_descriptor_fillbuf(USB_DT_CONFIG_SIZE + (u8 *)buf,
@@ -102,7 +112,7 @@ int usb_gadget_config_buf(
 	/* patch up the config descriptor */
 	cp->bLength = USB_DT_CONFIG_SIZE;
 	cp->bDescriptorType = USB_DT_CONFIG;
-	put_unaligned_le16(len, &cp->wTotalLength);
+	cp->wTotalLength = cpu_to_le16(len);
 	cp->bmAttributes |= USB_CONFIG_ATT_ONE;
 	return len;
 }

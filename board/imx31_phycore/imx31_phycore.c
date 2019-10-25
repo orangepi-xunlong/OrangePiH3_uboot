@@ -2,7 +2,23 @@
  *
  * (c) 2007 Pengutronix, Sascha Hauer <s.hauer@pengutronix.de>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 
@@ -11,7 +27,6 @@
 #include <netdev.h>
 #include <asm/arch/clock.h>
 #include <asm/arch/imx-regs.h>
-#include <asm/arch/sys_proto.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -34,39 +49,17 @@ int board_init(void)
 
 int board_early_init_f(void)
 {
-	/* CS0: Nor Flash */
-	static const struct mxc_weimcs cs0 = {
-		/*    sp wp bcd bcs psz pme sync dol cnc wsc ew wws edc */
-		CSCR_U(0, 0,  0,  0,  0,  0,   0,  0,  3, 15, 0,  0,  3),
-		/*   oea oen ebwa ebwn csa ebc dsz csn psr cre wrap csen */
-		CSCR_L(1,  0,   0,   0,  0,  1,  5,  0,  0,  0,   1,   1),
-		/*  ebra ebrn rwa rwn mum lah lbn lba dww dct wwu age cnc2 fce*/
-		CSCR_A(0,   0,  7,  2,  0,  0,  2,  1,  0,  0,  0,  0,   0,  0)
-	};
+	__REG(CSCR_U(0)) = 0x0000cf03; /* CS0: Nor Flash */
+	__REG(CSCR_L(0)) = 0x10000d03;
+	__REG(CSCR_A(0)) = 0x00720900;
 
-	/* CS1: Network Controller */
-	static const struct mxc_weimcs cs1 = {
-		/*    sp wp bcd bcs psz pme sync dol cnc wsc ew wws edc */
-		CSCR_U(0, 0,  0,  0,  0,  0,   0,  0,  3, 31, 0,  0,  6),
-		/*   oea oen ebwa ebwn csa ebc dsz csn psr cre wrap csen */
-		CSCR_L(4,  4,   4,  10,  4,  0,  5,  4,  0,  0,   0,   1),
-		/*  ebra ebrn rwa rwn mum lah lbn lba dww dct wwu age cnc2 fce*/
-		CSCR_A(4,   4,  4,  4,  0,  1,  4,  3,  0,  0,  0,  0,   1,  0)
-	};
+	__REG(CSCR_U(1)) = 0x0000df06; /* CS1: Network Controller */
+	__REG(CSCR_L(1)) = 0x444a4541;
+	__REG(CSCR_A(1)) = 0x44443302;
 
-	/* CS4: SRAM */
-	static const struct mxc_weimcs cs4 = {
-		/*    sp wp bcd bcs psz pme sync dol cnc wsc ew wws edc */
-		CSCR_U(0, 0,  0,  0,  0,  0,   0,  0,  3, 24, 0,  4,  3),
-		/*   oea oen ebwa ebwn csa ebc dsz csn psr cre wrap csen */
-		CSCR_L(2,  2,   2,   5,  2,  0,  5,  2,  0,  0,   0,   1),
-		/*  ebra ebrn rwa rwn mum lah lbn lba dww dct wwu age cnc2 fce*/
-		CSCR_A(2,   2,  2,  2,  0,  0,  2,  2,  0,  0,  0,  0,   0,  0)
-	};
-
-	mxc_setup_weimcs(0, &cs0);
-	mxc_setup_weimcs(1, &cs1);
-	mxc_setup_weimcs(4, &cs4);
+	__REG(CSCR_U(4)) = 0x0000d843; /* CS4: SRAM */
+	__REG(CSCR_L(4)) = 0x22252521;
+	__REG(CSCR_A(4)) = 0x22220a00;
 
 	/* setup pins for UART1 */
 	mx31_gpio_mux(MUX_RXD1__UART1_RXD_MUX);
@@ -81,7 +74,7 @@ int board_early_init_f(void)
 	return 0;
 }
 
-#ifdef CONFIG_BOARD_LATE_INIT
+#ifdef BOARD_LATE_INIT
 int board_late_init(void)
 {
 #ifdef CONFIG_S6E63D6

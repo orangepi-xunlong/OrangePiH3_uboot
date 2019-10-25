@@ -4,7 +4,23 @@
  * Author: Scott Wood <scottwood@freescale.com>,
  * with some bits from older board-specific PCI initialization.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -67,7 +83,7 @@ static void pci_init_bus(int bus, struct pci_region *reg)
 	pci_ctrl->pibar1 = 0;
 	pci_ctrl->piebar1 = 0;
 	pci_ctrl->piwar1 = PIWAR_EN | PIWAR_PF | PIWAR_RTT_SNOOP |
-			   PIWAR_WTT_SNOOP | (__ilog2(gd->ram_size - 1));
+	                   PIWAR_WTT_SNOOP | (__ilog2(gd->ram_size - 1));
 
 	i = hose->region_count++;
 	hose->regions[i].bus_start = 0;
@@ -79,7 +95,7 @@ static void pci_init_bus(int bus, struct pci_region *reg)
 	hose->last_busno = 0xff;
 
 	pci_setup_indirect(hose, CONFIG_SYS_IMMR + 0x8300 + bus * 0x80,
-				 CONFIG_SYS_IMMR + 0x8304 + bus * 0x80);
+	                         CONFIG_SYS_IMMR + 0x8304 + bus * 0x80);
 
 	pci_register_hose(hose);
 
@@ -123,7 +139,7 @@ void mpc83xx_pci_init(int num_buses, struct pci_region **reg)
 	int i;
 
 	if (num_buses > MAX_BUSES) {
-		printf("%d PCI buses requested, %d supported\n",
+		printf("%d PCI buses requsted, %d supported\n",
 		       num_buses, MAX_BUSES);
 
 		num_buses = MAX_BUSES;

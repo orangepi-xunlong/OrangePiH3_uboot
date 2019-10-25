@@ -2,7 +2,10 @@
  * Copyright 2010-2011 Freescale Semiconductor
  * Author: Timur Tabi <timur@freescale.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the Free
+ * Software Foundation; either version 2 of the License, or (at your option)
+ * any later version.
  *
  * This file provides support for the ngPIXIS, a board-specific FPGA used on
  * some Freescale reference boards.
@@ -42,7 +45,7 @@ typedef struct ngpixis {
 	struct {
 		u8 sw;
 		u8 en;
-	} s[9];		/* s[0]..s[7] is SW1..SW8, and s[8] is SW11 */
+	} s[8];
 } __attribute__ ((packed)) ngpixis_t;
 
 /* Pointer to the PIXIS register set */

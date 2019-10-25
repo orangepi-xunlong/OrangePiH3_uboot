@@ -2,7 +2,20 @@
  * (C) Copyright 2010
  * Stefan Roese, DENX Software Engineering, sr@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef _PPC460EX_GT_H_
@@ -19,12 +32,10 @@
 /* Memory mapped registers */
 #define CONFIG_SYS_PERIPHERAL_BASE	0xef600000 /* Internal Peripherals */
 
-#ifndef CONFIG_DM_SERIAL
 #define CONFIG_SYS_NS16550_COM1	(CONFIG_SYS_PERIPHERAL_BASE + 0x0300)
 #define CONFIG_SYS_NS16550_COM2	(CONFIG_SYS_PERIPHERAL_BASE + 0x0400)
 #define CONFIG_SYS_NS16550_COM3	(CONFIG_SYS_PERIPHERAL_BASE + 0x0500)
 #define CONFIG_SYS_NS16550_COM4	(CONFIG_SYS_PERIPHERAL_BASE + 0x0600)
-#endif
 
 #define GPIO0_BASE		(CONFIG_SYS_PERIPHERAL_BASE + 0x0b00)
 #define GPIO1_BASE		(CONFIG_SYS_PERIPHERAL_BASE + 0x0c00)

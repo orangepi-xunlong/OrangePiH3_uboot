@@ -2,7 +2,23 @@
  * (C) Copyright 2000-2002
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -24,11 +40,10 @@
 #include <commproc.h>
 #include <netdev.h>
 #include <asm/cache.h>
-#include <linux/compiler.h>
-#include <asm/io.h>
 
 #if defined(CONFIG_OF_LIBFDT)
 #include <libfdt.h>
+#include <libfdt_env.h>
 #include <fdt_support.h>
 #endif
 
@@ -62,8 +77,7 @@ static int check_CPU (long clock, uint pvr, uint immr)
 	if ((pvr >> 16) != 0x0050)
 		return -1;
 
-	k = (immr << 16) |
-		immap->im_cpm.cp_dparam16[PROFF_REVNUM / sizeof(u16)];
+	k = (immr << 16) | *((ushort *) & immap->im_cpm.cp_dparam[0xB0]);
 	m = 0;
 	suf = "";
 
@@ -97,8 +111,14 @@ static int check_CPU (long clock, uint pvr, uint immr)
 		pre = 'M'; m = 1;
 		if (id_str == NULL)
 			id_str =
-# if defined(CONFIG_MPC859T)
+# if defined(CONFIG_MPC852T)
+		"PC852T";
+# elif defined(CONFIG_MPC859T)
 		"PC859T";
+# elif defined(CONFIG_MPC859DSL)
+		"PC859DSL";
+# elif defined(CONFIG_MPC866T)
+		"PC866T";
 # else
 		"PC866x"; /* Unknown chip from MPC866 family */
 # endif
@@ -130,8 +150,10 @@ static int check_CPU (long clock, uint pvr, uint immr)
 #else
 	printf (" at %s MHz: ", strmhz (buf, clock));
 #endif
-	print_size(checkicache(), " I-Cache ");
-	print_size(checkdcache(), " D-Cache");
+	printf ("%u kB I-Cache %u kB D-Cache",
+		checkicache () >> 10,
+		checkdcache () >> 10
+	);
 
 	/* do we have a FEC (860T/P or 852/859/866/885)? */
 
@@ -163,7 +185,7 @@ static int check_CPU (long clock, uint pvr, uint immr)
 	uint k, m;
 	char buf[32];
 	char pre = 'X';
-	__maybe_unused char *mid = "xx";
+	char *mid = "xx";
 	char *suf;
 
 	/* the highest 16 bits should be 0x0050 for a 8xx */
@@ -171,8 +193,7 @@ static int check_CPU (long clock, uint pvr, uint immr)
 	if ((pvr >> 16) != 0x0050)
 		return -1;
 
-	k = (immr << 16) |
-		immap->im_cpm.cp_dparam16[PROFF_REVNUM / sizeof(u16)];
+	k = (immr << 16) | *((ushort *) & immap->im_cpm.cp_dparam[0xB0]);
 	m = 0;
 
 	switch (k) {
@@ -196,10 +217,10 @@ static int check_CPU (long clock, uint pvr, uint immr)
 		printf ("unknown MPC857 (0x%08x)", k);
 #endif
 
-	printf(" at %s MHz: ", strmhz(buf, clock));
+	printf (" at %s MHz:", strmhz (buf, clock));
 
-	print_size(checkicache(), " I-Cache ");
-	print_size(checkdcache(), " D-Cache");
+	printf (" %u kB I-Cache", checkicache () >> 10);
+	printf (" %u kB D-Cache", checkdcache () >> 10);
 
 	/* lets check and see if we're running on a 862T (or P?) */
 
@@ -231,8 +252,7 @@ static int check_CPU (long clock, uint pvr, uint immr)
 	if ((pvr >> 16) != 0x0050)
 		return -1;
 
-	k = (immr << 16) |
-		in_be16(&immap->im_cpm.cp_dparam16[PROFF_REVNUM / sizeof(u16)]);
+	k = (immr << 16) | *((ushort *) & immap->im_cpm.cp_dparam[0xB0]);
 	m = 0;
 
 	switch (k) {
@@ -257,10 +277,10 @@ static int check_CPU (long clock, uint pvr, uint immr)
 	if (suf)
 		printf ("PPC823ZTnn%s", suf);
 
-	printf(" at %s MHz: ", strmhz(buf, clock));
+	printf (" at %s MHz:", strmhz (buf, clock));
 
-	print_size(checkicache(), " I-Cache ");
-	print_size(checkdcache(), " D-Cache");
+	printf (" %u kB I-Cache", checkicache () >> 10);
+	printf (" %u kB D-Cache", checkdcache () >> 10);
 
 	/* lets check and see if we're running on a 860T (or P?) */
 
@@ -291,8 +311,7 @@ static int check_CPU (long clock, uint pvr, uint immr)
 	if ((pvr >> 16) != 0x0050)
 		return -1;
 
-	k = (immr << 16) |
-		immap->im_cpm.cp_dparam16[PROFF_REVNUM / sizeof(u16)];
+	k = (immr << 16) | *((ushort *) & immap->im_cpm.cp_dparam[0xB0]);
 	m = 0;
 
 	switch (k) {
@@ -313,10 +332,10 @@ static int check_CPU (long clock, uint pvr, uint immr)
 	default:
 		printf ("unknown MPC850 (0x%08x)", k);
 	}
-	printf(" at %s MHz: ", strmhz(buf, clock));
+	printf (" at %s MHz:", strmhz (buf, clock));
 
-	print_size(checkicache(), " I-Cache ");
-	print_size(checkdcache(), " D-Cache");
+	printf (" %u kB I-Cache", checkicache () >> 10);
+	printf (" %u kB D-Cache", checkdcache () >> 10);
 
 	/* lets check and see if we're running on a 850T (or P?) */
 
@@ -457,6 +476,8 @@ void upmconfig (uint upm, uint * table, uint size)
 
 /* ------------------------------------------------------------------------- */
 
+#ifndef CONFIG_LWMON
+
 int do_reset (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
 	ulong msr, addr;
@@ -490,6 +511,32 @@ int do_reset (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	((void (*)(void)) addr) ();
 	return 1;
 }
+
+#else	/* CONFIG_LWMON */
+
+/*
+ * On the LWMON board, the MCLR reset input of the PIC's on the board
+ * uses a 47K/1n RC combination which has a 47us time  constant.  The
+ * low  signal on the HRESET pin of the CPU is only 512 clocks = 8 us
+ * and thus too short to reset the external hardware. So we  use  the
+ * watchdog to reset the board.
+ */
+int do_reset (cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
+{
+	/* prevent triggering the watchdog */
+	disable_interrupts ();
+
+	/* make sure the watchdog is running */
+	reset_8xx_watchdog ((immap_t *) CONFIG_SYS_IMMR);
+
+	/* wait for watchdog reset */
+	while (1) {};
+
+	/* NOTREACHED */
+	return 1;
+}
+
+#endif	/* CONFIG_LWMON */
 
 /* ------------------------------------------------------------------------- */
 
@@ -552,15 +599,42 @@ void watchdog_reset (void)
 }
 #endif /* CONFIG_WATCHDOG */
 
-#if defined(CONFIG_WATCHDOG)
+#if defined(CONFIG_WATCHDOG) || defined(CONFIG_LWMON)
 
 void reset_8xx_watchdog (volatile immap_t * immr)
 {
+# if defined(CONFIG_LWMON)
+	/*
+	 * The LWMON board uses a MAX6301 Watchdog
+	 * with the trigger pin connected to port PA.7
+	 *
+	 * (The old board version used a MAX706TESA Watchdog, which
+	 * had to be handled exactly the same.)
+	 */
+# define WATCHDOG_BIT	0x0100
+	immr->im_ioport.iop_papar &= ~(WATCHDOG_BIT);	/* GPIO     */
+	immr->im_ioport.iop_padir |= WATCHDOG_BIT;	/* Output   */
+	immr->im_ioport.iop_paodr &= ~(WATCHDOG_BIT);	/* active output */
+
+	immr->im_ioport.iop_padat ^= WATCHDOG_BIT;	/* Toggle WDI   */
+# elif defined(CONFIG_KUP4K) || defined(CONFIG_KUP4X)
+	/*
+	 * The KUP4 boards uses a TPS3705 Watchdog
+	 * with the trigger pin connected to port PA.5
+	 */
+# define WATCHDOG_BIT	0x0400
+	immr->im_ioport.iop_papar &= ~(WATCHDOG_BIT);	/* GPIO     */
+	immr->im_ioport.iop_padir |= WATCHDOG_BIT;	/* Output   */
+	immr->im_ioport.iop_paodr &= ~(WATCHDOG_BIT);	/* active output */
+
+	immr->im_ioport.iop_padat ^= WATCHDOG_BIT;	/* Toggle WDI   */
+# else
 	/*
 	 * All other boards use the MPC8xx Internal Watchdog
 	 */
 	immr->im_siu_conf.sc_swsr = 0x556c;	/* write magic1 */
 	immr->im_siu_conf.sc_swsr = 0xaa39;	/* write magic2 */
+# endif /* CONFIG_LWMON */
 }
 #endif /* CONFIG_WATCHDOG */
 

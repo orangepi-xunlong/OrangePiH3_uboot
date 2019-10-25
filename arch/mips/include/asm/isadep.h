@@ -4,8 +4,6 @@
  * of Coprocessor 0 registers.
  *
  * Copyright (c) 1998 Harald Koerfgen
- *
- * SPDX-License-Identifier:	GPL-2.0
  */
 
 #ifndef __ASM_ISADEP_H
@@ -20,7 +18,7 @@
  * kernel or user mode? (CP0_STATUS)
  */
 #define KU_MASK 0x08
-#define KU_USER 0x08
+#define	KU_USER 0x08
 #define KU_KERN 0x00
 
 #else
@@ -28,7 +26,7 @@
  * kernel or user mode?
  */
 #define KU_MASK 0x18
-#define KU_USER 0x10
+#define	KU_USER 0x10
 #define KU_KERN 0x00
 
 #endif

@@ -1,9 +1,19 @@
 /*
  * Copyright (C) 2004-2007 ARM Limited.
  * Copyright (C) 2008 Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
- * Copyright (C) 2015 - 2016 Xilinx, Inc, Michal Simek
  *
- * SPDX-License-Identifier:	GPL-2.0
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License version 2
+ * as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  * As a special exception, if other files instantiate templates or use macros
  * or inline functions from this file, or you compile this file and link it
@@ -17,12 +27,11 @@
  */
 
 #include <common.h>
-#include <dm.h>
-#include <serial.h>
+#include <stdio_dev.h>
 
-#if defined(CONFIG_CPU_V6) || defined(CONFIG_CPU_V7)
+#if defined(CONFIG_CPU_V6)
 /*
- * ARMV6 & ARMV7
+ * ARMV6
  */
 #define DCC_RBIT	(1 << 30)
 #define DCC_WBIT	(1 << 29)
@@ -52,22 +61,6 @@
 #define status_dcc(x)	\
 		__asm__ volatile ("mrc p14, 0, %0, c14, c0, 0\n" : "=r" (x))
 
-#elif defined(CONFIG_CPU_ARMV8)
-/*
- * ARMV8
- */
-#define DCC_RBIT	(1 << 30)
-#define DCC_WBIT	(1 << 29)
-
-#define write_dcc(x)   \
-		__asm__ volatile ("msr dbgdtrtx_el0, %0\n" : : "r" (x))
-
-#define read_dcc(x)    \
-		__asm__ volatile ("mrs %0, dbgdtrrx_el0\n" : "=r" (x))
-
-#define status_dcc(x)  \
-		__asm__ volatile ("mrs %0, mdccsr_el0\n" : "=r" (x))
-
 #else
 #define DCC_RBIT	(1 << 0)
 #define DCC_WBIT	(1 << 1)
@@ -96,7 +89,21 @@
 
 #define TIMEOUT_COUNT 0x4000000
 
-static int arm_dcc_getc(struct udevice *dev)
+#ifndef CONFIG_ARM_DCC_MULTI
+#define arm_dcc_init serial_init
+void serial_setbrg(void) {}
+#define arm_dcc_getc serial_getc
+#define arm_dcc_putc serial_putc
+#define arm_dcc_puts serial_puts
+#define arm_dcc_tstc serial_tstc
+#endif
+
+int arm_dcc_init(void)
+{
+	return 0;
+}
+
+int arm_dcc_getc(void)
 {
 	int ch;
 	register unsigned int reg;
@@ -109,7 +116,7 @@ static int arm_dcc_getc(struct udevice *dev)
 	return ch;
 }
 
-static int arm_dcc_putc(struct udevice *dev, char ch)
+void arm_dcc_putc(char ch)
 {
 	register unsigned int reg;
 	unsigned int timeout_count = TIMEOUT_COUNT;
@@ -120,57 +127,44 @@ static int arm_dcc_putc(struct udevice *dev, char ch)
 			break;
 	}
 	if (timeout_count == 0)
-		return -EAGAIN;
+		return;
 	else
 		write_dcc(ch);
-
-	return 0;
 }
 
-static int arm_dcc_pending(struct udevice *dev, bool input)
+void arm_dcc_puts(const char *s)
+{
+	while (*s)
+		arm_dcc_putc(*s++);
+}
+
+int arm_dcc_tstc(void)
 {
 	register unsigned int reg;
 
-	if (input) {
-		can_read_dcc(reg);
-	} else {
-		can_write_dcc(reg);
-	}
+	can_read_dcc(reg);
 
 	return reg;
 }
 
-static const struct dm_serial_ops arm_dcc_ops = {
-	.putc = arm_dcc_putc,
-	.pending = arm_dcc_pending,
-	.getc = arm_dcc_getc,
-};
+#ifdef CONFIG_ARM_DCC_MULTI
+static struct stdio_dev arm_dcc_dev;
 
-static const struct udevice_id arm_dcc_ids[] = {
-	{ .compatible = "arm,dcc", },
-	{ }
-};
-
-U_BOOT_DRIVER(serial_dcc) = {
-	.name	= "arm_dcc",
-	.id	= UCLASS_SERIAL,
-	.of_match = arm_dcc_ids,
-	.ops	= &arm_dcc_ops,
-	.flags = DM_FLAG_PRE_RELOC,
-};
-
-#ifdef CONFIG_DEBUG_UART_ARM_DCC
-
-#include <debug_uart.h>
-
-static inline void _debug_uart_init(void)
+int drv_arm_dcc_init(void)
 {
-}
+	int rc;
 
-static inline void _debug_uart_putc(int ch)
-{
-	arm_dcc_putc(NULL, ch);
-}
+	/* Device initialization */
+	memset(&arm_dcc_dev, 0, sizeof(arm_dcc_dev));
 
-DEBUG_UART_FUNCS
+	strcpy(arm_dcc_dev.name, "dcc");
+	arm_dcc_dev.ext = 0;	/* No extensions */
+	arm_dcc_dev.flags = DEV_FLAGS_INPUT | DEV_FLAGS_OUTPUT;
+	arm_dcc_dev.tstc = arm_dcc_tstc;	/* 'tstc' function */
+	arm_dcc_dev.getc = arm_dcc_getc;	/* 'getc' function */
+	arm_dcc_dev.putc = arm_dcc_putc;	/* 'putc' function */
+	arm_dcc_dev.puts = arm_dcc_puts;	/* 'puts' function */
+
+	return stdio_register(&arm_dcc_dev);
+}
 #endif

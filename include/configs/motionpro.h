@@ -2,9 +2,25 @@
  * (C) Copyright 2003-2007
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * Based on Motion-PRO board config file by Robert McCullough, rob@promessinc.com
+ * Based on PRO Motion board config file by Andy Joseph, andy@promessdev.com
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef __CONFIG_H
@@ -15,9 +31,9 @@
  */
 
 /* CPU and board */
-#define CONFIG_MPC5200		1	/* This is a MPC5200 CPU */
+#define CONFIG_MPC5xxx		1	/* This is an MPC5xxx CPU */
+#define CONFIG_MPC5200		1	/* More exactly a MPC5200 */
 #define CONFIG_MOTIONPRO	1	/* ... on Promess Motion-PRO board */
-#define CONFIG_DISPLAY_BOARDINFO
 
 #define CONFIG_HIGH_BATS	1	/* High BATs supported */
 
@@ -34,13 +50,23 @@
 /*
  * Command line configuration.
  */
+#include <config_cmd_default.h>
+
+#define CONFIG_CMD_ASKENV
 #define CONFIG_CMD_BEDBUG
 #define CONFIG_CMD_DATE
+#define CONFIG_CMD_DHCP
 #define CONFIG_CMD_DTT
 #define CONFIG_CMD_EEPROM
+#define CONFIG_CMD_ELF
+#define CONFIG_CMD_FAT
+#define CONFIG_CMD_I2C
 #define CONFIG_CMD_IDE
 #define CONFIG_CMD_IMMAP
 #define CONFIG_CMD_JFFS2
+#define CONFIG_CMD_MII
+#define CONFIG_CMD_NET
+#define CONFIG_CMD_PING
 #define CONFIG_CMD_REGINFO
 
 /*
@@ -63,9 +89,22 @@
 /*
  * Autobooting
  */
+#define CONFIG_BOOTDELAY	2	/* autoboot after 2 seconds */
+#define CONFIG_AUTOBOOT_KEYED
+#define CONFIG_AUTOBOOT_STOP_STR	"\x1b\x1b"
+#define DEBUG_BOOTKEYS		0
+#undef CONFIG_AUTOBOOT_DELAY_STR
 #undef CONFIG_BOOTARGS
+#define CONFIG_AUTOBOOT_PROMPT	"Autobooting in %d seconds, "		\
+				"press \"<Esc><Esc>\" to stop\n", bootdelay
 
 #define CONFIG_CMDLINE_EDITING		1	/* add command line history	*/
+#define	CONFIG_SYS_HUSH_PARSER		1	/* use "hush" command parser	*/
+#define	CONFIG_SYS_PROMPT_HUSH_PS2	"> "
+
+#define CONFIG_ETHADDR		00:50:C2:40:10:00
+#define CONFIG_OVERWRITE_ETHADDR_ONCE	1
+#define CONFIG_VERSION_VARIABLE	1	/* include version env variable */
 
 /*
  * Default environment settings
@@ -73,21 +112,21 @@
 #define CONFIG_EXTRA_ENV_SETTINGS					\
 	"netdev=eth0\0"							\
 	"hostname=motionpro\0"						\
-	"netmask=255.255.255.0\0"					\
-	"ipaddr=192.168.1.106\0"					\
-	"serverip=192.168.1.100\0"					\
-	"gatewayip=192.168.1.100\0"					\
+	"netmask=255.255.0.0\0"						\
+	"ipaddr=192.168.160.22\0"					\
+	"serverip=192.168.1.1\0"					\
+	"gatewayip=192.168.1.1\0"					\
 	"console=ttyPSC0,115200\0"					\
 	"u-boot_addr=400000\0"						\
 	"kernel_addr=400000\0"						\
 	"fdt_addr=700000\0"						\
 	"ramdisk_addr=800000\0"						\
 	"multi_image_addr=800000\0"					\
-	"rootpath=/opt/eldk-4.2/ppc_6xx\0"				\
-	"u-boot=/tftpboot/motionpro/u-boot.bin\0"			\
-	"bootfile=/tftpboot/motionpro/uImage\0"				\
-	"fdt_file=/tftpboot/motionpro/motionpro.dtb\0"			\
-	"ramdisk_file=/tftpboot/motionpro/uRamdisk\0"			\
+	"rootpath=/opt/eldk/ppc_6xx\0"					\
+	"u-boot=motionpro/u-boot.bin\0"					\
+	"bootfile=motionpro/uImage\0"					\
+	"fdt_file=motionpro/motionpro.dtb\0"				\
+	"ramdisk_file=motionpro/uRamdisk\0"				\
 	"multi_image_file=kernel+initrd+dtb.img\0"			\
 	"load=tftp ${u-boot_addr} ${u-boot}\0"				\
 	"update=prot off fff00000 +${filesize};"			\
@@ -97,32 +136,25 @@
 	"ramargs=setenv bootargs root=/dev/ram rw\0"			\
 	"nfsargs=setenv bootargs root=/dev/nfs rw "			\
 		"nfsroot=${serverip}:${rootpath}\0"			\
-	"fat_args=setenv bootargs root=/dev/sda rw\0"			\
-	"mtdids=nor0=ff000000.flash\0"					\
-	"mtdparts=ff000000.flash:13m(fs),2m(kernel),384k(uboot)," 	\
-				"128k(env),128k(redund_env),"	  	\
-				"128k(dtb),128k(user_data)\0"		\
-	"addcons=setenv bootargs ${bootargs} console=${console}\0"	\
-	"addmtd=setenv bootargs ${bootargs} mtdparts=${mtdparts}\0"	\
+	"fat_args=setenv bootargs rw\0"					\
+	"addmtd=setenv bootargs ${bootargs} ${mtdparts}\0"		\
 	"addip=setenv bootargs ${bootargs} "				\
 		"ip=${ipaddr}:${serverip}:${gatewayip}:"		\
 		"${netmask}:${hostname}:${netdev}:off panic=1 "		\
 		"console=${console}\0"					\
 	"net_nfs=tftp ${kernel_addr} ${bootfile}; "			\
-		"tftp ${fdt_addr} ${fdt_file}; "			\
-		"run nfsargs addip addmtd; "				\
+		"tftp ${fdt_addr} ${fdt_file}; run nfsargs addip; "	\
 		"bootm ${kernel_addr} - ${fdt_addr}\0"			\
 	"net_self=tftp ${kernel_addr} ${bootfile}; "			\
 		"tftp ${fdt_addr} ${fdt_file}; "			\
 		"tftp ${ramdisk_addr} ${ramdisk_file}; "		\
-		"nfs ${ramdisk_addr} ${serverip}:${rootpath}/images/uRamdisk; "	\
-		"run ramargs addip addcons addmtd; "			\
+		"run ramargs addip; "					\
 		"bootm ${kernel_addr} ${ramdisk_addr} ${fdt_addr}\0"	\
-	"fat_multi=run fat_args addip addmtd; fatload ide 0:1 "		\
+	"fat_multi=run fat_args addip; fatload ide 0:1 "		\
 		"${multi_image_addr} ${multi_image_file}; "		\
 		"bootm ${multi_image_addr}\0"				\
 	""
-#define CONFIG_BOOTCOMMAND	"run fat_multi"
+#define CONFIG_BOOTCOMMAND	"run net_nfs"
 
 /*
  * do board-specific init
@@ -178,7 +210,7 @@
 #define CONFIG_SYS_RAMBOOT		1
 #endif
 
-#define CONFIG_SYS_MONITOR_LEN		(384 << 10)	/* 384 kB for Monitor */
+#define CONFIG_SYS_MONITOR_LEN		(256 << 10)	/* 256 kB for Monitor */
 #define CONFIG_SYS_MALLOC_LEN		(1024 << 10)	/* 1 MiB for malloc() */
 #define CONFIG_SYS_BOOTMAPSZ		(8 << 20)	/* initial mem map for Linux */
 
@@ -243,7 +275,7 @@
 #define CONFIG_FLASH_CFI_MTD
 #define MTDIDS_DEFAULT		"nor0=motionpro-0"
 #define MTDPARTS_DEFAULT	"mtdparts=motionpro-0:"			  \
-					"13m(fs),2m(kernel),384k(uboot)," \
+					"13m(fs),2m(kernel),256k(uboot)," \
 					"128k(env),128k(redund_env),"	  \
 					"128k(dtb),-(user_data)"
 
@@ -274,6 +306,7 @@
 #define CONFIG_SYS_I2C_EEPROM_ADDR_LEN		1
 #define CONFIG_SYS_EEPROM_PAGE_WRITE_BITS	1	/* 2 bytes per write cycle */
 #define CONFIG_SYS_EEPROM_PAGE_WRITE_DELAY_MS	5	/* 2ms/cycle + 3ms extra */
+#define CONFIG_SYS_I2C_MULTI_EEPROMS		1	/* 2 EEPROMs (addr:50,52) */
 
 /*
  * RTC configuration
@@ -344,6 +377,7 @@ extern void __led_set(led_id_t id, int state);
  * Miscellaneous configurable options
  */
 #define CONFIG_SYS_LONGHELP			/* undef to save memory    */
+#define CONFIG_SYS_PROMPT		"=> "	/* Monitor Command Prompt   */
 #define CONFIG_SYS_CBSIZE		1024	/* Console I/O Buffer Size */
 #define CONFIG_SYS_PBSIZE (CONFIG_SYS_CBSIZE+sizeof(CONFIG_SYS_PROMPT)+16)	/* Print Buffer Size */
 #define CONFIG_SYS_MAXARGS		16		/* max number of command args */
@@ -355,6 +389,8 @@ extern void __led_set(led_id_t id, int state);
 
 #define CONFIG_SYS_LOAD_ADDR		0x200000	/* default kernel load addr */
 
+#define CONFIG_SYS_HZ			1000	/* decrementer freq: 1 ms ticks */
+
 /*
  * Various low-level settings
  */
@@ -365,6 +401,10 @@ extern void __led_set(led_id_t id, int state);
 
 /* Not needed for MPC 5xxx U-Boot, but used by tools/updater */
 #define CONFIG_SYS_RESET_ADDRESS	0xfff00100
+
+/* pass open firmware flat tree */
+#define CONFIG_OF_LIBFDT	1
+#define CONFIG_OF_BOARD_SETUP	1
 
 #define OF_CPU			"PowerPC,5200@0"
 #define OF_SOC			"soc5200@f0000000"

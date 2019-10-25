@@ -8,7 +8,23 @@
  *
  * (C) Copyright 2002 Scott McNutt <smcnutt@artesyncp.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.         See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -143,7 +159,7 @@ void local_bus_init (void)
 
 	get_sys_info (&sysinfo);
 	clkdiv = lbc->lcrr & LCRR_CLKDIV;
-	lbc_mhz = sysinfo.freq_systembus / 1000000 / clkdiv;
+	lbc_mhz = sysinfo.freqSystemBus / 1000000 / clkdiv;
 
 	/* Disable PLL bypass for Local Bus Clock >= 66 MHz */
 	if (lbc_mhz >= 66)
@@ -217,8 +233,9 @@ int board_early_init_r (void)
 }
 #endif /* CONFIG_BOARD_EARLY_INIT_R */
 
-#ifdef CONFIG_OF_BOARD_SETUP
-int ft_board_setup(void *blob, bd_t *bd)
+#if defined(CONFIG_OF_LIBFDT) && defined(CONFIG_OF_BOARD_SETUP)
+void
+ft_board_setup(void *blob, bd_t *bd)
 {
 	u32 val[12];
 	int rc, i = 0;
@@ -250,10 +267,8 @@ int ft_board_setup(void *blob, bd_t *bd)
 	if (rc)
 		printf("Unable to update localbus ranges, err=%s\n",
 		       fdt_strerror(rc));
-
-	return 0;
 }
-#endif /* CONFIG_OF_BOARD_SETUP */
+#endif /* defined(CONFIG_OF_LIBFDT) && defined(CONFIG_OF_BOARD_SETUP) */
 
 #define DEFAULT_BRIGHTNESS	25
 #define BACKLIGHT_ENABLE	(1 << 31)

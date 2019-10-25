@@ -1,7 +1,19 @@
 /*
  * Copyright 2008 Extreme Engineering Solutions, Inc.
  *
- * SPDX-License-Identifier:	GPL-2.0
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * Version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -35,6 +47,9 @@ struct pca953x_chip_ngpio {
 static struct pca953x_chip_ngpio pca953x_chip_ngpios[] =
     CONFIG_SYS_I2C_PCA953X_WIDTH;
 
+#define NUM_CHIP_GPIOS (sizeof(pca953x_chip_ngpios) / \
+			sizeof(struct pca953x_chip_ngpio))
+
 /*
  * Determine the number of GPIO pins supported. If we don't know we assume
  * 8 pins.
@@ -43,7 +58,7 @@ static int pca953x_ngpio(uint8_t chip)
 {
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(pca953x_chip_ngpios); i++)
+	for (i = 0; i < NUM_CHIP_GPIOS; i++)
 		if (pca953x_chip_ngpios[i].chip == chip)
 			return pca953x_chip_ngpios[i].ngpio;
 
@@ -76,10 +91,8 @@ static int pca953x_reg_write(uint8_t chip, uint addr, uint mask, uint data)
 		if (i2c_read(chip, addr << 1, 1, (u8*)&valw, 2))
 			return -1;
 
-		valw = le16_to_cpu(valw);
 		valw &= ~mask;
 		valw |= data;
-		valw = cpu_to_le16(valw);
 
 		return i2c_write(chip, addr << 1, 1, (u8*)&valw, 2);
 	}
@@ -97,7 +110,7 @@ static int pca953x_reg_read(uint8_t chip, uint addr, uint *data)
 	} else {
 		if (i2c_read(chip, addr << 1, 1, (u8*)&valw, 2))
 			return -1;
-		*data = (uint)le16_to_cpu(valw);
+		*data = (int)valw;
 	}
 	return 0;
 }
@@ -208,7 +221,7 @@ cmd_tbl_t cmd_pca953x[] = {
 int do_pca953x(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
 	static uint8_t chip = CONFIG_SYS_I2C_PCA953X_ADDR;
-	int ret = CMD_RET_USAGE, val;
+	int val;
 	ulong ul_arg2 = 0;
 	ulong ul_arg3 = 0;
 	cmd_tbl_t *c;
@@ -217,9 +230,9 @@ int do_pca953x(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 
 	/* All commands but "device" require 'maxargs' arguments */
 	if (!c || !((argc == (c->maxargs)) ||
-		(((long)c->cmd == PCA953X_CMD_DEVICE) &&
+		(((int)c->cmd == PCA953X_CMD_DEVICE) &&
 		 (argc == (c->maxargs - 1))))) {
-		return CMD_RET_USAGE;
+		return cmd_usage(cmdtp);
 	}
 
 	/* arg2 used as chip number or pin number */
@@ -230,56 +243,35 @@ int do_pca953x(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	if (argc > 3)
 		ul_arg3 = simple_strtoul(argv[3], NULL, 16) & 0x1;
 
-	switch ((long)c->cmd) {
+	switch ((int)c->cmd) {
 #ifdef CONFIG_CMD_PCA953X_INFO
 	case PCA953X_CMD_INFO:
-		ret = pca953x_info(chip);
-		if (ret)
-			ret = CMD_RET_FAILURE;
-		break;
+		return pca953x_info(chip);
 #endif
-
 	case PCA953X_CMD_DEVICE:
 		if (argc == 3)
 			chip = (uint8_t)ul_arg2;
 		printf("Current device address: 0x%x\n", chip);
-		ret = CMD_RET_SUCCESS;
-		break;
-
+		return 0;
 	case PCA953X_CMD_INPUT:
-		ret = pca953x_set_dir(chip, (1 << ul_arg2),
+		pca953x_set_dir(chip, (1 << ul_arg2),
 				PCA953X_DIR_IN << ul_arg2);
 		val = (pca953x_get_val(chip) & (1 << ul_arg2)) != 0;
 
-		if (ret)
-			ret = CMD_RET_FAILURE;
-		else
-			printf("chip 0x%02x, pin 0x%lx = %d\n", chip, ul_arg2,
-									val);
-		break;
-
+		printf("chip 0x%02x, pin 0x%lx = %d\n", chip, ul_arg2, val);
+		return val;
 	case PCA953X_CMD_OUTPUT:
-		ret = pca953x_set_dir(chip, (1 << ul_arg2),
+		pca953x_set_dir(chip, (1 << ul_arg2),
 				(PCA953X_DIR_OUT << ul_arg2));
-		if (!ret)
-			ret = pca953x_set_val(chip, (1 << ul_arg2),
-						(ul_arg3 << ul_arg2));
-		if (ret)
-			ret = CMD_RET_FAILURE;
-		break;
-
-	case PCA953X_CMD_INVERT:
-		ret = pca953x_set_pol(chip, (1 << ul_arg2),
+		return pca953x_set_val(chip, (1 << ul_arg2),
 					(ul_arg3 << ul_arg2));
-		if (ret)
-			ret = CMD_RET_FAILURE;
-		break;
+	case PCA953X_CMD_INVERT:
+		return pca953x_set_pol(chip, (1 << ul_arg2),
+					(ul_arg3 << ul_arg2));
+	default:
+		/* We should never get here */
+		return 1;
 	}
-
-	if (ret == CMD_RET_FAILURE)
-		eprintf("Error talking to chip at 0x%x\n", chip);
-
-	return ret;
 }
 
 U_BOOT_CMD(
@@ -295,7 +287,7 @@ U_BOOT_CMD(
 	"	- set pin as output and drive low or high\n"
 	"pca953x invert pin 0|1\n"
 	"	- disable/enable polarity inversion for reads\n"
-	"pca953x input pin\n"
+	"pca953x intput pin\n"
 	"	- set pin as input and read value"
 );
 

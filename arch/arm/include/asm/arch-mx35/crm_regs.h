@@ -1,7 +1,23 @@
 /*
  * Copyright 2004-2009 Freescale Semiconductor, Inc.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef __CPU_ARM1136_MX35_CRM_REGS_H__
@@ -16,8 +32,8 @@
 #define MXC_CCM_CCMR_VOL_RDY_CNT_MASK          (0xF << 20)
 #define MXC_CCM_CCMR_ROMW_OFFSET               18
 #define MXC_CCM_CCMR_ROMW_MASK                 (0x3 << 18)
-#define MXC_CCM_CCMR_RAMW_OFFSET               16
-#define MXC_CCM_CCMR_RAMW_MASK                 (0x3 << 16)
+#define MXC_CCM_CCMR_RAMW_OFFSET               21
+#define MXC_CCM_CCMR_RAMW_MASK                 (0x3 << 21)
 #define MXC_CCM_CCMR_LPM_OFFSET                 14
 #define MXC_CCM_CCMR_LPM_MASK                   (0x3 << 14)
 #define MXC_CCM_CCMR_UPE                        (1 << 9)
@@ -31,7 +47,7 @@
 #define MXC_CCM_PDR0_CON_MUX_DIV_MASK           (0xF << 16)
 #define MXC_CCM_PDR0_CKIL_SEL			(1 << 15)
 #define MXC_CCM_PDR0_PER_PODF_OFFSET            12
-#define MXC_CCM_PDR0_PER_PODF_MASK              (0x7 << 12)
+#define MXC_CCM_PDR0_PER_PODF_MASK              (0xF << 12)
 #define MXC_CCM_PDR0_AUTO_MUX_DIV_OFFSET        9
 #define MXC_CCM_PDR0_AUTO_MUX_DIV_MASK          (0x7 << 9)
 #define MXC_CCM_PDR0_AUTO_CON	                0x1
@@ -46,8 +62,10 @@
 #define MXC_CCM_PDR2_SSI2_PRDF_MASK             (0x7 << 27)
 #define MXC_CCM_PDR2_SSI1_PRDF_OFFSET           24
 #define MXC_CCM_PDR2_SSI1_PRDF_MASK             (0x7 << 24)
+#define MXC_CCM_PDR2_CSI_PRDF_OFFSET            19
+#define MXC_CCM_PDR2_CSI_PRDF_MASK              (0x7 << 19)
 #define MXC_CCM_PDR2_CSI_PODF_OFFSET            16
-#define MXC_CCM_PDR2_CSI_PODF_MASK              (0x3F << 16)
+#define MXC_CCM_PDR2_CSI_PODF_MASK              (0x7 << 16)
 #define MXC_CCM_PDR2_SSI2_PODF_OFFSET           8
 #define MXC_CCM_PDR2_SSI2_PODF_MASK             (0x3F << 8)
 #define MXC_CCM_PDR2_CSI_M_U			(1 << 7)
@@ -60,23 +78,35 @@
 #define MXC_CCM_PDR3_SPDIF_PODF_OFFSET          23
 #define MXC_CCM_PDR3_SPDIF_PODF_MASK            (0x3F << 23)
 #define MXC_CCM_PDR3_SPDIF_M_U			(1 << 22)
+#define MXC_CCM_PDR3_ESDHC3_PRDF_OFFSET         19
+#define MXC_CCM_PDR3_ESDHC3_PRDF_MASK           (0x7 << 19)
 #define MXC_CCM_PDR3_ESDHC3_PODF_OFFSET         16
-#define MXC_CCM_PDR3_ESDHC3_PODF_MASK           (0x3F << 16)
-#define MXC_CCM_PDR3_UART_M_U			(1 << 14)
+#define MXC_CCM_PDR3_ESDHC3_PODF_MASK           (0x7 << 16)
+#define MXC_CCM_PDR3_UART_M_U			(1 << 15)
+#define MXC_CCM_PDR3_ESDHC2_PRDF_OFFSET         11
+#define MXC_CCM_PDR3_ESDHC2_PRDF_MASK           (0x7 << 11)
 #define MXC_CCM_PDR3_ESDHC2_PODF_OFFSET         8
-#define MXC_CCM_PDR3_ESDHC2_PODF_MASK           (0x3F << 8)
+#define MXC_CCM_PDR3_ESDHC2_PODF_MASK           (0x7 << 8)
 #define MXC_CCM_PDR3_ESDHC_M_U			(1 << 6)
+#define MXC_CCM_PDR3_ESDHC1_PRDF_OFFSET         3
+#define MXC_CCM_PDR3_ESDHC1_PRDF_MASK           (0x7 << 3)
 #define MXC_CCM_PDR3_ESDHC1_PODF_OFFSET         0
-#define MXC_CCM_PDR3_ESDHC1_PODF_MASK           (0x3F)
+#define MXC_CCM_PDR3_ESDHC1_PODF_MASK           (0x7)
 
 #define MXC_CCM_PDR4_NFC_PODF_OFFSET		28
 #define MXC_CCM_PDR4_NFC_PODF_MASK		(0xF << 28)
+#define MXC_CCM_PDR4_USB_PRDF_OFFSET		25
+#define MXC_CCM_PDR4_USB_PRDF_MASK		(0x7 << 25)
 #define MXC_CCM_PDR4_USB_PODF_OFFSET		22
-#define MXC_CCM_PDR4_USB_PODF_MASK		(0x3F << 22)
+#define MXC_CCM_PDR4_USB_PODF_MASK		(0x7 << 22)
+#define MXC_CCM_PDR4_PER0_PRDF_OFFSET		19
+#define MXC_CCM_PDR4_PER0_PRDF_MASK		(0x7 << 19)
 #define MXC_CCM_PDR4_PER0_PODF_OFFSET		16
-#define MXC_CCM_PDR4_PER0_PODF_MASK		(0x3F << 16)
+#define MXC_CCM_PDR4_PER0_PODF_MASK		(0x7 << 16)
+#define MXC_CCM_PDR4_UART_PRDF_OFFSET		13
+#define MXC_CCM_PDR4_UART_PRDF_MASK		(0x7 << 13)
 #define MXC_CCM_PDR4_UART_PODF_OFFSET		10
-#define MXC_CCM_PDR4_UART_PODF_MASK		(0x3F << 10)
+#define MXC_CCM_PDR4_UART_PODF_MASK		(0x7 << 10)
 #define MXC_CCM_PDR4_USB_M_U			(1 << 9)
 
 /* Bit definitions for RCSR */
@@ -114,12 +144,6 @@
 #define MXC_CCM_ACMR_SSI2_CLK_SEL_MASK		(0xF << 0)
 
 /* Bit definitions for Clock gating Register*/
-#define MXC_CCM_CGR_CG_MASK			0x3
-#define MXC_CCM_CGR_CG_OFF			0x0
-#define MXC_CCM_CGR_CG_RUN_ON			0x1
-#define MXC_CCM_CGR_CG_RUN_WAIT_ON		0x2
-#define MXC_CCM_CGR_CG_ON			0x3
-
 #define MXC_CCM_CGR0_ASRC_OFFSET		0
 #define MXC_CCM_CGR0_ASRC_MASK			(0x3 << 0)
 #define MXC_CCM_CGR0_ATA_OFFSET			2
@@ -134,8 +158,8 @@
 #define MXC_CCM_CGR0_CSPI2_MASK			(0x3 << 12)
 #define MXC_CCM_CGR0_ECT_OFFSET			14
 #define MXC_CCM_CGR0_ECT_MASK			(0x3 << 14)
-#define MXC_CCM_CGR0_EDIO_OFFSET		16
-#define MXC_CCM_CGR0_EDIO_MASK			(0x3 << 16)
+#define MXC_CCM_CGR0_EDI0_OFFSET		16
+#define MXC_CCM_CGR0_EDI0_MASK			(0x3 << 16)
 #define MXC_CCM_CGR0_EMI_OFFSET			18
 #define MXC_CCM_CGR0_EMI_MASK			(0x3 << 18)
 #define MXC_CCM_CGR0_EPIT1_OFFSET		20
@@ -227,8 +251,10 @@
 #define MXC_CCM_COSR_CLKOSEL_OFFSET		0
 #define MXC_CCM_COSR_CLKOEN			(1 << 5)
 #define MXC_CCM_COSR_CLKOUTDIV_1		(1 << 6)
-#define MXC_CCM_COSR_CLKOUT_DIV_MASK		(0x3F << 10)
-#define MXC_CCM_COSR_CLKOUT_DIV_OFFSET		10
+#define MXC_CCM_COSR_CLKOUT_PREDIV_MASK		(0x7 << 10)
+#define MXC_CCM_COSR_CLKOUT_PREDIV_OFFSET	10
+#define MXC_CCM_COSR_CLKOUT_PRODIV_MASK		(0x7 << 13)
+#define MXC_CCM_COSR_CLKOUT_PRODIV_OFFSET	13
 #define MXC_CCM_COSR_SSI1_RX_SRC_SEL_MASK	(0x3 << 16)
 #define MXC_CCM_COSR_SSI1_RX_SRC_SEL_OFFSET	16
 #define MXC_CCM_COSR_SSI1_TX_SRC_SEL_MASK	(0x3 << 18)

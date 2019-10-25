@@ -6,7 +6,21 @@
  * DasUBoot/drivers/usb/gadget/omap1510_udc.c, for design and implementation
  * ideas.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the
+ * Free Software Foundation, Inc.,
+ * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ *
  */
 
 /*
@@ -47,7 +61,6 @@
 #include <commproc.h>
 #include <usbdevice.h>
 #include <usb/mpc8xx_udc.h>
-#include <usb/udc.h>
 
 #include "ep0.h"
 
@@ -170,7 +183,7 @@ int udc_init (void)
 
 /* udc_irq
  *
- * Poll for whatever events may have occurred
+ * Poll for whatever events may have occured
  */
 void udc_irq (void)
 {
@@ -897,7 +910,7 @@ static int mpc8xx_udc_ep_tx (struct usb_endpoint_instance *epi)
 		pkt_len = urb->actual_length - epi->sent;
 
 		if (pkt_len > epi->tx_packetSize || pkt_len > EP_MAX_PKT) {
-			pkt_len = min(epi->tx_packetSize, EP_MAX_PKT);
+			pkt_len = MIN (epi->tx_packetSize, EP_MAX_PKT);
 		}
 
 		for (x = 0; x < pkt_len; x++) {
@@ -942,7 +955,7 @@ static int mpc8xx_udc_ep_tx (struct usb_endpoint_instance *epi)
 
 		/* TX ACK : USB 2.0 8.7.2, Toggle PID, Advance TX */
 		epi->sent += pkt_len;
-		epi->last = min(urb->actual_length - epi->sent, epi->tx_packetSize);
+		epi->last = MIN (urb->actual_length - epi->sent, epi->tx_packetSize);
 		TOGGLE_TX_PID (ep_ref[ep].pid);
 
 		if (epi->sent >= epi->tx_urb->actual_length) {

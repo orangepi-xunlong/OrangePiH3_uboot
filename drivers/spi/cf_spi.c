@@ -6,7 +6,23 @@
  * Copyright (C) 2004-2009 Freescale Semiconductor, Inc.
  * TsiChung Liew (Tsi-Chung.Liew@freescale.com)
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -19,6 +35,13 @@ struct cf_spi_slave {
 	uint baudrate;
 	int charbit;
 };
+
+int cfspi_xfer(struct spi_slave *slave, uint bitlen, const void *dout,
+	       void *din, ulong flags);
+struct spi_slave *cfspi_setup_slave(struct cf_spi_slave *cfslave, uint mode);
+void cfspi_init(void);
+void cfspi_tx(u32 ctrl, u16 data);
+u16 cfspi_rx(void);
 
 extern void cfspi_port_conf(void);
 extern int cfspi_claim_bus(uint bus, uint cs);
@@ -39,12 +62,7 @@ DECLARE_GLOBAL_DATA_PTR;
 #define SPI_MODE_MOD	0x00200000
 #define SPI_DBLRATE	0x00100000
 
-static inline struct cf_spi_slave *to_cf_spi_slave(struct spi_slave *slave)
-{
-	return container_of(slave, struct cf_spi_slave, slave);
-}
-
-static void cfspi_init(void)
+void cfspi_init(void)
 {
 	volatile dspi_t *dspi = (dspi_t *) MMAP_DSPI;
 
@@ -82,7 +100,7 @@ static void cfspi_init(void)
 #endif
 }
 
-static void cfspi_tx(u32 ctrl, u16 data)
+void cfspi_tx(u32 ctrl, u16 data)
 {
 	volatile dspi_t *dspi = (dspi_t *) MMAP_DSPI;
 
@@ -91,7 +109,7 @@ static void cfspi_tx(u32 ctrl, u16 data)
 	dspi->tfr = (ctrl | data);
 }
 
-static u16 cfspi_rx(void)
+u16 cfspi_rx(void)
 {
 	volatile dspi_t *dspi = (dspi_t *) MMAP_DSPI;
 
@@ -100,10 +118,10 @@ static u16 cfspi_rx(void)
 	return (dspi->rfr & 0xFFFF);
 }
 
-static int cfspi_xfer(struct spi_slave *slave, uint bitlen, const void *dout,
-		      void *din, ulong flags)
+int cfspi_xfer(struct spi_slave *slave, uint bitlen, const void *dout,
+	       void *din, ulong flags)
 {
-	struct cf_spi_slave *cfslave = to_cf_spi_slave(slave);
+	struct cf_spi_slave *cfslave = (struct cf_spi_slave *)slave;
 	u16 *spi_rd16 = NULL, *spi_wr16 = NULL;
 	u8 *spi_rd = NULL, *spi_wr = NULL;
 	static u32 ctrl = 0;
@@ -174,8 +192,7 @@ static int cfspi_xfer(struct spi_slave *slave, uint bitlen, const void *dout,
 	return 0;
 }
 
-static struct spi_slave *cfspi_setup_slave(struct cf_spi_slave *cfslave,
-					   uint mode)
+struct spi_slave *cfspi_setup_slave(struct cf_spi_slave *cfslave, uint mode)
 {
 	/*
 	 * bit definition for mode:
@@ -313,10 +330,12 @@ struct spi_slave *spi_setup_slave(unsigned int bus, unsigned int cs,
 	if (!spi_cs_is_valid(bus, cs))
 		return NULL;
 
-	cfslave = spi_alloc_slave(struct cf_spi_slave, bus, cs);
+	cfslave = malloc(sizeof(struct cf_spi_slave));
 	if (!cfslave)
 		return NULL;
 
+	cfslave->slave.bus = bus;
+	cfslave->slave.cs = cs;
 	cfslave->baudrate = max_hz;
 
 	/* specific setup */
@@ -325,9 +344,7 @@ struct spi_slave *spi_setup_slave(unsigned int bus, unsigned int cs,
 
 void spi_free_slave(struct spi_slave *slave)
 {
-	struct cf_spi_slave *cfslave = to_cf_spi_slave(slave);
-
-	free(cfslave);
+	free(slave);
 }
 
 int spi_claim_bus(struct spi_slave *slave)

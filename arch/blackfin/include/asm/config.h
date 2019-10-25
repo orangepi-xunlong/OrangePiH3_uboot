@@ -21,9 +21,6 @@
 # define CONFIG_BFIN_SCRATCH_REG retn
 #endif
 
-/* U-Boot wants this config name */
-#define CONFIG_SYS_CACHELINE_SIZE L1_CACHE_BYTES
-
 /* Make sure the structure is properly aligned */
 #if ((CONFIG_SYS_GBL_DATA_ADDR & -4) != CONFIG_SYS_GBL_DATA_ADDR)
 # error CONFIG_SYS_GBL_DATA_ADDR: must be 4 byte aligned
@@ -109,8 +106,14 @@
 #ifndef CONFIG_SYS_MALLOC_BASE
 # define CONFIG_SYS_MALLOC_BASE (CONFIG_SYS_MONITOR_BASE - CONFIG_SYS_MALLOC_LEN)
 #endif
+#ifndef CONFIG_SYS_GBL_DATA_ADDR
+# define CONFIG_SYS_GBL_DATA_ADDR (CONFIG_SYS_MALLOC_BASE - GENERATED_GBL_DATA_SIZE)
+#endif
+#ifndef CONFIG_SYS_BD_INFO_ADDR
+# define CONFIG_SYS_BD_INFO_ADDR (CONFIG_SYS_GBL_DATA_ADDR - GENERATED_BD_INFO_SIZE)
+#endif
 #ifndef CONFIG_STACKBASE
-# define CONFIG_STACKBASE (CONFIG_SYS_MALLOC_BASE - 4)
+# define CONFIG_STACKBASE (CONFIG_SYS_BD_INFO_ADDR - 4)
 #endif
 #ifndef CONFIG_SYS_MEMTEST_START
 # define CONFIG_SYS_MEMTEST_START 0
@@ -138,6 +141,9 @@
 #ifndef CONFIG_SYS_BOOTM_LEN
 # define CONFIG_SYS_BOOTM_LEN 0x4000000
 #endif
+#ifndef CONFIG_SYS_PROMPT
+# define CONFIG_SYS_PROMPT "bfin> "
+#endif
 #ifndef CONFIG_SYS_CBSIZE
 # define CONFIG_SYS_CBSIZE 1024
 #elif defined(CONFIG_CMD_KGDB) && CONFIG_SYS_CBSIZE < 1024
@@ -152,28 +158,15 @@
 #ifndef CONFIG_SYS_MAXARGS
 # define CONFIG_SYS_MAXARGS 16
 #endif
-
-/* Blackfin POST tests */
-#ifdef CONFIG_POST_BSPEC1_GPIO_LEDS
-# define CONFIG_POST_BSPEC1 \
-	{ \
-		"LED test", "led", "This test verifies LEDs on the board.", \
-		POST_MEM | POST_ALWAYS, &led_post_test, NULL, NULL, \
-		CONFIG_SYS_POST_BSPEC1, \
-	}
+#if defined(CONFIG_SYS_HZ)
+# if (CONFIG_SYS_HZ != 1000)
+#  warning "CONFIG_SYS_HZ must always be 1000"
+# endif
+# undef CONFIG_SYS_HZ
 #endif
-#ifdef CONFIG_POST_BSPEC2_GPIO_BUTTONS
-# define CONFIG_POST_BSPEC2 \
-	{ \
-		"Button test", "button", "This test verifies buttons on the board.", \
-		POST_MEM | POST_ALWAYS, &button_post_test, NULL, NULL, \
-		CONFIG_SYS_POST_BSPEC2, \
-	}
+#define CONFIG_SYS_HZ 1000
+#ifndef CONFIG_SYS_BAUDRATE_TABLE
+# define CONFIG_SYS_BAUDRATE_TABLE { 9600, 19200, 38400, 57600, 115200 }
 #endif
-
-#define CONFIG_DISPLAY_CPUINFO
-#define CONFIG_ARCH_MISC_INIT
-
-#define CONFIG_CPU CONFIG_BFIN_CPU
 
 #endif

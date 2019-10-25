@@ -1,29 +1,32 @@
 #
 # Copyright 2009-2010 Freescale Semiconductor, Inc.
 #
-# SPDX-License-Identifier:	GPL-2.0
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# Version 2 as published by the Free Software Foundation.
 #
 
-MINIMAL=
+include $(TOPDIR)/config.mk
 
-ifdef CONFIG_SPL_BUILD
-ifdef CONFIG_SPL_INIT_MINIMAL
-MINIMAL=y
+LIB	= $(obj)lib8xxx.o
+
+ifneq ($(CPU),mpc83xx)
+COBJS-y	+= cpu.o
 endif
-endif
 
-ifdef MINIMAL
+COBJS-$(CONFIG_OF_LIBFDT) += fdt.o
+COBJS-$(CONFIG_FSL_IFC) += fsl_ifc.o
+COBJS-$(CONFIG_FSL_LBC) += fsl_lbc.o
+COBJS-$(CONFIG_SYS_SRIO) += srio.o
 
-obj-$(CONFIG_FSL_LAW) += law.o
+SRCS	:= $(START:.o=.S) $(SOBJS-y:.o=.S) $(COBJS-y:.o=.c)
+OBJS	:= $(addprefix $(obj),$(SOBJS-y) $(COBJS-y))
 
-else
-obj-$(CONFIG_MPC85xx) += cpu.o
-obj-$(CONFIG_MPC86xx) += cpu.o
+all:	$(obj).depend $(LIB)
 
-obj-$(CONFIG_OF_LIBFDT) += fdt.o
-obj-$(CONFIG_FSL_LBC) += fsl_lbc.o
-obj-$(CONFIG_SYS_SRIO) += srio.o
-obj-$(CONFIG_FSL_LAW) += law.o
-obj-$(CONFIG_FSL_CORENET) += fsl_pamu.o pamu_table.o
+$(LIB):	$(OBJS)
+	$(call cmd_link_o_target, $(OBJS))
 
-endif
+include $(SRCTREE)/rules.mk
+
+sinclude $(obj).depend

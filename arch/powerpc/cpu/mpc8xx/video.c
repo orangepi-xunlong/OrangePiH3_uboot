@@ -4,7 +4,23 @@
  * (C) Copyright 2002
  * Wolfgang Denk, wd@denx.de
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /* #define DEBUG */
@@ -51,6 +67,34 @@ DECLARE_GLOBAL_DATA_PTR;
 #define VIDEO_INFO			/* Show U-Boot information */
 #define VIDEO_INFO_X		VIDEO_LOGO_WIDTH+8
 #define VIDEO_INFO_Y		16
+
+/************************************************************************/
+/* ** VIDEO ENCODER CONSTANTS						*/
+/************************************************************************/
+
+#ifdef CONFIG_VIDEO_ENCODER_AD7176
+
+#include <video_ad7176.h>	/* Sets encoder data, mode, and visible and active area */
+
+#define VIDEO_I2C		1
+#define VIDEO_I2C_ADDR		CONFIG_VIDEO_ENCODER_AD7176_ADDR
+#endif
+
+#ifdef CONFIG_VIDEO_ENCODER_AD7177
+
+#include <video_ad7177.h>	/* Sets encoder data, mode, and visible and active area */
+
+#define VIDEO_I2C		1
+#define VIDEO_I2C_ADDR		CONFIG_VIDEO_ENCODER_AD7177_ADDR
+#endif
+
+#ifdef CONFIG_VIDEO_ENCODER_AD7179
+
+#include <video_ad7179.h>	/* Sets encoder data, mode, and visible and active area */
+
+#define VIDEO_I2C		1
+#define VIDEO_I2C_ADDR		CONFIG_VIDEO_ENCODER_AD7179_ADDR
+#endif
 
 /************************************************************************/
 /* ** VIDEO MODE CONSTANTS						*/
@@ -439,6 +483,7 @@ static inline void video_putstring (int xx, int yy, unsigned char *s)
 /* ** VIDEO CONTROLLER LOW-LEVEL FUNCTIONS				*/
 /************************************************************************/
 
+#if !defined(CONFIG_RRVISION)
 static void video_mode_dupefield (VRAM * source, VRAM * dest, int entries)
 {
 	int i;
@@ -451,6 +496,7 @@ static void video_mode_dupefield (VRAM * source, VRAM * dest, int entries)
 	dest[0].lcyc++;			/* Add a cycle to the first entry */
 	dest[entries - 1].lst = 1;	/* Set end of ram entries */
 }
+#endif
 
 static void inline video_mode_addentry (VRAM * vr,
 	int Hx, int Vx, int Fx, int Bx,
@@ -611,6 +657,72 @@ static int video_mode_generate (void)
 
 #ifdef VIDEO_MODE_PAL
 
+#if defined(CONFIG_RRVISION)
+
+#define HPW   160  /* horizontal pulse width (was 139)	*/
+#define VPW	2  /* vertical pulse width		*/
+#define HBP   104  /* horizontal back porch (was 112)	*/
+#define VBP    19  /* vertical back porch (was 19)	*/
+#define VID_R 240  /* number of rows			*/
+
+	debug ("[VIDEO CTRL] Starting to add controller entries...");
+/*
+ * Even field
+ */
+	ADDENTRY (0, 3, 0, 3, 1, 0, 2, 0, 0);
+	ADDENTRY (0, 0, 0, 3, 1, 0, HPW, 0, 0);
+	ADDENTRY (3, 0, 0, 3, 1, 0, HBP + (VIDEO_COLS * 2) + 72, 0, 0);
+
+	ADDENTRY (0, 0, 0, 3, 1, 0, VPW, 1, 0);
+	ADDENTRY (0, 0, 0, 3, 1, 0, HPW-1, 0, 0);
+	ADDENTRY (3, 0, 0, 3, 1, 0, HBP + (VIDEO_COLS * 2) + 72, 1, 0);
+
+	ADDENTRY (0, 3, 0, 3, 1, 0, VBP, 1, 0);
+	ADDENTRY (0, 3, 0, 3, 1, 0, HPW-1, 0, 0);
+	ADDENTRY (3, 3, 0, 3, 1, 0, HBP + (VIDEO_COLS * 2) + 72, 1, 0);
+/*
+ * Active area
+ */
+	ADDENTRY (0, 3, 0, 3, 1, 0, VID_R , 1, 0);
+	ADDENTRY (0, 3, 0, 3, 1, 0, HPW-1, 0, 0);
+	ADDENTRY (3, 3, 0, 3, 1, 0, HBP, 0, 0);
+	ADDENTRY (3, 3, 0, 3, 0, 0, VIDEO_COLS*2, 0, 0);
+	ADDENTRY (3, 3, 0, 3, 1, 0, 72, 1, 1);
+
+	ADDENTRY (0, 3, 0, 3, 1, 0, 51, 1, 0);
+	ADDENTRY (0, 3, 0, 3, 1, 0, HPW-1, 0, 0);
+	ADDENTRY (3, 3, 0, 3, 1, 0, HBP +(VIDEO_COLS * 2) + 72 , 1, 0);
+/*
+ * Odd field
+ */
+	ADDENTRY (0, 3, 0, 3, 1, 0, 2, 0, 0);
+	ADDENTRY (0, 0, 0, 3, 1, 0, HPW, 0, 0);
+	ADDENTRY (3, 0, 0, 3, 1, 0, HBP + (VIDEO_COLS * 2) + 72, 0, 0);
+
+	ADDENTRY (0, 0, 0, 3, 1, 0, VPW+1, 1, 0);
+	ADDENTRY (0, 0, 0, 3, 1, 0, HPW-1, 0, 0);
+	ADDENTRY (3, 0, 0, 3, 1, 0, HBP + (VIDEO_COLS * 2) + 72, 1, 0);
+
+	ADDENTRY (0, 3, 0, 3, 1, 0, VBP, 1, 0);
+	ADDENTRY (0, 3, 0, 3, 1, 0, HPW-1, 0, 0);
+	ADDENTRY (3, 3, 0, 3, 1, 0, HBP + (VIDEO_COLS * 2) + 72, 1, 0);
+/*
+ * Active area
+ */
+	ADDENTRY (0, 3, 0, 3, 1, 0, VID_R , 1, 0);
+	ADDENTRY (0, 3, 0, 3, 1, 0, HPW-1, 0, 0);
+	ADDENTRY (3, 3, 0, 3, 1, 0, HBP, 0, 0);
+	ADDENTRY (3, 3, 0, 3, 0, 0, VIDEO_COLS*2, 0, 0);
+	ADDENTRY (3, 3, 0, 3, 1, 0, 72, 1, 1);
+
+	ADDENTRY (0, 3, 0, 3, 1, 0, 51, 1, 0);
+	ADDENTRY (0, 3, 0, 3, 1, 0, HPW-1, 0, 0);
+	ADDENTRY (3, 3, 0, 3, 1, 0, HBP +(VIDEO_COLS * 2) + 72 , 1, 0);
+
+	debug ("done\n");
+
+#else  /* !CONFIG_RRVISION */
+
 /*
  *	Hx Vx Fx Bx VDS INT LCYC LP LST
  *
@@ -662,6 +774,7 @@ static int video_mode_generate (void)
  * one more cycle loop and a last identifier)
  */
 	video_mode_dupefield (vr, &vr[entry], entry);
+#endif /* CONFIG_RRVISION */
 
 #endif /* VIDEO_MODE_PAL */
 
@@ -690,6 +803,54 @@ static int video_mode_generate (void)
 
 static void video_encoder_init (void)
 {
+#ifdef VIDEO_I2C
+	int rc;
+
+	/* Initialize the I2C */
+	debug ("[VIDEO ENCODER] Initializing I2C bus...\n");
+	i2c_init (CONFIG_SYS_I2C_SPEED, CONFIG_SYS_I2C_SLAVE);
+
+#ifdef CONFIG_FADS
+	/* Reset ADV7176 chip */
+	debug ("[VIDEO ENCODER] Resetting encoder...\n");
+	(*(int *) BCSR4) &= ~(1 << 21);
+
+	/* Wait for 5 ms inside the reset */
+	debug ("[VIDEO ENCODER] Waiting for encoder reset...\n");
+	udelay (5000);
+
+	/* Take ADV7176 out of reset */
+	(*(int *) BCSR4) |= 1 << 21;
+
+	/* Wait for 5 ms after the reset */
+	udelay (5000);
+#endif	/* CONFIG_FADS */
+
+	/* Send configuration */
+#ifdef DEBUG
+	{
+		int i;
+
+		puts ("[VIDEO ENCODER] Configuring the encoder...\n");
+
+		printf ("Sending %zu bytes (@ %08lX) to I2C 0x%lX:\n   ",
+			sizeof(video_encoder_data),
+			(ulong)video_encoder_data,
+			(ulong)VIDEO_I2C_ADDR);
+		for (i=0; i<sizeof(video_encoder_data); ++i) {
+			printf(" %02X", video_encoder_data[i]);
+		}
+		putc ('\n');
+	}
+#endif	/* DEBUG */
+
+	if ((rc = i2c_write (VIDEO_I2C_ADDR, 0, 1,
+			 video_encoder_data,
+			 sizeof(video_encoder_data))) != 0) {
+		printf ("i2c_send error: rc=%d\n", rc);
+		return;
+	}
+#endif	/* VIDEO_I2C */
 	return;
 }
 
@@ -710,6 +871,16 @@ static void video_ctrl_init (void *memptr)
 	/* Turn off video controller */
 	debug ("[VIDEO CTRL] Turning off video controller...\n");
 	SETBIT (immap->im_vid.vid_vccr, VIDEO_VCCR_VON, 0);
+
+#ifdef CONFIG_FADS
+	/* Turn on Video Port LED */
+	debug ("[VIDEO CTRL] Turning off video port led...\n");
+	SETBIT (*(int *) BCSR4, VIDEO_BCSR4_VIDLED_BIT, 1);
+
+	/* Disable internal clock */
+	debug ("[VIDEO CTRL] Disabling internal clock...\n");
+	SETBIT (*(int *) BCSR4, VIDEO_BCSR4_EXTCLK_BIT, 0);
+#endif
 
 	/* Generate and make active a new video mode */
 	debug ("[VIDEO CTRL] Generating video mode...\n");
@@ -732,6 +903,30 @@ static void video_ctrl_init (void *memptr)
 	debug ("[VIDEO CTRL] Configuring input/output pins...\n");
 	immap->im_ioport.iop_pdpar = 0x1fff;
 	immap->im_ioport.iop_pddir = 0x0000;
+
+#ifdef CONFIG_FADS
+	/* Turn on Video Port Clock - ONLY AFTER SET VCCR TO ENABLE EXTERNAL CLOCK */
+	debug ("[VIDEO CTRL] Turning on video clock...\n");
+	SETBIT (*(int *) BCSR4, VIDEO_BCSR4_EXTCLK_BIT, 1);
+
+	/* Turn on Video Port LED */
+	debug ("[VIDEO CTRL] Turning on video port led...\n");
+	SETBIT (*(int *) BCSR4, VIDEO_BCSR4_VIDLED_BIT, 0);
+#endif
+#ifdef CONFIG_RRVISION
+	debug ("PC5->Output(1): enable PAL clock");
+	immap->im_ioport.iop_pcpar &= ~(0x0400);
+	immap->im_ioport.iop_pcdir |=   0x0400 ;
+	immap->im_ioport.iop_pcdat |=   0x0400 ;
+	debug ("PDPAR=0x%04X PDDIR=0x%04X PDDAT=0x%04X\n",
+	       immap->im_ioport.iop_pdpar,
+	       immap->im_ioport.iop_pddir,
+	       immap->im_ioport.iop_pddat);
+	debug ("PCPAR=0x%04X PCDIR=0x%04X PCDAT=0x%04X\n",
+	       immap->im_ioport.iop_pcpar,
+	       immap->im_ioport.iop_pcdir,
+	       immap->im_ioport.iop_pcdat);
+#endif	/* CONFIG_RRVISION */
 
 	/* Blanking the screen. */
 	debug ("[VIDEO CTRL] Blanking the screen...\n");
@@ -800,7 +995,7 @@ static inline void console_newline (void)
 	}
 }
 
-void video_putc(struct stdio_dev *dev, const char c)
+void video_putc (const char c)
 {
 	if (!video_enable) {
 		serial_putc (c);
@@ -837,7 +1032,7 @@ void video_putc(struct stdio_dev *dev, const char c)
 	}
 }
 
-void video_puts(struct stdio_dev *dev, const char *s)
+void video_puts (const char *s)
 {
 	int count = strlen (s);
 
@@ -846,7 +1041,7 @@ void video_puts(struct stdio_dev *dev, const char *s)
 			serial_putc (*s++);
 	else
 		while (count--)
-			video_putc(dev, *s++);
+			video_putc (*s++);
 }
 
 /************************************************************************/
@@ -970,7 +1165,9 @@ static void *video_logo (void)
 {
 	u16 *screen = video_fb_address, width = VIDEO_COLS;
 #ifdef VIDEO_INFO
+# ifndef CONFIG_FADS
 	char temp[32];
+# endif
 	char info[80];
 #endif /* VIDEO_INFO */
 
@@ -981,22 +1178,31 @@ static void *video_logo (void)
 		 U_BOOT_VERSION, U_BOOT_DATE, U_BOOT_TIME);
 	video_drawstring (VIDEO_INFO_X, VIDEO_INFO_Y, info);
 
-	strcpy(info, "(C) 2002 DENX Software Engineering");
+	sprintf (info, "(C) 2002 DENX Software Engineering");
 	video_drawstring (VIDEO_INFO_X, VIDEO_INFO_Y + VIDEO_FONT_HEIGHT,
 					info);
 
-	strcpy(info, "    Wolfgang DENK, wd@denx.de");
+	sprintf (info, "    Wolfgang DENK, wd@denx.de");
 	video_drawstring (VIDEO_INFO_X, VIDEO_INFO_Y + VIDEO_FONT_HEIGHT * 2,
 					info);
-
+#ifndef CONFIG_FADS		/* all normal boards */
 	/* leave one blank line */
 
-	sprintf(info, "MPC823 CPU at %s MHz, %ld MiB RAM, %ld MiB Flash",
+	sprintf (info, "MPC823 CPU at %s MHz, %ld MB RAM, %ld MB Flash",
 		strmhz(temp, gd->cpu_clk),
 		gd->ram_size >> 20,
 		gd->bd->bi_flashsize >> 20 );
 	video_drawstring (VIDEO_INFO_X, VIDEO_INFO_Y + VIDEO_FONT_HEIGHT * 4,
 					info);
+#else				/* FADS :-( */
+	sprintf (info, "MPC823 CPU at 50 MHz on FADS823 board");
+	video_drawstring (VIDEO_INFO_X, VIDEO_INFO_Y + VIDEO_FONT_HEIGHT,
+					  info);
+
+	sprintf (info, "2MB FLASH - 8MB DRAM - 4MB SRAM");
+	video_drawstring (VIDEO_INFO_X, VIDEO_INFO_Y + VIDEO_FONT_HEIGHT * 2,
+					  info);
+#endif
 #endif
 
 	return video_fb_address + VIDEO_LOGO_HEIGHT * VIDEO_LINE_LEN;
@@ -1089,6 +1295,7 @@ int drv_video_init (void)
 	memset (&videodev, 0, sizeof (videodev));
 
 	strcpy (videodev.name, "video");
+	videodev.ext = DEV_EXT_VIDEO;	/* Video extensions */
 	videodev.flags = DEV_FLAGS_OUTPUT;	/* Output only */
 	videodev.putc = video_putc;	/* 'putc' function */
 	videodev.puts = video_puts;	/* 'puts' function */

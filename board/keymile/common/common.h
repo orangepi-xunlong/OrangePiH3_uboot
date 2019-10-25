@@ -2,7 +2,10 @@
  * (C) Copyright 2008
  * Heiko Schocher, DENX Software Engineering, hs@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
  */
 
 #ifndef __KEYMILE_COMMON_H
@@ -12,8 +15,6 @@
 #define H_OPORTS_14	0x40
 #define WRG_LED		0x02
 #define WRL_BOOT	0x01
-
-#define OPRTL_XBUFENA	0x20
 
 #define H_OPORTS_SCC4_ENA	0x10
 #define H_OPORTS_SCC4_FD_ENA	0x04
@@ -29,11 +30,7 @@ struct km_bec_fpga {
 	unsigned char	res1[3];
 	unsigned char	bprth;
 	unsigned char	bprtl;
-	unsigned char	gprt3;
-	unsigned char	gprt2;
-	unsigned char	gprt1;
-	unsigned char	gprt0;
-	unsigned char	res2[2];
+	unsigned char	res2[6];
 	unsigned char	prst;
 	unsigned char	res3[0xfff0];
 	unsigned char	pgy_id;
@@ -126,15 +123,7 @@ struct bfticu_iomap {
 #endif
 
 int ethernet_present(void);
-int ivm_read_eeprom(unsigned char *buf, int len);
-int ivm_analyze_eeprom(unsigned char *buf, int len);
-
-int trigger_fpga_config(void);
-int wait_for_fpga_config(void);
-int fpga_reset(void);
-int toggle_eeprom_spi_bus(void);
-
-int get_testpin(void);
+int ivm_read_eeprom(void);
 
 int set_km_env(void);
 int fdt_set_node_and_value(void *blob,
@@ -146,9 +135,6 @@ int fdt_get_node_and_value(void *blob,
 				char *nodename,
 				char *propname,
 				void **var);
-
-#define DELAY_ABORT_SEQ		62  /* @200kHz 9 clocks = 44us, 62us is ok */
-#define DELAY_HALF_PERIOD	(500 / (CONFIG_SYS_I2C_SPEED / 1000))
 
 int i2c_soft_read_pin(void);
 int i2c_make_abort(void);

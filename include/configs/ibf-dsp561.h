@@ -1,5 +1,5 @@
 /*
- * U-Boot - Configuration file for IBF-DSP561 board
+ * U-boot - Configuration file for IBF-DSP561 board
  */
 
 #ifndef __CONFIG_IBF_DSP561__H__
@@ -7,11 +7,13 @@
 
 #include <asm/config-pre.h>
 
+
 /*
  * Processor Settings
  */
 #define CONFIG_BFIN_CPU             bf561-0.5
 #define CONFIG_BFIN_BOOT_MODE       BFIN_BOOT_BYPASS
+
 
 /*
  * Clock Settings
@@ -36,6 +38,7 @@
 /* Values can range from 1-15						*/
 #define CONFIG_SCLK_DIV			5
 
+
 /*
  * Memory Settings
  */
@@ -53,13 +56,18 @@
 #define CONFIG_SYS_MONITOR_LEN	(256 * 1024)
 #define CONFIG_SYS_MALLOC_LEN	(128 * 1024)
 
+
 /*
  * Network Settings
  */
 #define ADI_CMDS_NETWORK	1
+#define CONFIG_NET_MULTI
 #define CONFIG_DRIVER_AX88180	1
 #define AX88180_BASE		0x2c000000
 #define CONFIG_HOSTNAME		ibf-dsp561
+/* Uncomment next line to use fixed MAC address */
+/* #define CONFIG_ETHADDR	02:80:ad:20:31:e8 */
+
 
 /*
  * Flash Settings
@@ -75,7 +83,7 @@
 #define CONFIG_ENV_OFFSET		0x4000
 #define CONFIG_ENV_ADDR		(CONFIG_SYS_FLASH_BASE + CONFIG_ENV_OFFSET)
 #define CONFIG_ENV_SIZE		0x2000
-#define CONFIG_ENV_SECT_SIZE	0x12000	/* Total Size of Environment Sector */
+#define CONFIG_ENV_SECT_SIZE	0x10000	/* Total Size of Environment Sector */
 #if (CONFIG_BFIN_BOOT_MODE == BFIN_BOOT_BYPASS)
 #define ENV_IS_EMBEDDED
 #else
@@ -88,24 +96,26 @@
  * it linked after the configuration sector.
  */
 # define LDS_BOARD_TEXT \
-	arch/blackfin/lib/built-in.o (.text*); \
-	arch/blackfin/cpu/built-in.o (.text*); \
+	arch/blackfin/lib/libblackfin.o (.text*); \
+	arch/blackfin/cpu/libblackfin.o (.text*); \
 	. = DEFINED(env_offset) ? env_offset : .; \
 	common/env_embedded.o (.text*);
 #endif
 
+
 /*
  * I2C Settings
  */
-#define CONFIG_SYS_I2C
-#define CONFIG_SYS_I2C_SOFT		/* I2C bit-banged */
+#define CONFIG_SOFT_I2C		1
 #define CONFIG_SOFT_I2C_GPIO_SCL GPIO_PF0
 #define CONFIG_SOFT_I2C_GPIO_SDA GPIO_PF1
+
 
 /*
  * Misc Settings
  */
 #define CONFIG_UART_CONSOLE	0
+
 
 /*
  * Pull in common ADI header for remaining command/environment setup

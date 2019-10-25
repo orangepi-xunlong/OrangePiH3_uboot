@@ -4,7 +4,23 @@
  *
  * (C) Copyright 2009 Freescale Semiconductor, Inc.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef __FSL_PMIC_H__
@@ -83,7 +99,6 @@ enum {
 	REG_TEST2,
 	REG_TEST3,
 	REG_TEST4,
-	PMIC_NUM_OF_REGS,
 };
 
 /* REG_POWER_MISC */
@@ -106,15 +121,8 @@ enum {
 /* Interrupt status 1 */
 #define RTCRSTI		(1 << 7)
 
-/* MC34708 Definitions */
-#define SWx_VOLT_MASK_MC34708	0x3F
-#define SWx_1_250V_MC34708	0x30
-#define SWx_1_300V_MC34708	0x34
-#define TIMER_MASK_MC34708	0x300
-#define TIMER_4S_MC34708	0x100
-#define VUSBSEL_MC34708		(1 << 2)
-#define VUSBEN_MC34708		(1 << 3)
-#define SWBST_CTRL		31
-#define SWBST_AUTO		0x8
+void pmic_show_pmic_info(void);
+void pmic_reg_write(u32 reg, u32 value);
+u32 pmic_reg_read(u32 reg);
 
 #endif

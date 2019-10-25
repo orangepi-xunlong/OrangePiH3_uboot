@@ -1,5 +1,5 @@
 /*
- * U-Boot - Configuration file for Bluetechnix TCM-BF518 board
+ * U-boot - Configuration file for Bluetechnix TCM-BF518 board
  */
 
 #ifndef __CONFIG_TCM_BF518_H__
@@ -7,11 +7,13 @@
 
 #include <asm/config-pre.h>
 
+
 /*
  * Processor Settings
  */
 #define CONFIG_BFIN_CPU             bf518-0.0
 #define CONFIG_BFIN_BOOT_MODE       BFIN_BOOT_PARA
+
 
 /*
  * Clock Settings
@@ -36,6 +38,7 @@
 /* Values can range from 1-15						*/
 #define CONFIG_SCLK_DIV			4
 
+
 /*
  * Memory Settings
  */
@@ -53,6 +56,7 @@
 #define CONFIG_SYS_MONITOR_LEN	(512 * 1024)
 #define CONFIG_SYS_MALLOC_LEN	(384 * 1024)
 
+
 /*
  * Network Settings
  */
@@ -60,8 +64,12 @@
 #define ADI_CMDS_NETWORK	1
 #define CONFIG_BFIN_MAC
 #define CONFIG_NETCONSOLE	1
+#define CONFIG_NET_MULTI	1
 #endif
 #define CONFIG_HOSTNAME		tcm-bf518
+/* Uncomment next line to use fixed MAC address */
+/* #define CONFIG_ETHADDR	02:80:ad:20:31:e8 */
+
 
 /*
  * Flash Settings
@@ -73,12 +81,14 @@
 #define CONFIG_SYS_MAX_FLASH_BANKS	1
 #define CONFIG_SYS_MAX_FLASH_SECT	19
 
+
 /*
  * SPI Settings
  */
 #define CONFIG_BFIN_SPI
 #define CONFIG_ENV_SPI_MAX_HZ	30000000
 #define CONFIG_SF_DEFAULT_SPEED	30000000
+
 
 /*
  * Env Storage Settings
@@ -90,20 +100,24 @@
 #define CONFIG_ENV_SECT_SIZE	0x8000
 #define CONFIG_ENV_IS_EMBEDDED_IN_LDR
 
+
 /*
  * I2C Settings
  */
-#define CONFIG_SYS_I2C
-#define CONFIG_SYS_I2C_ADI
+#define CONFIG_BFIN_TWI_I2C	1
+#define CONFIG_HARD_I2C		1
+
 
 /*
  * Misc Settings
  */
 #define CONFIG_BAUDRATE		115200
+#define CONFIG_MISC_INIT_R
 #define CONFIG_RTC_BFIN
 #define CONFIG_UART_CONSOLE	0
 #define CONFIG_BOOTCOMMAND	"run flashboot"
 #define FLASHBOOT_ENV_SETTINGS	"flashboot=bootm 0x20040000\0"
+
 
 /*
  * Pull in common ADI header for remaining command/environment setup

@@ -4,7 +4,21 @@
  * (C) Copyright 2007
  * Daniel Hellstrom, Gaisler Research, daniel@gaisler.com.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
  */
 
 #ifndef __LEON3_H__
@@ -18,18 +32,5 @@
  * not LEON3 dependent. See <ambapp.h> for GRLIB timers, interrupt
  * ctrl, memory controllers etc.
  */
-
-
-#ifndef __ASSEMBLER__
-/* The frequency of the CPU */
-extern unsigned int leon_cpu_freq;
-
-/* Number of LEON processors in system */
-extern int leon_cpu_cnt;
-
-/* Ver/subversion of CPU */
-extern int leon_ver;
-
-#endif /* __ASSEMBLER__ */
 
 #endif

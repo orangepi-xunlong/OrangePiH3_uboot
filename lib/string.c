@@ -21,13 +21,14 @@
 #include <malloc.h>
 
 
+#if 0 /* not used - was: #ifndef __HAVE_ARCH_STRNICMP */
 /**
- * strncasecmp - Case insensitive, length-limited string comparison
+ * strnicmp - Case insensitive, length-limited string comparison
  * @s1: One string
  * @s2: The other string
  * @len: the maximum number of characters to compare
  */
-int strncasecmp(const char *s1, const char *s2, size_t len)
+int strnicmp(const char *s1, const char *s2, size_t len)
 {
 	/* Yes, Virginia, it had better be unsigned */
 	unsigned char c1, c2;
@@ -51,16 +52,7 @@ int strncasecmp(const char *s1, const char *s2, size_t len)
 	}
 	return (int)c1 - (int)c2;
 }
-
-/**
- * strcasecmp - Case insensitive string comparison
- * @s1: One string
- * @s2: The other string
- */
-int strcasecmp(const char *s1, const char *s2)
-{
-	return strncasecmp(s1, s2, -1U);
-}
+#endif
 
 char * ___strtok;
 
@@ -99,31 +91,6 @@ char * strncpy(char * dest,const char *src,size_t count)
 		/* nothing */;
 
 	return tmp;
-}
-#endif
-
-#ifndef __HAVE_ARCH_STRLCPY
-/**
- * strlcpy - Copy a C-string into a sized buffer
- * @dest: Where to copy the string to
- * @src: Where to copy the string from
- * @size: size of destination buffer
- *
- * Compatible with *BSD: the result is always a valid
- * NUL-terminated string that fits in the buffer (unless,
- * of course, the buffer size is zero). It does not pad
- * out the result like strncpy() does.
- */
-size_t strlcpy(char *dest, const char *src, size_t size)
-{
-	size_t ret = strlen(src);
-
-	if (size) {
-		size_t len = (ret >= size) ? size - 1 : ret;
-		memcpy(dest, src, len);
-		dest[len] = '\0';
-	}
-	return ret;
 }
 #endif
 
@@ -212,6 +179,43 @@ int strncmp(const char * cs,const char * ct,size_t count)
 	}
 
 	return __res;
+}
+#endif
+
+#ifndef __HAVE_ARCH_STRCASECMP
+/**
+ * strcmp - Compare two strings, ignore case
+ * @cs: One string
+ * @ct: Another string
+ */
+int strcasecmp(const char *s1, const char *s2)
+{
+       int c1, c2;
+
+       do {
+               c1 = tolower(*s1++);
+               c2 = tolower(*s2++);
+       } while (c1 == c2 && c1 != 0);
+       return c1 - c2;
+}
+#endif
+
+#ifndef __HAVE_ARCH_STRNCASECMP
+/**
+ * strncmp - Compare two length-limited strings
+ * @cs: One string
+ * @ct: Another string
+ * @count: The maximum number of bytes to compare
+ */
+int strncasecmp(const char *s1, const char *s2, size_t n)
+{
+       int c1, c2;
+
+       do {
+               c1 = tolower(*s1++);
+               c2 = tolower(*s2++);
+       } while ((--n > 0) && c1 == c2 && c1 != 0);
+       return c1 - c2;
 }
 #endif
 
@@ -425,7 +429,8 @@ char *strswab(const char *s)
 }
 #endif
 
-#ifndef __HAVE_ARCH_MEMSET
+//#ifndef __HAVE_ARCH_MEMSET
+#if 1
 /**
  * memset - Fill a region of memory with the given value
  * @s: Pointer to the start of the area.
@@ -461,7 +466,32 @@ void * memset(void * s,int c,size_t count)
 }
 #endif
 
-#ifndef __HAVE_ARCH_MEMCPY
+#ifndef __HAVE_ARCH_BCOPY
+/**
+ * bcopy - Copy one area of memory to another
+ * @src: Where to copy from
+ * @dest: Where to copy to
+ * @count: The size of the area.
+ *
+ * Note that this is the same as memcpy(), with the arguments reversed.
+ * memcpy() is the standard, bcopy() is a legacy BSD function.
+ *
+ * You should not use this function to access IO space, use memcpy_toio()
+ * or memcpy_fromio() instead.
+ */
+char * bcopy(const char * src, char * dest, int count)
+{
+	char *tmp = dest;
+
+	while (count--)
+		*tmp++ = *src++;
+
+	return dest;
+}
+#endif
+
+//#ifndef __HAVE_ARCH_MEMCPY
+#if 1
 /**
  * memcpy - Copy one area of memory to another
  * @dest: Where to copy to
@@ -617,62 +647,4 @@ void *memchr(const void *s, int c, size_t n)
 	return NULL;
 }
 
-#endif
-#ifndef __HAVE_ARCH_MEMCHR_INV
-static void *check_bytes8(const u8 *start, u8 value, unsigned int bytes)
-{
-	while (bytes) {
-		if (*start != value)
-			return (void *)start;
-		start++;
-		bytes--;
-	}
-	return NULL;
-}
-/**
- * memchr_inv - Find an unmatching character in an area of memory.
- * @start: The memory area
- * @c: Find a character other than c
- * @bytes: The size of the area.
- *
- * returns the address of the first character other than @c, or %NULL
- * if the whole buffer contains just @c.
- */
-void *memchr_inv(const void *start, int c, size_t bytes)
-{
-	u8 value = c;
-	u64 value64;
-	unsigned int words, prefix;
-
-	if (bytes <= 16)
-		return check_bytes8(start, value, bytes);
-
-	value64 = value;
-	value64 |= value64 << 8;
-	value64 |= value64 << 16;
-	value64 |= value64 << 32;
-
-	prefix = (unsigned long)start % 8;
-	if (prefix) {
-		u8 *r;
-
-		prefix = 8 - prefix;
-		r = check_bytes8(start, value, prefix);
-		if (r)
-			return r;
-		start += prefix;
-		bytes -= prefix;
-	}
-
-	words = bytes / 8;
-
-	while (words) {
-		if (*(u64 *)start != value64)
-			return check_bytes8(start, value, 8);
-		start += 8;
-		words--;
-	}
-
-	return check_bytes8(start, value, bytes % 8);
-}
 #endif

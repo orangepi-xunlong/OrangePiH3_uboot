@@ -1,100 +1,92 @@
 /*
- * From Coreboot file device/oprom/realmode/x86.h
+ * (C) Copyright 2002
+ * Daniel Engström, Omicron Ceti AB, <daniel@omicron.se>
  *
- * Copyright (C) 2007 Advanced Micro Devices, Inc.
- * Copyright (C) 2009-2010 coresystems GmbH
+ * See file CREDITS for list of people who contributed to this
+ * project.
  *
- * SPDX-License-Identifier:	GPL-2.0
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
-#ifndef _X86_LIB_BIOS_H
-#define _X86_LIB_BIOS_H
+#ifndef _BIOS_H_
+#define _BIOS_H_
 
-#include <linux/linkage.h>
+#define OFFS_ES      0     /* 16bit */
+#define OFFS_GS      2     /* 16bit */
+#define OFFS_DS      4     /* 16bit */
+#define OFFS_EDI     6     /* 32bit */
+#define OFFS_DI      6     /* low 16 bits of EDI */
+#define OFFS_ESI     10    /* 32bit */
+#define OFFS_SI      10    /* low 16 bits of ESI */
+#define OFFS_EBP     14    /* 32bit */
+#define OFFS_BP      14    /* low 16 bits of EBP */
+#define OFFS_ESP     18    /* 32bit */
+#define OFFS_SP      18    /* low 16 bits of ESP */
+#define OFFS_EBX     22    /* 32bit */
+#define OFFS_BX      22    /* low 16 bits of EBX */
+#define OFFS_BL      22    /* low  8 bits of BX */
+#define OFFS_BH      23    /* high 8 bits of BX */
+#define OFFS_EDX     26    /* 32bit */
+#define OFFS_DX      26    /* low 16 bits of EBX */
+#define OFFS_DL      26    /* low  8 bits of BX */
+#define OFFS_DH      27    /* high 8 bits of BX */
+#define OFFS_ECX     30    /* 32bit */
+#define OFFS_CX      30    /* low 16 bits of EBX */
+#define OFFS_CL      30    /* low  8 bits of BX */
+#define OFFS_CH      31    /* high 8 bits of BX */
+#define OFFS_EAX     34    /* 32bit */
+#define OFFS_AX      34    /* low 16 bits of EBX */
+#define OFFS_AL      34    /* low  8 bits of BX */
+#define OFFS_AH      35    /* high 8 bits of BX */
+#define OFFS_VECTOR  38    /* 16bit */
+#define OFFS_IP      40    /* 16bit */
+#define OFFS_CS      42    /* 16bit */
+#define OFFS_FLAGS   44    /* 16bit */
 
-#define REALMODE_BASE		0x600
+#define SEGMENT      0x40
+#define STACK	     0x800	/* stack at 0x40:0x800 -> 0x800 */
 
-#ifdef __ASSEMBLY__
+/* save general registers */
+/* save some segments     */
+/* save callers stack segment .. */
+/* ... in gs */
+	/* setup my segments */
+	/* setup BIOS stackpointer */
 
-#define PTR_TO_REAL_MODE(x)	(x - asm_realmode_code + REALMODE_BASE)
+#define MAKE_BIOS_STACK \
+	pushal; \
+	pushw	%ds; \
+	pushw	%gs; \
+	pushw	%es; \
+	pushw	%ss; \
+	popw	%gs; \
+	movw	$SEGMENT, %ax; \
+	movw	%ax, %ds; \
+	movw	%ax, %es; \
+	movw	%ax, %ss; \
+	movw	%sp, %bp; \
+	movw	$STACK, %sp
 
-#else
-
-/* Convert a symbol address to our real mode area */
-#define PTR_TO_REAL_MODE(sym)\
-	(void *)(REALMODE_BASE + ((char *)&(sym) - (char *)&asm_realmode_code))
-
-/*
- * The following symbols cannot be used directly. They need to be fixed up
- * to point to the correct address location after the code has been copied
- * to REALMODE_BASE. Absolute symbols are not used because those symbols are
- * relocated by U-Boot.
- */
-extern unsigned char asm_realmode_call, __realmode_interrupt;
-extern unsigned char asm_realmode_buffer;
-
-#define DOWNTO8(A) \
-	union { \
-		struct { \
-			union { \
-				struct { \
-					uint8_t A##l; \
-					uint8_t A##h; \
-				} __packed; \
-				uint16_t A##x; \
-			} __packed; \
-			uint16_t h##A##x; \
-		} __packed; \
-		uint32_t e##A##x; \
-	} __packed;
-
-#define DOWNTO16(A) \
-	union { \
-		struct { \
-			uint16_t A; \
-			uint16_t h##A; \
-		} __packed; \
-		uint32_t e##A; \
-	} __packed;
-
-struct eregs {
-	DOWNTO8(a);
-	DOWNTO8(c);
-	DOWNTO8(d);
-	DOWNTO8(b);
-	DOWNTO16(sp);
-	DOWNTO16(bp);
-	DOWNTO16(si);
-	DOWNTO16(di);
-	uint32_t vector;
-	uint32_t error_code;
-	uint32_t eip;
-	uint32_t cs;
-	uint32_t eflags;
-};
-
-struct realmode_idt {
-	u16 offset, cs;
-};
-
-void x86_exception(struct eregs *info);
-
-/* From x86_asm.S */
-extern unsigned char __idt_handler;
-extern unsigned int __idt_handler_size;
-extern unsigned char asm_realmode_code;
-extern unsigned int asm_realmode_code_size;
-
-asmlinkage void (*realmode_call)(u32 addr, u32 eax, u32 ebx, u32 ecx, u32 edx,
-				 u32 esi, u32 edi);
-
-asmlinkage void (*realmode_interrupt)(u32 intno, u32 eax, u32 ebx, u32 ecx,
-				      u32 edx, u32 esi, u32 edi);
-
-int int10_handler(void);
-int int12_handler(void);
-int int16_handler(void);
-int int1a_handler(void);
-#endif /*__ASSEMBLY__ */
+#define RESTORE_CALLERS_STACK \
+	pushw	%gs;		/* restore callers stack segment */ \
+	popw	%ss; \
+	movw	%bp, %sp;	/* restore stackpointer */ \
+	popw	%es;		/* restore segment selectors */ \
+	popw	%gs; \
+	popw	%ds; \
+	popal			/* restore GP registers */
 
 #endif

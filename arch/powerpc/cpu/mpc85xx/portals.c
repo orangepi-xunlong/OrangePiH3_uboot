@@ -1,7 +1,23 @@
 /*
  * Copyright 2008-2011 Freescale Semiconductor, Inc.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -14,46 +30,11 @@
 #include <asm/fsl_portals.h>
 #include <asm/fsl_liodn.h>
 
-#define MAX_BPORTALS (CONFIG_SYS_BMAN_CINH_SIZE / CONFIG_SYS_BMAN_SP_CINH_SIZE)
-#define MAX_QPORTALS (CONFIG_SYS_QMAN_CINH_SIZE / CONFIG_SYS_QMAN_SP_CINH_SIZE)
-static void inhibit_portals(void __iomem *addr, int max_portals,
-			int arch_max_portals, int portal_cinh_size)
-{
-	uint32_t val;
-	int i;
-
-	/* arch_max_portals is the maximum based on memory size. This includes
-	 * the reserved memory in the SoC.  max_portals the number of physical
-	 * portals in the SoC */
-	if (max_portals > arch_max_portals) {
-		printf("ERROR: portal config error\n");
-		max_portals = arch_max_portals;
-	}
-
-	for (i = 0; i < max_portals; i++) {
-		out_be32(addr, -1);
-		val = in_be32(addr);
-		if (!val) {
-			printf("ERROR: Stopped after %d portals\n", i);
-			goto done;
-		}
-		addr += portal_cinh_size;
-	}
-#ifdef DEBUG
-	printf("Cleared %d portals\n", i);
-#endif
-done:
-
-	return;
-}
+static ccsr_qman_t *qman = (void *)CONFIG_SYS_FSL_QMAN_ADDR;
+static ccsr_bman_t *bman = (void *)CONFIG_SYS_FSL_BMAN_ADDR;
 
 void setup_portals(void)
 {
-	ccsr_qman_t *qman = (void *)CONFIG_SYS_FSL_QMAN_ADDR;
-	void __iomem *bpaddr = (void *)CONFIG_SYS_BMAN_CINH_BASE +
-				CONFIG_SYS_BMAN_SWP_ISDR_REG;
-	void __iomem *qpaddr = (void *)CONFIG_SYS_QMAN_CINH_BASE +
-				CONFIG_SYS_QMAN_SWP_ISDR_REG;
 #ifdef CONFIG_FSL_CORENET
 	int i;
 
@@ -75,12 +56,6 @@ void setup_portals(void)
 	out_be32(&qman->qcsp_bare, (u32)(CONFIG_SYS_QMAN_MEM_PHYS >> 32));
 #endif
 	out_be32(&qman->qcsp_bar, (u32)CONFIG_SYS_QMAN_MEM_PHYS);
-
-	/* Change default state of BMan ISDR portals to all 1s */
-	inhibit_portals(bpaddr, CONFIG_SYS_BMAN_NUM_PORTALS, MAX_BPORTALS,
-			CONFIG_SYS_BMAN_SP_CINH_SIZE);
-	inhibit_portals(qpaddr, CONFIG_SYS_QMAN_NUM_PORTALS, MAX_QPORTALS,
-			CONFIG_SYS_QMAN_SP_CINH_SIZE);
 }
 
 /* Update portal containter to match LAW setup of portal in phy map */
@@ -155,36 +130,28 @@ static int fdt_qportal(void *blob, int off, int id, char *name,
 
 	childoff = fdt_subnode_offset(blob, off, name);
 	if (create) {
-		char handle[64], *p;
-
-		strncpy(handle, name, sizeof(handle));
-		p = strchr(handle, '@');
-		if (!strncmp(name, "fman", 4)) {
-			*p = *(p + 1);
-			p++;
-		}
-		*p = '\0';
-
-		dev_off = fdt_path_offset(blob, handle);
-		/* skip this node if alias is not found */
-		if (dev_off == -FDT_ERR_BADPATH)
-			return 0;
-		if (dev_off < 0)
-			return dev_off;
-
 		if (childoff <= 0)
 			childoff = fdt_add_subnode(blob, off, name);
 
-		/* need to update the dev_off after adding a subnode */
-		dev_off = fdt_path_offset(blob, handle);
-		if (dev_off < 0)
-			return dev_off;
-
 		if (childoff > 0) {
+			char handle[64], *p;
+
+			strncpy(handle, name, sizeof(handle));
+			p = strchr(handle, '@');
+			if (!strncmp(name, "fman", 4)) {
+				*p = *(p + 1);
+				p++;
+			}
+			*p = '\0';
+
+			dev_off = fdt_path_offset(blob, handle);
+			if (dev_off < 0)
+				return dev_off;
+
 			dev_handle = fdt_get_phandle(blob, dev_off);
 			if (dev_handle <= 0) {
 				dev_handle = fdt_alloc_phandle(blob);
-				ret = fdt_set_phandle(blob, dev_off,
+				ret = fdt_create_phandle(blob, dev_off,
 							 dev_handle);
 				if (ret < 0)
 					return ret;
@@ -199,20 +166,6 @@ static int fdt_qportal(void *blob, int off, int id, char *name,
 			num = get_dpaa_liodn(dev, &liodns[0], id);
 			ret = fdt_setprop(blob, childoff, "fsl,liodn",
 					  &liodns[0], sizeof(u32) * num);
-			if (!strncmp(name, "pme", 3)) {
-				u32 pme_rev1, pme_rev2;
-				ccsr_pme_t *pme_regs =
-					(void *)CONFIG_SYS_FSL_CORENET_PME_ADDR;
-
-				pme_rev1 = in_be32(&pme_regs->pm_ip_rev_1);
-				pme_rev2 = in_be32(&pme_regs->pm_ip_rev_2);
-				ret = fdt_setprop(blob, childoff,
-					"fsl,pme-rev1", &pme_rev1, sizeof(u32));
-				if (ret < 0)
-					return ret;
-				ret = fdt_setprop(blob, childoff,
-					"fsl,pme-rev2", &pme_rev2, sizeof(u32));
-			}
 #endif
 		} else {
 			return childoff;
@@ -229,19 +182,14 @@ void fdt_fixup_qportals(void *blob)
 {
 	int off, err;
 	unsigned int maj, min;
-	unsigned int ip_cfg;
-	ccsr_qman_t *qman = (void *)CONFIG_SYS_FSL_QMAN_ADDR;
 	u32 rev_1 = in_be32(&qman->ip_rev_1);
-	u32 rev_2 = in_be32(&qman->ip_rev_2);
 	char compat[64];
 	int compat_len;
 
 	maj = (rev_1 >> 8) & 0xff;
 	min = rev_1 & 0xff;
-	ip_cfg = rev_2 & 0xff;
 
-	compat_len = sprintf(compat, "fsl,qman-portal-%u.%u.%u",
-					maj, min, ip_cfg) + 1;
+	compat_len = sprintf(compat, "fsl,qman-portal-%u.%u", maj, min) + 1;
 	compat_len += sprintf(compat + compat_len, "fsl,qman-portal") + 1;
 
 	off = fdt_node_offset_by_compatible(blob, -1, "fsl,qman-portal");
@@ -249,16 +197,8 @@ void fdt_fixup_qportals(void *blob)
 #ifdef CONFIG_FSL_CORENET
 		u32 liodns[2];
 #endif
-		const int *ci = fdt_getprop(blob, off, "cell-index", &err);
-		int i;
-
-		if (!ci)
-			goto err;
-
-		i = *ci;
-#ifdef CONFIG_SYS_DPAA_FMAN
-		int j;
-#endif
+		const int *ci = fdt_getprop(blob, off, "cell-index", NULL);
+		int j, i = *ci;
 
 		err = fdt_setprop(blob, off, "compatible", compat, compat_len);
 		if (err < 0)
@@ -302,12 +242,6 @@ void fdt_fixup_qportals(void *blob)
 				goto err;
 		}
 #endif
-#ifdef CONFIG_SYS_DPAA_RMAN
-		err = fdt_qportal(blob, off, i, "rman@0",
-				  FSL_HW_PORTAL_RMAN, 1);
-		if (err < 0)
-			goto err;
-#endif
 
 err:
 		if (err < 0) {
@@ -324,20 +258,14 @@ void fdt_fixup_bportals(void *blob)
 {
 	int off, err;
 	unsigned int maj, min;
-	unsigned int ip_cfg;
-	ccsr_bman_t *bman = (void *)CONFIG_SYS_FSL_BMAN_ADDR;
 	u32 rev_1 = in_be32(&bman->ip_rev_1);
-	u32 rev_2 = in_be32(&bman->ip_rev_2);
 	char compat[64];
 	int compat_len;
 
 	maj = (rev_1 >> 8) & 0xff;
 	min = rev_1 & 0xff;
 
-	ip_cfg = rev_2 & 0xff;
-
-	compat_len = sprintf(compat, "fsl,bman-portal-%u.%u.%u",
-				 maj, min, ip_cfg) + 1;
+	compat_len = sprintf(compat, "fsl,bman-portal-%u.%u", maj, min) + 1;
 	compat_len += sprintf(compat + compat_len, "fsl,bman-portal") + 1;
 
 	off = fdt_node_offset_by_compatible(blob, -1, "fsl,bman-portal");

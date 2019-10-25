@@ -1,7 +1,23 @@
 /*
  * Copyright 2008-2011 Freescale Semiconductor, Inc.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -11,13 +27,9 @@
 #include <asm/io.h>
 #include <asm/mmu.h>
 #include <asm/fsl_law.h>
-#include <fsl_ddr_sdram.h>
 #include "mp.h"
 
 DECLARE_GLOBAL_DATA_PTR;
-u32 fsl_ddr_get_intl3r(void);
-
-extern u32 __spin_table[];
 
 u32 get_my_id()
 {
@@ -30,8 +42,10 @@ u32 get_my_id()
  */
 int hold_cores_in_reset(int verbose)
 {
-	/* Default to no, overridden by 'y', 'yes', 'Y', 'Yes', or '1' */
-	if (getenv_yesno("mp_holdoff") == 1) {
+	const char *s = getenv("mp_holdoff");
+
+	/* Default to no, overriden by 'y', 'yes', 'Y', 'Yes', or '1' */
+	if (s && (*s == 'y' || *s == 'Y' || *s == '1')) {
 		if (verbose) {
 			puts("Secondary cores are being held in reset.\n");
 			puts("See 'mp_holdoff' environment variable\n");
@@ -62,18 +76,17 @@ int cpu_status(int nr)
 		return 0;
 
 	if (nr == id) {
-		table = (u32 *)&__spin_table;
+		table = (u32 *)get_spin_virt_addr();
 		printf("table base @ 0x%p\n", table);
-	} else if (is_core_disabled(nr)) {
-		puts("Disabled\n");
 	} else {
-		table = (u32 *)&__spin_table + nr * NUM_BOOT_ENTRY;
+		table = (u32 *)get_spin_virt_addr() + nr * NUM_BOOT_ENTRY;
 		printf("Running on cpu %d\n", id);
 		printf("\n");
 		printf("table @ 0x%p\n", table);
 		printf("   addr - 0x%08x\n", table[BOOT_ENTRY_ADDR_LOWER]);
-		printf("   r3   - 0x%08x\n", table[BOOT_ENTRY_R3_LOWER]);
 		printf("   pir  - 0x%08x\n", table[BOOT_ENTRY_PIR]);
+		printf("   r3   - 0x%08x\n", table[BOOT_ENTRY_R3_LOWER]);
+		printf("   r6   - 0x%08x\n", table[BOOT_ENTRY_R6_LOWER]);
 	}
 
 	return 0;
@@ -136,11 +149,12 @@ static u8 boot_entry_map[4] = {
 	0,
 	BOOT_ENTRY_PIR,
 	BOOT_ENTRY_R3_LOWER,
+	BOOT_ENTRY_R6_LOWER,
 };
 
 int cpu_release(int nr, int argc, char * const argv[])
 {
-	u32 i, val, *table = (u32 *)&__spin_table + nr * NUM_BOOT_ENTRY;
+	u32 i, val, *table = (u32 *)get_spin_virt_addr() + nr * NUM_BOOT_ENTRY;
 	u64 boot_addr;
 
 	if (hold_cores_in_reset(1))
@@ -158,8 +172,8 @@ int cpu_release(int nr, int argc, char * const argv[])
 
 	boot_addr = simple_strtoull(argv[0], NULL, 16);
 
-	/* handle pir, r3 */
-	for (i = 1; i < 3; i++) {
+	/* handle pir, r3, r6 */
+	for (i = 1; i < 4; i++) {
 		if (argv[i][0] != '-') {
 			u8 entry = boot_entry_map[i];
 			val = simple_strtoul(argv[i], NULL, 16);
@@ -177,86 +191,44 @@ int cpu_release(int nr, int argc, char * const argv[])
 	return 0;
 }
 
-u32 determine_mp_bootpg(unsigned int *pagesize)
+u32 determine_mp_bootpg(void)
 {
-	u32 bootpg;
-#ifdef CONFIG_SYS_FSL_ERRATUM_A004468
-	u32 svr = get_svr();
-	u32 granule_size, check;
-	struct law_entry e;
-#endif
+	/* if we have 4G or more of memory, put the boot page at 4Gb-4k */
+	if ((u64)gd->ram_size > 0xfffff000)
+		return (0xfffff000);
 
-
-	/* use last 4K of mapped memory */
-	bootpg = ((gd->ram_size > CONFIG_MAX_MEM_MAPPED) ?
-		CONFIG_MAX_MEM_MAPPED : gd->ram_size) +
-		CONFIG_SYS_SDRAM_BASE - 4096;
-	if (pagesize)
-		*pagesize = 4096;
-
-#ifdef CONFIG_SYS_FSL_ERRATUM_A004468
-/*
- * Erratum A004468 has two parts. The 3-way interleaving applies to T4240,
- * to be fixed in rev 2.0. The 2-way interleaving applies to many SoCs. But
- * the way boot page chosen in u-boot avoids hitting this erratum. So only
- * thw workaround for 3-way interleaving is needed.
- *
- * To make sure boot page translation works with 3-Way DDR interleaving
- * enforce a check for the following constrains
- * 8K granule size requires BRSIZE=8K and
- *    bootpg >> log2(BRSIZE) %3 == 1
- * 4K and 1K granule size requires BRSIZE=4K and
- *    bootpg >> log2(BRSIZE) %3 == 0
- */
-	if (SVR_SOC_VER(svr) == SVR_T4240 && SVR_MAJ(svr) < 2) {
-		e = find_law(bootpg);
-		switch (e.trgt_id) {
-		case LAW_TRGT_IF_DDR_INTLV_123:
-			granule_size = fsl_ddr_get_intl3r() & 0x1f;
-			if (granule_size == FSL_DDR_3WAY_8KB_INTERLEAVING) {
-				if (pagesize)
-					*pagesize = 8192;
-				bootpg &= 0xffffe000;	/* align to 8KB */
-				check = bootpg >> 13;
-				while ((check % 3) != 1)
-					check--;
-				bootpg = check << 13;
-				debug("Boot page (8K) at 0x%08x\n", bootpg);
-				break;
-			} else {
-				bootpg &= 0xfffff000;	/* align to 4KB */
-				check = bootpg >> 12;
-				while ((check % 3) != 0)
-					check--;
-				bootpg = check << 12;
-				debug("Boot page (4K) at 0x%08x\n", bootpg);
-			}
-				break;
-		default:
-			break;
-		}
-	}
-#endif /* CONFIG_SYS_FSL_ERRATUM_A004468 */
-
-	return bootpg;
+	return (gd->ram_size - 4096);
 }
 
-phys_addr_t get_spin_phys_addr(void)
+ulong get_spin_phys_addr(void)
 {
-	return virt_to_phys(&__spin_table);
+	extern ulong __secondary_start_page;
+	extern ulong __spin_table;
+
+	return (determine_mp_bootpg() +
+		(ulong)&__spin_table - (ulong)&__secondary_start_page);
+}
+
+ulong get_spin_virt_addr(void)
+{
+	extern ulong __secondary_start_page;
+	extern ulong __spin_table;
+
+	return (CONFIG_BPTR_VIRT_ADDR +
+		(ulong)&__spin_table - (ulong)&__secondary_start_page);
 }
 
 #ifdef CONFIG_FSL_CORENET
-static void plat_mp_up(unsigned long bootpg, unsigned int pagesize)
+static void plat_mp_up(unsigned long bootpg)
 {
-	u32 cpu_up_mask, whoami, brsize = LAW_SIZE_4K;
-	u32 *table = (u32 *)&__spin_table;
+	u32 up, cpu_up_mask, whoami;
+	u32 *table = (u32 *)get_spin_virt_addr();
 	volatile ccsr_gur_t *gur;
 	volatile ccsr_local_t *ccm;
 	volatile ccsr_rcpm_t *rcpm;
 	volatile ccsr_pic_t *pic;
 	int timeout = 10;
-	u32 mask = cpu_mask();
+	u32 nr_cpus;
 	struct law_entry e;
 
 	gur = (void *)(CONFIG_SYS_MPC85xx_GUTS_ADDR);
@@ -264,16 +236,14 @@ static void plat_mp_up(unsigned long bootpg, unsigned int pagesize)
 	rcpm = (void *)(CONFIG_SYS_FSL_CORENET_RCPM_ADDR);
 	pic = (void *)(CONFIG_SYS_MPC8xxx_PIC_ADDR);
 
+	nr_cpus = ((in_be32(&pic->frr) >> 8) & 0xff) + 1;
+
 	whoami = in_be32(&pic->whoami);
 	cpu_up_mask = 1 << whoami;
 	out_be32(&ccm->bstrl, bootpg);
 
 	e = find_law(bootpg);
-	/* pagesize is only 4K or 8K */
-	if (pagesize == 8192)
-		brsize = LAW_SIZE_8K;
-	out_be32(&ccm->bstrar, LAW_EN | e.trgt_id << 20 | brsize);
-	debug("BRSIZE is 0x%x\n", brsize);
+	out_be32(&ccm->bstrar, LAW_EN | e.trgt_id << 20 | LAW_SIZE_4K);
 
 	/* readback to sync write */
 	in_be32(&ccm->bstrar);
@@ -281,18 +251,19 @@ static void plat_mp_up(unsigned long bootpg, unsigned int pagesize)
 	/* disable time base at the platform */
 	out_be32(&rcpm->ctbenrl, cpu_up_mask);
 
-	out_be32(&gur->brrl, mask);
+	/* release the hounds */
+	up = ((1 << nr_cpus) - 1);
+	out_be32(&gur->brrl, up);
 
 	/* wait for everyone */
 	while (timeout) {
-		unsigned int i, cpu, nr_cpus = cpu_numcores();
+		int i;
+		for (i = 0; i < nr_cpus; i++) {
+			if (table[i * NUM_BOOT_ENTRY + BOOT_ENTRY_ADDR_LOWER])
+				cpu_up_mask |= (1 << i);
+		};
 
-		for_each_cpu(i, cpu, nr_cpus, mask) {
-			if (table[cpu * NUM_BOOT_ENTRY + BOOT_ENTRY_ADDR_LOWER])
-				cpu_up_mask |= (1 << cpu);
-		}
-
-		if ((cpu_up_mask & mask) == mask)
+		if ((cpu_up_mask & up) == up)
 			break;
 
 		udelay(100);
@@ -301,7 +272,7 @@ static void plat_mp_up(unsigned long bootpg, unsigned int pagesize)
 
 	if (timeout == 0)
 		printf("CPU up timeout. CPU up mask is %x should be %x\n",
-			cpu_up_mask, mask);
+			cpu_up_mask, up);
 
 	/* enable time base at the platform */
 	out_be32(&rcpm->ctbenrl, 0);
@@ -312,7 +283,7 @@ static void plat_mp_up(unsigned long bootpg, unsigned int pagesize)
 	mtspr(SPRN_TBWU, 0);
 	mtspr(SPRN_TBWL, 0);
 
-	out_be32(&rcpm->ctbenrl, mask);
+	out_be32(&rcpm->ctbenrl, (1 << nr_cpus) - 1);
 
 #ifdef CONFIG_MPC8xxx_DISABLE_BPTR
 	/*
@@ -326,10 +297,10 @@ static void plat_mp_up(unsigned long bootpg, unsigned int pagesize)
 #endif
 }
 #else
-static void plat_mp_up(unsigned long bootpg, unsigned int pagesize)
+static void plat_mp_up(unsigned long bootpg)
 {
 	u32 up, cpu_up_mask, whoami;
-	u32 *table = (u32 *)&__spin_table;
+	u32 *table = (u32 *)get_spin_virt_addr();
 	volatile u32 bpcr;
 	volatile ccsr_local_ecm_t *ecm = (void *)(CONFIG_SYS_MPC85xx_ECM_ADDR);
 	volatile ccsr_gur_t *gur = (void *)(CONFIG_SYS_MPC85xx_GUTS_ADDR);
@@ -406,52 +377,27 @@ static void plat_mp_up(unsigned long bootpg, unsigned int pagesize)
 
 void cpu_mp_lmb_reserve(struct lmb *lmb)
 {
-	u32 bootpg = determine_mp_bootpg(NULL);
+	u32 bootpg = determine_mp_bootpg();
 
 	lmb_reserve(lmb, bootpg, 4096);
 }
 
 void setup_mp(void)
 {
-	extern u32 __secondary_start_page;
-	extern u32 __bootpg_addr, __spin_table_addr, __second_half_boot_page;
-
-	int i;
-	ulong fixup = (u32)&__secondary_start_page;
-	u32 bootpg, bootpg_map, pagesize;
-
-	bootpg = determine_mp_bootpg(&pagesize);
-
-	/*
-	 * pagesize is only 4K or 8K
-	 * we only use the last 4K of boot page
-	 * bootpg_map saves the address for the boot page
-	 * 8K is used for the workaround of 3-way DDR interleaving
-	 */
-
-	bootpg_map = bootpg;
-
-	if (pagesize == 8192)
-		bootpg += 4096;	/* use 2nd half */
+	extern ulong __secondary_start_page;
+	extern ulong __bootpg_addr;
+	ulong fixup = (ulong)&__secondary_start_page;
+	u32 bootpg = determine_mp_bootpg();
 
 	/* Some OSes expect secondary cores to be held in reset */
 	if (hold_cores_in_reset(0))
 		return;
 
-	/*
-	 * Store the bootpg's cache-able half address for use by secondary
-	 * CPU cores to continue to boot
-	 */
-	__bootpg_addr = (u32)virt_to_phys(&__second_half_boot_page);
-
-	/* Store spin table's physical address for use by secondary cores */
-	__spin_table_addr = (u32)get_spin_phys_addr();
-
-	/* flush bootpg it before copying invalidate any staled cacheline */
-	flush_cache(bootpg, 4096);
+	/* Store the bootpg's SDRAM address for use by secondary CPU cores */
+	__bootpg_addr = bootpg;
 
 	/* look for the tlb covering the reset page, there better be one */
-	i = find_tlb_idx((void *)CONFIG_BPTR_VIRT_ADDR, 1);
+	int i = find_tlb_idx((void *)CONFIG_BPTR_VIRT_ADDR, 1);
 
 	/* we found a match */
 	if (i != -1) {
@@ -464,7 +410,7 @@ void setup_mp(void)
 
 		memcpy((void *)CONFIG_BPTR_VIRT_ADDR, (void *)fixup, 4096);
 
-		plat_mp_up(bootpg_map, pagesize);
+		plat_mp_up(bootpg);
 	} else {
 		puts("WARNING: No reset page TLB. "
 			"Skipping secondary core setup\n");

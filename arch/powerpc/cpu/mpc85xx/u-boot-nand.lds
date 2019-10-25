@@ -1,14 +1,24 @@
 /*
- * Copyright 2009-2012 Freescale Semiconductor, Inc.
+ * Copyright 2009 Freescale Semiconductor, Inc.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
-
-#include "config.h"
-
-#ifndef CONFIG_SYS_MONITOR_LEN
-#define CONFIG_SYS_MONITOR_LEN	0x80000
-#endif
 
 OUTPUT_ARCH(powerpc)
 /* Do we need any of these for elf?
@@ -41,13 +51,13 @@ SECTIONS
   PROVIDE (erotext = .);
   .reloc   :
   {
+    KEEP(*(.got))
     _GOT2_TABLE_ = .;
     KEEP(*(.got2))
-    KEEP(*(.got))
     _FIXUP_TABLE_ = .;
     KEEP(*(.fixup))
   }
-  __got2_entries = ((_GLOBAL_OFFSET_TABLE_ - _GOT2_TABLE_) >> 2) - 1;
+  __got2_entries = (_FIXUP_TABLE_ - _GOT2_TABLE_) >> 2;
   __fixup_entries = (. - _FIXUP_TABLE_) >> 2;
 
   .data    :
@@ -59,10 +69,9 @@ SECTIONS
   PROVIDE (edata = .);
 
   . = .;
-
-  .u_boot_list : {
-	KEEP(*(SORT(.u_boot_list*)));
-  }
+  __u_boot_cmd_start = .;
+  .u_boot_cmd : { *(.u_boot_cmd) }
+  __u_boot_cmd_end = .;
 
   . = .;
   __start___ex_table = .;
@@ -78,10 +87,10 @@ SECTIONS
 
   .bootpg ADDR(.text) - 0x1000 :
   {
-    KEEP(arch/powerpc/cpu/mpc85xx/start.o (.bootpg))
+    arch/powerpc/cpu/mpc85xx/start.o	KEEP(*(.bootpg))
   } :text = 0xffff
 
-  . = ADDR(.text) + CONFIG_SYS_MONITOR_LEN;
+  . = ADDR(.text) + 0x80000;
 
   __bss_start = .;
   .bss (NOLOAD)       :
@@ -92,6 +101,6 @@ SECTIONS
   } :bss
 
   . = ALIGN(4);
-  __bss_end = . ;
+  __bss_end__ = . ;
   PROVIDE (end = .);
 }

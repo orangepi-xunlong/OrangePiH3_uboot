@@ -3,7 +3,23 @@
  * Data Flash Atmel Description File
  * Author : Hamid Ikdoumi (Atmel)
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /* File Name		: dataflash.h					*/
@@ -191,10 +207,7 @@ extern int addr2ram(ulong addr);
 extern int dataflash_real_protect (int flag, unsigned long start_addr, unsigned long end_addr);
 extern int addr_dataflash (unsigned long addr);
 extern int read_dataflash (unsigned long addr, unsigned long size, char *result);
-extern int write_dataflash(unsigned long addr_dest, unsigned long addr_src,
-			unsigned long size);
-extern int AT91F_DataflashInit(void);
-
+extern int write_dataflash (unsigned long addr, unsigned long dest, unsigned long size);
 extern void dataflash_print_info (void);
 extern void dataflash_perror (int err);
 extern void AT91F_DataflashSetEnv (void);

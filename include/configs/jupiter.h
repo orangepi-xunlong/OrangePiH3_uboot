@@ -2,7 +2,23 @@
  * (C) Copyright 2007
  * Heiko Schocher, DENX Software Engineering, hs@denx.de.
  *
- * SPDX-License-Identifier:     GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef __CONFIG_H
@@ -13,9 +29,9 @@
  * (easy to change)
  */
 
-#define CONFIG_MPC5200		1	/* This is an MPC5200 CPU */
+#define CONFIG_MPC5xxx		1	/* This is an MPC5xxx CPU */
+#define CONFIG_MPC5200		1	/* especially an MPC5200 */
 #define CONFIG_JUPITER		1	/* ... on Jupiter board */
-#define CONFIG_DISPLAY_BOARDINFO
 
 /*
  * Valid values for CONFIG_SYS_TEXT_BASE are:
@@ -63,6 +79,7 @@
 
 #define CONFIG_SYS_XLB_PIPELINING	1
 
+#define CONFIG_NET_MULTI	1
 #define CONFIG_MII		1
 #define CONFIG_SYS_RX_ETH_BUFFER	8  /* use 8 rx buffer on eepro100  */
 
@@ -73,6 +90,7 @@
 
 #define	CONFIG_TIMESTAMP		/* Print image info with timestamp */
 
+
 /*
  * BOOTP options
  */
@@ -81,17 +99,24 @@
 #define CONFIG_BOOTP_GATEWAY
 #define CONFIG_BOOTP_HOSTNAME
 
+
 /*
  * Command line configuration.
  */
+#include <config_cmd_default.h>
+
+#define CONFIG_CMD_NFS
+#define CONFIG_CMD_SNTP
 
 #if defined(CONFIG_PCI)
 #define CODFIG_CMD_PCI
 #endif
 
+
 /*
  * Autobooting
  */
+#define CONFIG_BOOTDELAY	5	/* autoboot after 5 seconds */
 
 #define CONFIG_PREBOOT	"echo;"	\
 	"echo Type \\\"run flash_nfs\\\" to mount root filesystem over NFS;" \
@@ -129,6 +154,9 @@
 
 #if 0
 /* pass open firmware flat tree */
+#define CONFIG_OF_LIBFDT	1
+#define CONFIG_OF_BOARD_SETUP	1
+
 #define OF_CPU			"PowerPC,5200@0"
 #define OF_SOC			"soc5200@f0000000"
 #define OF_TBCLK		(bd->bi_busfreq / 8)
@@ -199,6 +227,7 @@
 #define CONFIG_SYS_INIT_RAM_ADDR	MPC5XXX_SRAM
 #define CONFIG_SYS_INIT_RAM_SIZE	MPC5XXX_SRAM_SIZE	/* Size of used area in DPRAM */
 
+
 #define CONFIG_SYS_GBL_DATA_OFFSET	(CONFIG_SYS_INIT_RAM_SIZE - GENERATED_GBL_DATA_SIZE)
 #define CONFIG_SYS_INIT_SP_OFFSET	CONFIG_SYS_GBL_DATA_OFFSET
 
@@ -231,8 +260,13 @@
  * Miscellaneous configurable options
  */
 #define CONFIG_SYS_LONGHELP			/* undef to save memory	    */
+#define CONFIG_SYS_PROMPT		"=> "	/* Monitor Command Prompt   */
 
 #define CONFIG_CMDLINE_EDITING	1	/* add command line history	*/
+#define CONFIG_SYS_HUSH_PARSER		1	/* Use the HUSH parser		*/
+#ifdef	CONFIG_SYS_HUSH_PARSER
+#define	CONFIG_SYS_PROMPT_HUSH_PS2	"> "
+#endif
 #if defined(CONFIG_CMD_KGDB)
 #define CONFIG_SYS_CBSIZE		1024	/* Console I/O Buffer Size  */
 #else
@@ -247,6 +281,8 @@
 #define CONFIG_SYS_ALT_MEMTEST		1
 
 #define CONFIG_SYS_LOAD_ADDR		0x200000	/* default load address */
+
+#define CONFIG_SYS_HZ			1000	/* decrementer freq: 1 ms ticks */
 
 #define CONFIG_SYS_CACHELINE_SIZE	32	/* For MPC5xxx CPUs */
 #if defined(CONFIG_CMD_KGDB)

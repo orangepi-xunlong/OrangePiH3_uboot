@@ -1,9 +1,25 @@
 /*
  * (C) Copyright 2007-2008
- * Stelian Pop <stelian@popies.net>
+ * Stelian Pop <stelian.pop@leadtechdesign.com>
  * Lead Tech Design <www.leadtechdesign.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -12,13 +28,13 @@
 #include <asm/arch/at91sam9rl_matrix.h>
 #include <asm/arch/at91sam9_smc.h>
 #include <asm/arch/at91_common.h>
+#include <asm/arch/at91_pmc.h>
 #include <asm/arch/at91_rstc.h>
 #include <asm/arch/clk.h>
 #include <asm/arch/gpio.h>
 
 #include <lcd.h>
 #include <atmel_lcdc.h>
-#include <atmel_mci.h>
 #if defined(CONFIG_RESET_PHY_R) && defined(CONFIG_MACB)
 #include <net.h>
 #endif
@@ -35,6 +51,7 @@ static void at91sam9rlek_nand_hw_init(void)
 {
 	struct at91_smc *smc = (struct at91_smc *)ATMEL_BASE_SMC;
 	struct at91_matrix *matrix = (struct at91_matrix *)ATMEL_BASE_MATRIX;
+	struct at91_pmc *pmc = (struct at91_pmc *)ATMEL_BASE_PMC;
 	unsigned long csa;
 
 	/* Enable CS3 */
@@ -62,7 +79,7 @@ static void at91sam9rlek_nand_hw_init(void)
 		AT91_SMC_MODE_TDF_CYCLE(2),
 		&smc->cs[3].mode);
 
-	at91_periph_clk_enable(ATMEL_ID_PIOD);
+	writel(1 << ATMEL_ID_PIOD, &pmc->pcer);
 
 	/* Configure RDY/BSY */
 	at91_set_gpio_input(CONFIG_SYS_NAND_READY_PIN, 1);
@@ -77,20 +94,20 @@ static void at91sam9rlek_nand_hw_init(void)
 
 #ifdef CONFIG_LCD
 vidinfo_t panel_info = {
-	.vl_col =		240,
-	.vl_row =		320,
-	.vl_clk =		4965000,
-	.vl_sync =		ATMEL_LCDC_INVLINE_INVERTED |
-				ATMEL_LCDC_INVFRAME_INVERTED,
-	.vl_bpix =		3,
-	.vl_tft =		1,
-	.vl_hsync_len =		5,
-	.vl_left_margin =	1,
-	.vl_right_margin =	33,
-	.vl_vsync_len =		1,
-	.vl_upper_margin =	1,
-	.vl_lower_margin =	0,
-	.mmio =			ATMEL_BASE_LCDC,
+	vl_col:		240,
+	vl_row:		320,
+	vl_clk:		4965000,
+	vl_sync:	ATMEL_LCDC_INVLINE_INVERTED |
+			ATMEL_LCDC_INVFRAME_INVERTED,
+	vl_bpix:	3,
+	vl_tft:		1,
+	vl_hsync_len:	5,
+	vl_left_margin:	1,
+	vl_right_margin:33,
+	vl_vsync_len:	1,
+	vl_upper_margin:1,
+	vl_lower_margin:0,
+	mmio:		ATMEL_BASE_LCDC,
 };
 
 void lcd_enable(void)
@@ -104,6 +121,8 @@ void lcd_disable(void)
 }
 static void at91sam9rlek_lcd_hw_init(void)
 {
+	struct at91_pmc *pmc = (struct at91_pmc *)ATMEL_BASE_PMC;
+
 	at91_set_B_periph(AT91_PIN_PC1, 0);	/* LCDPWR */
 	at91_set_A_periph(AT91_PIN_PC5, 0);	/* LCDHSYNC */
 	at91_set_A_periph(AT91_PIN_PC6, 0);	/* LCDDOTCK */
@@ -126,7 +145,7 @@ static void at91sam9rlek_lcd_hw_init(void)
 	at91_set_B_periph(AT91_PIN_PC24, 0);	/* LCDD22 */
 	at91_set_B_periph(AT91_PIN_PC25, 0);	/* LCDD23 */
 
-	at91_periph_clk_enable(ATMEL_ID_LCDC);
+	writel(1 << ATMEL_ID_LCDC, &pmc->pcer);
 }
 
 #ifdef CONFIG_LCD_INFO
@@ -151,7 +170,7 @@ void lcd_show_board_info(void)
 		dram_size += gd->bd->bi_dram[i].size;
 	nand_size = 0;
 	for (i = 0; i < CONFIG_SYS_MAX_NAND_DEVICE; i++)
-		nand_size += nand_info[i]->size;
+		nand_size += nand_info[i].size;
 	lcd_printf ("  %ld MB SDRAM, %ld MB NAND\n",
 		dram_size >> 20,
 		nand_size >> 20 );
@@ -159,27 +178,23 @@ void lcd_show_board_info(void)
 #endif /* CONFIG_LCD_INFO */
 #endif
 
-#ifdef CONFIG_GENERIC_ATMEL_MCI
-int board_mmc_init(bd_t *bis)
-{
-	at91_mci_hw_init();
-
-	return atmel_mci_init((void *)ATMEL_BASE_MCI);
-}
-#endif
-
 int board_early_init_f(void)
 {
-	at91_periph_clk_enable(ATMEL_ID_PIOA);
-	at91_periph_clk_enable(ATMEL_ID_PIOB);
-	at91_periph_clk_enable(ATMEL_ID_PIOC);
-	at91_periph_clk_enable(ATMEL_ID_PIOD);
+	struct at91_pmc *pmc = (struct at91_pmc *)ATMEL_BASE_PMC;
+
+	/* Enable clocks for all PIOs */
+	writel((1 << ATMEL_ID_PIOA) | (1 << ATMEL_ID_PIOB) |
+		(1 << ATMEL_ID_PIOC) | (1 << ATMEL_ID_PIOD),
+		&pmc->pcer);
 
 	return 0;
 }
 
 int board_init(void)
 {
+	/* Enable Ctrlc */
+	console_init_f();
+
 	/* arch number of AT91SAM9RLEK-Board */
 	gd->bd->bi_arch_number = MACH_TYPE_AT91SAM9RLEK;
 	/* adress of boot parameters */

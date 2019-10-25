@@ -3,7 +3,23 @@
  * Copyright 2007 Embedded Specialties, Inc.
  * Copyright 2004, 2007 Freescale Semiconductor.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -17,7 +33,6 @@
  * Top level Makefile configuration choices
  */
 #ifdef CONFIG_PCI
-#define CONFIG_PCI_INDIRECT_BRIDGE
 #define CONFIG_PCI1
 #endif
 
@@ -38,21 +53,12 @@
  */
 #define CONFIG_BOOKE		1	/* BOOKE */
 #define CONFIG_E500		1	/* BOOKE e500 family */
+#define CONFIG_MPC85xx		1	/* MPC8540/60/55/41/48 */
 #define CONFIG_MPC8548		1	/* MPC8548 specific */
 #define CONFIG_SBC8548		1	/* SBC8548 board specific */
 
-/*
- * If you want to boot from the SODIMM flash, instead of the soldered
- * on flash, set this, and change JP12, SW2:8 accordingly.
- */
-#undef CONFIG_SYS_ALT_BOOT
-
 #ifndef CONFIG_SYS_TEXT_BASE
-#ifdef CONFIG_SYS_ALT_BOOT
-#define CONFIG_SYS_TEXT_BASE	0xfff00000
-#else
 #define CONFIG_SYS_TEXT_BASE	0xfffa0000
-#endif
 #endif
 
 #undef CONFIG_RIO
@@ -97,23 +103,21 @@
 #define CONFIG_SYS_MEMTEST_START	0x00200000	/* memtest works on */
 #define CONFIG_SYS_MEMTEST_END		0x00400000
 
-#define CONFIG_SYS_CCSRBAR		0xe0000000
-#define CONFIG_SYS_CCSRBAR_PHYS_LOW	CONFIG_SYS_CCSRBAR
+/*
+ * Base addresses -- Note these are effective addresses where the
+ * actual resources get mapped (not physical addresses)
+ */
+#define CONFIG_SYS_CCSRBAR_DEFAULT	0xff700000	/* CCSRBAR Default */
+#define CONFIG_SYS_CCSRBAR		0xe0000000	/* relocated CCSRBAR */
+#define CONFIG_SYS_CCSRBAR_PHYS	CONFIG_SYS_CCSRBAR	/* physical addr of CCSRBAR */
+#define CONFIG_SYS_IMMR		CONFIG_SYS_CCSRBAR	/* PQII uses CONFIG_SYS_IMMR */
 
 /* DDR Setup */
-#define CONFIG_SYS_FSL_DDR2
+#define CONFIG_FSL_DDR2
 #undef CONFIG_FSL_DDR_INTERACTIVE
-#undef CONFIG_DDR_ECC			/* only for ECC DDR module */
-/*
- * A hardware errata caused the LBC SDRAM SPD and the DDR2 SPD
- * to collide, meaning you couldn't reliably read either. So
- * physically remove the LBC PC100 SDRAM module from the board
- * before enabling the two SPD options below, or check that you
- * have the hardware fix on your board via "i2c probe" and looking
- * for a device at 0x53.
- */
 #undef CONFIG_SPD_EEPROM		/* Use SPD EEPROM for DDR setup */
 #undef CONFIG_DDR_SPD
+#undef CONFIG_DDR_ECC			/* only for ECC DDR module */
 
 #define CONFIG_ECC_INIT_VIA_DDRCONTROLLER	/* DDR controller or DMA? */
 #define CONFIG_MEM_INIT_VALUE	0xDeadBeef
@@ -126,20 +130,14 @@
 #define CONFIG_DIMM_SLOTS_PER_CTLR	1
 #define CONFIG_CHIP_SELECTS_PER_CTRL	2
 
-/*
- * The hardware fix for the I2C address collision puts the DDR
- * SPD at 0x53, but if we are running on an older board w/o the
- * fix, it will still be at 0x51.  We check 0x53 1st.
- */
+/* I2C addresses of SPD EEPROMs */
 #define SPD_EEPROM_ADDRESS	0x51	/* CTLR 0 DIMM 0 */
-#define ALT_SPD_EEPROM_ADDRESS	0x53	/* CTLR 0 DIMM 0 */
 
 /*
  * Make sure required options are set
  */
 #ifndef CONFIG_SPD_EEPROM
 	#define CONFIG_SYS_SDRAM_SIZE	256		/* DDR is 256MB */
-	#define CONFIG_SYS_DDR_CONTROL	0xc300c000
 #endif
 
 #undef CONFIG_CLOCKS_IN_MHZ
@@ -147,54 +145,28 @@
 /*
  * FLASH on the Local Bus
  * Two banks, one 8MB the other 64MB, using the CFI driver.
- * JP12+SW2.8 are used to swap CS0 and CS6, defaults are to have
- * CS0 the 8MB boot flash, and CS6 the 64MB flash.
+ * Boot from BR0/OR0 bank at 0xff80_0000
+ * Alternate BR6/OR6 bank at 0xfb80_0000
  *
- *	Default:
- *	ec00_0000	efff_ffff	64MB SODIMM
- *	ff80_0000	ffff_ffff	8MB soldered flash
- *
- *	Alternate:
- *	ef80_0000	efff_ffff	8MB soldered flash
- *	fc00_0000	ffff_ffff	64MB SODIMM
- *
- * BR0_8M:
+ * BR0:
  *    Base address 0 = 0xff80_0000 = BR0[0:16] = 1111 1111 1000 0000 0
  *    Port Size = 8 bits = BRx[19:20] = 01
  *    Use GPCM = BRx[24:26] = 000
  *    Valid = BRx[31] = 1
  *
- * BR0_64M:
- *    Base address 0 = 0xfc00_0000 = BR0[0:16] = 1111 1100 0000 0000 0
- *    Port Size = 32 bits = BRx[19:20] = 11
- *
  * 0    4    8    12   16   20   24   28
- * 1111 1111 1000 0000 0000 1000 0000 0001 = ff800801    BR0_8M
- * 1111 1100 0000 0000 0001 1000 0000 0001 = fc001801    BR0_64M
- */
-#define CONFIG_SYS_BR0_8M	0xff800801
-#define CONFIG_SYS_BR0_64M	0xfc001801
-
-/*
- * BR6_8M:
- *    Base address 6 = 0xef80_0000 = BR6[0:16] = 1110 1111 1000 0000 0
- *    Port Size = 8 bits = BRx[19:20] = 01
+ * 1111 1111 1000 0000 0000 1000 0000 0001 = ff800801    BR0
+ *
+ * BR6:
+ *    Base address 6 = 0xfb80_0000 = BR6[0:16] = 1111 1011 1000 0000 0
+ *    Port Size = 32 bits = BRx[19:20] = 11
  *    Use GPCM = BRx[24:26] = 000
  *    Valid = BRx[31] = 1
-
- * BR6_64M:
- *    Base address 6 = 0xec00_0000 = BR6[0:16] = 1110 1100 0000 0000 0
- *    Port Size = 32 bits = BRx[19:20] = 11
  *
  * 0    4    8    12   16   20   24   28
- * 1110 1111 1000 0000 0000 1000 0000 0001 = ef800801    BR6_8M
- * 1110 1100 0000 0000 0001 1000 0000 0001 = ec001801    BR6_64M
- */
-#define CONFIG_SYS_BR6_8M	0xef800801
-#define CONFIG_SYS_BR6_64M	0xec001801
-
-/*
- * OR0_8M:
+ * 1111 1011 1000 0000 0001 1000 0000 0001 = fb801801    BR6
+ *
+ * OR0:
  *    Addr Mask = 8M = OR1[0:16] = 1111 1111 1000 0000 0
  *    XAM = OR0[17:18] = 11
  *    CSNT = OR0[20] = 1
@@ -203,20 +175,11 @@
  *    TRLX = use relaxed timing = OR0[29] = 1
  *    EAD = use external address latch delay = OR0[31] = 1
  *
- * OR0_64M:
- *    Addr Mask = 64M = OR1[0:16] = 1111 1100 0000 0000 0
- *
- *
  * 0    4    8    12   16   20   24   28
- * 1111 1111 1000 0000 0110 1110 0110 0101 = ff806e65    OR0_8M
- * 1111 1100 0000 0000 0110 1110 0110 0101 = fc006e65    OR0_64M
- */
-#define CONFIG_SYS_OR0_8M	0xff806e65
-#define CONFIG_SYS_OR0_64M	0xfc006e65
-
-/*
- * OR6_8M:
- *    Addr Mask = 8M = OR6[0:16] = 1111 1111 1000 0000 0
+ * 1111 1111 1000 0000 0110 1110 0110 0101 = ff806e65    OR0
+ *
+ * OR6:
+ *    Addr Mask = 64M = OR6[0:16] = 1111 1000 0000 0000 0
  *    XAM = OR6[17:18] = 11
  *    CSNT = OR6[20] = 1
  *    ACS = half cycle delay = OR6[21:22] = 11
@@ -224,37 +187,20 @@
  *    TRLX = use relaxed timing = OR6[29] = 1
  *    EAD = use external address latch delay = OR6[31] = 1
  *
- * OR6_64M:
- *    Addr Mask = 64M = OR6[0:16] = 1111 1100 0000 0000 0
- *
  * 0    4    8    12   16   20   24   28
- * 1111 1111 1000 0000 0110 1110 0110 0101 = ff806e65    OR6_8M
- * 1111 1100 0000 0000 0110 1110 0110 0101 = fc006e65    OR6_64M
+ * 1111 1000 0000 0000 0110 1110 0110 0101 = f8006e65    OR6
  */
-#define CONFIG_SYS_OR6_8M	0xff806e65
-#define CONFIG_SYS_OR6_64M	0xfc006e65
 
-#ifndef CONFIG_SYS_ALT_BOOT		/* JP12 in default position */
 #define CONFIG_SYS_BOOT_BLOCK		0xff800000	/* start of 8MB Flash */
-#define CONFIG_SYS_ALT_FLASH		0xec000000	/* 64MB "user" flash */
+#define CONFIG_SYS_ALT_FLASH		0xfb800000	/* 64MB "user" flash */
+#define CONFIG_SYS_FLASH_BASE		CONFIG_SYS_BOOT_BLOCK	/* start of FLASH 16M */
 
-#define CONFIG_SYS_BR0_PRELIM		CONFIG_SYS_BR0_8M
-#define CONFIG_SYS_OR0_PRELIM		CONFIG_SYS_OR0_8M
+#define CONFIG_SYS_BR0_PRELIM		0xff800801
+#define CONFIG_SYS_BR6_PRELIM		0xfb801801
 
-#define CONFIG_SYS_BR6_PRELIM		CONFIG_SYS_BR6_64M
-#define CONFIG_SYS_OR6_PRELIM		CONFIG_SYS_OR6_64M
-#else					/* JP12 in alternate position */
-#define CONFIG_SYS_BOOT_BLOCK		0xfc000000	/* start 64MB Flash */
-#define CONFIG_SYS_ALT_FLASH		0xef800000	/* 8MB soldered flash */
+#define	CONFIG_SYS_OR0_PRELIM		0xff806e65
+#define	CONFIG_SYS_OR6_PRELIM		0xf8006e65
 
-#define CONFIG_SYS_BR0_PRELIM		CONFIG_SYS_BR0_64M
-#define CONFIG_SYS_OR0_PRELIM		CONFIG_SYS_OR0_64M
-
-#define CONFIG_SYS_BR6_PRELIM		CONFIG_SYS_BR6_8M
-#define CONFIG_SYS_OR6_PRELIM		CONFIG_SYS_OR6_8M
-#endif
-
-#define CONFIG_SYS_FLASH_BASE		CONFIG_SYS_BOOT_BLOCK
 #define CONFIG_SYS_FLASH_BANKS_LIST	{CONFIG_SYS_FLASH_BASE, \
 					 CONFIG_SYS_ALT_FLASH}
 #define CONFIG_SYS_MAX_FLASH_BANKS	2		/* number of banks */
@@ -281,10 +227,6 @@
 
 /*
  * SDRAM on the Local Bus (CS3 and CS4)
- * Note that most boards have a hardware errata where both the
- * LBC SDRAM and the DDR2 SDRAM decode at 0x51, making it impossible
- * to use CONFIG_DDR_SPD unless you physically remove the LBC DIMM.
- * A hardware workaround is also available, see README.sbc8548 file.
  */
 #define CONFIG_SYS_LBC_SDRAM_BASE	0xf0000000	/* Localbus SDRAM */
 #define CONFIG_SYS_LBC_SDRAM_SIZE	128		/* LBC SDRAM is 128MB */
@@ -364,25 +306,18 @@
 
 /*
  * Common settings for all Local Bus SDRAM commands.
+ * At run time, either BSMA1516 (for CPU 1.1)
+ *                  or BSMA1617 (for CPU 1.0) (old)
+ * is OR'ed in too.
  */
 #define CONFIG_SYS_LBC_LSDMR_COMMON	( LSDMR_RFCR16		\
-				| LSDMR_BSMA1516	\
-				| LSDMR_PRETOACT3	\
-				| LSDMR_ACTTORW3	\
-				| LSDMR_BUFCMD		\
+				| LSDMR_PRETOACT7	\
+				| LSDMR_ACTTORW7	\
 				| LSDMR_BL8		\
-				| LSDMR_WRC2		\
+				| LSDMR_WRC4		\
 				| LSDMR_CL3		\
+				| LSDMR_RFEN		\
 				)
-
-#define CONFIG_SYS_LBC_LSDMR_PCHALL	\
-	 (CONFIG_SYS_LBC_LSDMR_COMMON | LSDMR_OP_PCHALL)
-#define CONFIG_SYS_LBC_LSDMR_ARFRSH	\
-	 (CONFIG_SYS_LBC_LSDMR_COMMON | LSDMR_OP_ARFRSH)
-#define CONFIG_SYS_LBC_LSDMR_MRW	\
-	 (CONFIG_SYS_LBC_LSDMR_COMMON | LSDMR_OP_MRW)
-#define CONFIG_SYS_LBC_LSDMR_RFEN	\
-	 (CONFIG_SYS_LBC_LSDMR_COMMON | LSDMR_RFEN)
 
 #define CONFIG_SYS_INIT_RAM_LOCK	1
 #define CONFIG_SYS_INIT_RAM_ADDR	0xe4010000	/* Initial RAM address */
@@ -401,10 +336,11 @@
  * thing for MONITOR_LEN in both cases.
  */
 #define CONFIG_SYS_MONITOR_LEN		(~CONFIG_SYS_TEXT_BASE + 1)
-#define CONFIG_SYS_MALLOC_LEN		(1024 * 1024) /* Reserved for malloc */
+#define CONFIG_SYS_MALLOC_LEN		(128 * 1024)	/* Reserved for malloc */
 
 /* Serial Port */
 #define CONFIG_CONS_INDEX	1
+#define CONFIG_SYS_NS16550
 #define CONFIG_SYS_NS16550_SERIAL
 #define CONFIG_SYS_NS16550_REG_SIZE	1
 #define CONFIG_SYS_NS16550_CLK		(400000000 / CONFIG_SYS_CLK_DIV)
@@ -415,15 +351,27 @@
 #define CONFIG_SYS_NS16550_COM1	(CONFIG_SYS_CCSRBAR+0x4500)
 #define CONFIG_SYS_NS16550_COM2	(CONFIG_SYS_CCSRBAR+0x4600)
 
+/* Use the HUSH parser */
+#define CONFIG_SYS_HUSH_PARSER
+#ifdef	CONFIG_SYS_HUSH_PARSER
+#define CONFIG_SYS_PROMPT_HUSH_PS2 "> "
+#endif
+
+/* pass open firmware flat tree */
+#define CONFIG_OF_LIBFDT		1
+#define CONFIG_OF_BOARD_SETUP		1
+#define CONFIG_OF_STDOUT_VIA_ALIAS	1
+
 /*
  * I2C
  */
-#define CONFIG_SYS_I2C
-#define CONFIG_SYS_I2C_FSL
-#define CONFIG_SYS_FSL_I2C_SPEED	400000
-#define CONFIG_SYS_FSL_I2C_SLAVE	0x7F
-#define CONFIG_SYS_FSL_I2C_OFFSET	0x3000
+#define CONFIG_FSL_I2C		/* Use FSL common I2C driver */
+#define CONFIG_HARD_I2C		/* I2C with hardware support*/
+#undef	CONFIG_SOFT_I2C		/* I2C bit-banged */
+#define CONFIG_SYS_I2C_SPEED		400000	/* I2C speed and slave address */
 #define CONFIG_SYS_I2C_EEPROM_ADDR	0x50
+#define CONFIG_SYS_I2C_SLAVE		0x7F
+#define CONFIG_SYS_I2C_OFFSET		0x3000
 
 /*
  * General PCI
@@ -462,6 +410,7 @@
 
 #if defined(CONFIG_PCI)
 
+#define CONFIG_NET_MULTI
 #define CONFIG_PCI_PNP			/* do pci plug-and-play */
 
 #undef CONFIG_EEPRO100
@@ -471,7 +420,12 @@
 
 #endif	/* CONFIG_PCI */
 
+
 #if defined(CONFIG_TSEC_ENET)
+
+#ifndef CONFIG_NET_MULTI
+#define CONFIG_NET_MULTI	1
+#endif
 
 #define CONFIG_MII		1	/* MII PHY management */
 #define CONFIG_TSEC1	1
@@ -520,14 +474,22 @@
 #define CONFIG_BOOTP_GATEWAY
 #define CONFIG_BOOTP_HOSTNAME
 
+
 /*
  * Command line configuration.
  */
+#include <config_cmd_default.h>
+
+#define CONFIG_CMD_PING
+#define CONFIG_CMD_I2C
+#define CONFIG_CMD_MII
+#define CONFIG_CMD_ELF
 #define CONFIG_CMD_REGINFO
 
 #if defined(CONFIG_PCI)
     #define CONFIG_CMD_PCI
 #endif
+
 
 #undef CONFIG_WATCHDOG			/* watchdog disabled */
 
@@ -538,6 +500,7 @@
 #define CONFIG_AUTO_COMPLETE			/* add autocompletion support */
 #define CONFIG_SYS_LONGHELP			/* undef to save memory	*/
 #define CONFIG_SYS_LOAD_ADDR	0x2000000	/* default load address */
+#define CONFIG_SYS_PROMPT	"=> "		/* Monitor Command Prompt */
 #if defined(CONFIG_CMD_KGDB)
 #define CONFIG_SYS_CBSIZE	1024		/* Console I/O Buffer Size */
 #else
@@ -546,6 +509,7 @@
 #define CONFIG_SYS_PBSIZE (CONFIG_SYS_CBSIZE+sizeof(CONFIG_SYS_PROMPT)+16) /* Print Buffer Size */
 #define CONFIG_SYS_MAXARGS	16		/* max number of command args */
 #define CONFIG_SYS_BARGSIZE	CONFIG_SYS_CBSIZE	/* Boot Argument Buffer Size */
+#define CONFIG_SYS_HZ		1000		/* decrementer freq: 1ms ticks */
 
 /*
  * For booting Linux, the board info and command line data
@@ -556,21 +520,26 @@
 
 #if defined(CONFIG_CMD_KGDB)
 #define CONFIG_KGDB_BAUDRATE	230400	/* speed to run kgdb serial port */
+#define CONFIG_KGDB_SER_INDEX	2	/* which serial port to use */
 #endif
 
 /*
  * Environment Configuration
  */
+
+/* The mac addresses for all ethernet interface */
 #if defined(CONFIG_TSEC_ENET)
 #define CONFIG_HAS_ETH0
+#define CONFIG_ETHADDR	 02:E0:0C:00:00:FD
 #define CONFIG_HAS_ETH1
+#define CONFIG_ETH1ADDR	 02:E0:0C:00:01:FD
 #endif
 
 #define CONFIG_IPADDR	 192.168.0.55
 
 #define CONFIG_HOSTNAME	 sbc8548
-#define CONFIG_ROOTPATH	 "/opt/eldk/ppc_85xx"
-#define CONFIG_BOOTFILE	 "/uImage"
+#define CONFIG_ROOTPATH	 /opt/eldk/ppc_85xx
+#define CONFIG_BOOTFILE	 /uImage
 #define CONFIG_UBOOTPATH /u-boot.bin	/* TFTP server */
 
 #define CONFIG_SERVERIP	 192.168.0.2
@@ -579,24 +548,25 @@
 
 #define CONFIG_LOADADDR	1000000	/*default location for tftp and bootm*/
 
+#define CONFIG_BOOTDELAY 10	/* -1 disables auto-boot */
 #undef	CONFIG_BOOTARGS		/* the boot command will set bootargs*/
 
 #define CONFIG_BAUDRATE	115200
 
 #define	CONFIG_EXTRA_ENV_SETTINGS				\
-"netdev=eth0\0"						\
-"uboot=" __stringify(CONFIG_UBOOTPATH) "\0"				\
-"tftpflash=tftpboot $loadaddr $uboot; "			\
-	"protect off " __stringify(CONFIG_SYS_TEXT_BASE) " +$filesize; " \
-	"erase " __stringify(CONFIG_SYS_TEXT_BASE) " +$filesize; "	\
-	"cp.b $loadaddr " __stringify(CONFIG_SYS_TEXT_BASE) " $filesize; " \
-	"protect on " __stringify(CONFIG_SYS_TEXT_BASE) " +$filesize; "	\
-	"cmp.b $loadaddr " __stringify(CONFIG_SYS_TEXT_BASE) " $filesize\0" \
-"consoledev=ttyS0\0"				\
-"ramdiskaddr=2000000\0"			\
-"ramdiskfile=uRamdisk\0"			\
-"fdtaddr=1e00000\0"				\
-"fdtfile=sbc8548.dtb\0"
+ "netdev=eth0\0"						\
+ "uboot=" MK_STR(CONFIG_UBOOTPATH) "\0"				\
+ "tftpflash=tftpboot $loadaddr $uboot; "			\
+	"protect off " MK_STR(CONFIG_SYS_TEXT_BASE) " +$filesize; "	\
+	"erase " MK_STR(CONFIG_SYS_TEXT_BASE) " +$filesize; "		\
+	"cp.b $loadaddr " MK_STR(CONFIG_SYS_TEXT_BASE) " $filesize; "	\
+	"protect on " MK_STR(CONFIG_SYS_TEXT_BASE) " +$filesize; "		\
+	"cmp.b $loadaddr " MK_STR(CONFIG_SYS_TEXT_BASE) " $filesize\0"	\
+ "consoledev=ttyS0\0"				\
+ "ramdiskaddr=2000000\0"			\
+ "ramdiskfile=uRamdisk\0"			\
+ "fdtaddr=c00000\0"				\
+ "fdtfile=sbc8548.dtb\0"
 
 #define CONFIG_NFSBOOTCOMMAND						\
    "setenv bootargs root=/dev/nfs rw "					\
@@ -606,6 +576,7 @@
    "tftp $loadaddr $bootfile;"						\
    "tftp $fdtaddr $fdtfile;"						\
    "bootm $loadaddr - $fdtaddr"
+
 
 #define CONFIG_RAMBOOTCOMMAND \
    "setenv bootargs root=/dev/ram rw "					\

@@ -13,7 +13,20 @@
  *	Tom Rushworth <tbr@lineo.com>,
  *	Bruce Balden <balden@lineo.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *
  */
 
 /* USB Descriptors - Create a complete description of all of the
@@ -175,6 +188,20 @@
 #define BMATTRIBUTE_RESERVED		0x80
 #define BMATTRIBUTE_SELF_POWERED	0x40
 
+/* USB_DT_DEVICE_QUALIFIER: Device Qualifier descriptor */
+struct usb_qualifier_descriptor {
+	__u8  bLength;
+	__u8  bDescriptorType;
+
+	__le16 bcdUSB;
+	__u8  bDeviceClass;
+	__u8  bDeviceSubClass;
+	__u8  bDeviceProtocol;
+	__u8  bMaxPacketSize0;
+	__u8  bNumConfigurations;
+	__u8  bRESERVED;
+} __attribute__ ((packed));
+
 /*
  * standard usb descriptor structures
  */
@@ -227,21 +254,6 @@ struct usb_device_descriptor {
 	u8 iSerialNumber;
 	u8 bNumConfigurations;
 } __attribute__ ((packed));
-
-#if defined(CONFIG_USBD_HS)
-struct usb_qualifier_descriptor {
-	u8 bLength;
-	u8 bDescriptorType;
-
-	u16 bcdUSB;
-	u8 bDeviceClass;
-	u8 bDeviceSubClass;
-	u8 bDeviceProtocol;
-	u8 bMaxPacketSize0;
-	u8 bNumConfigurations;
-	u8 breserved;
-} __attribute__ ((packed));
-#endif
 
 struct usb_string_descriptor {
 	u8 bLength;

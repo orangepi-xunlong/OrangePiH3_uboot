@@ -3,7 +3,23 @@
  * Jeff Brown
  * Srikanth Srinivasan (srikanth.srinivasan@freescale.com)
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -364,7 +380,7 @@ static unsigned long strfractoint(char *strptr)
 {
 	int i, j;
 	int mulconst;
-	int no_dec = 0;
+	int intarr_len, no_dec = 0;
 	unsigned long intval = 0, decval = 0;
 	char intarr[3], decarr[3];
 
@@ -383,6 +399,8 @@ static unsigned long strfractoint(char *strptr)
 		i++;
 	}
 
+	/* Assign length of integer part to intarr_len. */
+	intarr_len = i;
 	intarr[i] = '\0';
 
 	if (no_dec) {
@@ -464,7 +482,6 @@ static int pixis_reset_cmd(cmd_tbl_t *cmdtp, int flag, int argc, char * const ar
 	    ||	unknown_param) {
 #ifdef CONFIG_SYS_LONGHELP
 		puts(cmdtp->help);
-		putc('\n');
 #endif
 		return 1;
 	}
@@ -497,7 +514,6 @@ static int pixis_reset_cmd(cmd_tbl_t *cmdtp, int flag, int argc, char * const ar
 		      && set_px_mpxpll(mpxpll))) {
 #ifdef CONFIG_SYS_LONGHELP
 			puts(cmdtp->help);
-			putc('\n');
 #endif
 			return 1;
 		}

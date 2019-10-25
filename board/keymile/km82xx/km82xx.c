@@ -2,7 +2,23 @@
  * (C) Copyright 2007 - 2008
  * Heiko Schocher, DENX Software Engineering, hs@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -11,11 +27,15 @@
 #include <malloc.h>
 #include <asm/io.h>
 
+#if defined(CONFIG_OF_BOARD_SETUP) && defined(CONFIG_OF_LIBFDT)
 #include <libfdt.h>
-#include <i2c.h>
-#include "../common/common.h"
+#endif
 
-static uchar ivm_content[CONFIG_SYS_IVM_EEPROM_MAX_LEN];
+#if defined(CONFIG_HARD_I2C) || defined(CONFIG_SOFT_I2C)
+#include <i2c.h>
+#endif
+
+#include "../common/common.h"
 
 /*
  * I/O Port configuration table
@@ -241,54 +261,6 @@ static long int try_init(memctl8260_t *memctl, ulong sdmr,
 	return size;
 }
 
-#ifdef CONFIG_SYS_SDRAM_LIST
-
-/*
- * If CONFIG_SYS_SDRAM_LIST is defined, we cycle through all SDRAM
- * configurations therein (should be from high to lower) to find the
- * one actually matching the current configuration.
- * CONFIG_SYS_PSDMR and CONFIG_SYS_OR1 will contain the base values which are
- * common among all possible configurations; values in CONFIG_SYS_SDRAM_LIST
- * (defined as the initialization value for the array of struct sdram_conf_s)
- * will then be ORed with such base values.
- */
-
-struct sdram_conf_s {
-	ulong size;
-	int or1;
-	int psdmr;
-};
-
-static struct sdram_conf_s sdram_conf[] = CONFIG_SYS_SDRAM_LIST;
-
-static long probe_sdram(memctl8260_t *memctl)
-{
-	int n = 0;
-	long psize = 0;
-
-	for (n = 0; n < ARRAY_SIZE(sdram_conf); psize = 0, n++) {
-		psize = try_init(memctl,
-			CONFIG_SYS_PSDMR | sdram_conf[n].psdmr,
-			CONFIG_SYS_OR1 | sdram_conf[n].or1,
-			(uchar *) CONFIG_SYS_SDRAM_BASE);
-		debug("Probing %ld bytes returned %ld\n",
-			sdram_conf[n].size, psize);
-		if (psize == sdram_conf[n].size)
-			break;
-	}
-	return psize;
-}
-
-#else /* CONFIG_SYS_SDRAM_LIST */
-
-static long probe_sdram(memctl8260_t *memctl)
-{
-	return try_init(memctl, CONFIG_SYS_PSDMR, CONFIG_SYS_OR1,
-					(uchar *) CONFIG_SYS_SDRAM_BASE);
-}
-#endif /* CONFIG_SYS_SDRAM_LIST */
-
-
 phys_size_t initdram(int board_type)
 {
 	immap_t *immap = (immap_t *) CONFIG_SYS_IMMR;
@@ -299,9 +271,12 @@ phys_size_t initdram(int board_type)
 	out_8(&memctl->memc_psrt, CONFIG_SYS_PSRT);
 	out_be16(&memctl->memc_mptpr, CONFIG_SYS_MPTPR);
 
+#ifndef CONFIG_SYS_RAMBOOT
 	/* 60x SDRAM setup:
 	 */
-	psize = probe_sdram(memctl);
+	psize = try_init(memctl, CONFIG_SYS_PSDMR, CONFIG_SYS_OR1,
+				  (uchar *) CONFIG_SYS_SDRAM_BASE);
+#endif /* CONFIG_SYS_RAMBOOT */
 
 	icache_enable();
 
@@ -329,8 +304,8 @@ int last_stage_init(void)
 
 	dip_switch = in_8(&base->mswitch);
 	dip_switch &= BFTICU_DIPSWITCH_MASK;
-	/* dip switch 'full reset' or 'db erase' or 'Local mgmt IP' or any */
-	if (dip_switch != 0) {
+	/* dip switch 'full reset' or 'db erase' */
+	if (dip_switch & 0x1 || dip_switch & 0x2) {
 		/* start bootloader */
 		puts("DIP:   Enabled\n");
 		setenv("actual_bank", "0");
@@ -340,7 +315,7 @@ int last_stage_init(void)
 }
 
 #ifdef CONFIG_MGCOGE3NE
-static void set_pin(int state, unsigned long mask, int port);
+static void set_pin(int state, unsigned long mask);
 
 /*
  * For mgcoge3ne boards, the mgcoge3un control is controlled from
@@ -348,28 +323,20 @@ static void set_pin(int state, unsigned long mask, int port);
  * will toggle once what forces the mgocge3un part to restart
  * immediately.
  */
-static void handle_mgcoge3un_reset(void)
+void handle_mgcoge3un_reset(void)
 {
 	char *bobcatreset = getenv("bobcatreset");
 	if (bobcatreset) {
 		if (strcmp(bobcatreset, "true") == 0) {
 			puts("Forcing bobcat reset\n");
-			set_pin(0, 0x00000004, 3); /* clear PD29 (reset arm) */
+			set_pin(0, 0x00000004);	/* clear PD29 to reset arm */
 			udelay(1000);
-			set_pin(1, 0x00000004, 3);
+			set_pin(1, 0x00000004);
 		} else
-			set_pin(1, 0x00000004, 3); /* don't reset arm */
+			set_pin(1, 0x00000004);	/* set PD29 to not reset arm */
 	}
 }
 #endif
-
-int ethernet_present(void)
-{
-	struct km_bec_fpga *base =
-		(struct km_bec_fpga *)CONFIG_SYS_KMBEC_FPGA_BASE;
-
-	return in_8(&base->bprth) & PIGGY_PRESENT;
-}
 
 /*
  * Early board initalization.
@@ -392,24 +359,18 @@ int board_early_init_r(void)
 	return 0;
 }
 
-int misc_init_r(void)
-{
-	ivm_read_eeprom(ivm_content, CONFIG_SYS_IVM_EEPROM_MAX_LEN);
-	return 0;
-}
-
 int hush_init_var(void)
 {
-	ivm_analyze_eeprom(ivm_content, CONFIG_SYS_IVM_EEPROM_MAX_LEN);
+	ivm_read_eeprom();
 	return 0;
 }
 
 #define SDA_MASK	0x00010000
 #define SCL_MASK	0x00020000
 
-static void set_pin(int state, unsigned long mask, int port)
+static void set_pin(int state, unsigned long mask)
 {
-	ioport_t *iop = ioport_addr((immap_t *)CONFIG_SYS_IMMR, port);
+	ioport_t *iop = ioport_addr((immap_t *)CONFIG_SYS_IMMR, 3);
 
 	if (state)
 		setbits_be32(&iop->pdat, mask);
@@ -419,9 +380,9 @@ static void set_pin(int state, unsigned long mask, int port)
 	setbits_be32(&iop->pdir, mask);
 }
 
-static int get_pin(unsigned long mask, int port)
+static int get_pin(unsigned long mask)
 {
-	ioport_t *iop = ioport_addr((immap_t *)CONFIG_SYS_IMMR, port);
+	ioport_t *iop = ioport_addr((immap_t *)CONFIG_SYS_IMMR, 3);
 
 	clrbits_be32(&iop->pdir, mask);
 	return 0 != (in_be32(&iop->pdat) & mask);
@@ -429,36 +390,42 @@ static int get_pin(unsigned long mask, int port)
 
 void set_sda(int state)
 {
-	set_pin(state, SDA_MASK, 3);
+	set_pin(state, SDA_MASK);
 }
 
 void set_scl(int state)
 {
-	set_pin(state, SCL_MASK, 3);
+	set_pin(state, SCL_MASK);
 }
 
 int get_sda(void)
 {
-	return get_pin(SDA_MASK, 3);
+	return get_pin(SDA_MASK);
 }
 
 int get_scl(void)
 {
-	return get_pin(SCL_MASK, 3);
+	return get_pin(SCL_MASK);
 }
 
-int ft_board_setup(void *blob, bd_t *bd)
+#if defined(CONFIG_HARD_I2C)
+static void setports(int gpio)
 {
-	ft_cpu_setup(blob, bd);
+	ioport_t *iop = ioport_addr((immap_t *)CONFIG_SYS_IMMR, 3);
 
-	return 0;
-}
-
-#if defined(CONFIG_MGCOGE3NE)
-int get_testpin(void)
-{
-	/* Testpin is Port C pin 29 - enable = low */
-	int testpin = !get_pin(0x00000004, 2);
-	return testpin;
+	if (gpio) {
+		clrbits_be32(&iop->ppar, (SDA_MASK | SCL_MASK));
+		clrbits_be32(&iop->podr, (SDA_MASK | SCL_MASK));
+	} else {
+		setbits_be32(&iop->ppar, (SDA_MASK | SCL_MASK));
+		clrbits_be32(&iop->pdir, (SDA_MASK | SCL_MASK));
+		setbits_be32(&iop->podr, (SDA_MASK | SCL_MASK));
+	}
 }
 #endif
+#if defined(CONFIG_OF_BOARD_SETUP) && defined(CONFIG_OF_LIBFDT)
+void ft_board_setup(void *blob, bd_t *bd)
+{
+	ft_cpu_setup(blob, bd);
+}
+#endif /* defined(CONFIG_OF_BOARD_SETUP) && defined(CONFIG_OF_LIBFDT) */

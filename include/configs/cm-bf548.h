@@ -1,5 +1,5 @@
 /*
- * U-Boot - Configuration file for cm-bf548 board
+ * U-boot - Configuration file for cm-bf548 board
  */
 
 #ifndef __CONFIG_CM_BF548_H__
@@ -7,11 +7,13 @@
 
 #include <asm/config-pre.h>
 
+
 /*
  * Processor Settings
  */
 #define CONFIG_BFIN_CPU             bf548-0.0
 #define CONFIG_BFIN_BOOT_MODE       BFIN_BOOT_PARA
+
 
 /*
  * Clock Settings
@@ -39,6 +41,7 @@
 /* Decrease core voltage */
 #define CONFIG_VR_CTL_VAL (VLEV_115 | GAIN_20 | FREQ_1000)
 
+
 /*
  * Memory Settings
  */
@@ -64,14 +67,19 @@
 #define CONFIG_SYS_MONITOR_LEN	(512 * 1024)
 #define CONFIG_SYS_MALLOC_LEN	(640 * 1024)
 
+
 /*
  * Network Settings
  */
 #define ADI_CMDS_NETWORK	1
+#define CONFIG_NET_MULTI
 #define CONFIG_SMC911X	1
 #define CONFIG_SMC911X_BASE	0x24000000
 #define CONFIG_SMC911X_16_BIT
 #define CONFIG_HOSTNAME		cm-bf548
+/* Uncomment next line to use fixed MAC address */
+/* #define CONFIG_ETHADDR	02:80:ad:24:31:91 */
+
 
 /*
  * Flash Settings
@@ -83,6 +91,7 @@
 #define CONFIG_SYS_MAX_FLASH_BANKS	1
 #define CONFIG_SYS_MAX_FLASH_SECT	259
 
+
 /*
  * Env Storage Settings
  */
@@ -92,11 +101,13 @@
 #define CONFIG_ENV_SIZE		0x8000
 #define CONFIG_ENV_IS_EMBEDDED_IN_LDR
 
+
 /*
  * I2C Settings
  */
-#define CONFIG_SYS_I2C
-#define CONFIG_SYS_I2C_ADI
+#define CONFIG_BFIN_TWI_I2C	1
+#define CONFIG_HARD_I2C		1
+
 
 /*
  * Misc Settings
@@ -108,13 +119,10 @@
 #define CONFIG_BOOTCOMMAND	"run flashboot"
 #define FLASHBOOT_ENV_SETTINGS	"flashboot=bootm 0x20040000\0"
 
-#define CONFIG_ADI_GPIO2
-
 #ifndef __ADSPBF542__
 /* Don't waste time transferring a logo over the UART */
 # if (CONFIG_BFIN_BOOT_MODE != BFIN_BOOT_UART)
 #  define CONFIG_VIDEO
-#  define EASYLOGO_HEADER <asm/bfin_logo_230x230_gzip.h>
 # endif
 # define CONFIG_DEB_DMA_URGENT
 #endif
@@ -125,6 +133,7 @@
 #define FLASH_START_POST_BLOCK 11       /* Should > = 11 */
 #define FLASH_END_POST_BLOCK   71       /* Should < = 71 */
 #endif
+
 
 /*
  * Pull in common ADI header for remaining command/environment setup

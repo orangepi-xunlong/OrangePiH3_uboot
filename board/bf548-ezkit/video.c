@@ -18,15 +18,11 @@
 #include <linux/types.h>
 #include <stdio_dev.h>
 
-#include <lzma/LzmaTypes.h>
-#include <lzma/LzmaDec.h>
-#include <lzma/LzmaTools.h>
-
 #define DMA_SIZE16	2
 
 #include <asm/mach-common/bits/eppi.h>
 
-#include EASYLOGO_HEADER
+#include <asm/bfin_logo_230x230.h>
 
 #define LCD_X_RES		480	/*Horizontal Resolution */
 #define LCD_Y_RES		272	/* Vertical Resolution */
@@ -281,6 +277,14 @@ static void dma_bitblit(void *dst, fastimage_t *logo, int x, int y)
 
 }
 
+void video_putc(const char c)
+{
+}
+
+void video_puts(const char *s)
+{
+}
+
 int drv_video_init(void)
 {
 	int error, devices = 1;
@@ -299,23 +303,13 @@ int drv_video_init(void)
 #ifdef EASYLOGO_ENABLE_GZIP
 	unsigned char *data = EASYLOGO_DECOMP_BUFFER;
 	unsigned long src_len = EASYLOGO_ENABLE_GZIP;
-	error = gunzip(data, bfin_logo.size, bfin_logo.data, &src_len);
-	bfin_logo.data = data;
-#elif defined(EASYLOGO_ENABLE_LZMA)
-	unsigned char *data = EASYLOGO_DECOMP_BUFFER;
-	SizeT lzma_len = bfin_logo.size;
-	error = lzmaBuffToBuffDecompress(data, &lzma_len,
-		bfin_logo.data, EASYLOGO_ENABLE_LZMA);
-	bfin_logo.data = data;
-#else
-	error = 0;
-#endif
-
-	if (error) {
+	if (gunzip(data, bfin_logo.size, bfin_logo.data, &src_len)) {
 		puts("Failed to decompress logo\n");
 		free(dst);
 		return -1;
 	}
+	bfin_logo.data = data;
+#endif
 
 	memset(dst + ACTIVE_VIDEO_MEM_OFFSET, bfin_logo.data[0], fbmem_size - ACTIVE_VIDEO_MEM_OFFSET);
 
@@ -328,6 +322,10 @@ int drv_video_init(void)
 	memset(&videodev, 0, sizeof(videodev));
 
 	strcpy(videodev.name, "video");
+	videodev.ext = DEV_EXT_VIDEO;	/* Video extensions */
+	videodev.flags = DEV_FLAGS_SYSTEM;	/* No Output */
+	videodev.putc = video_putc;	/* 'putc' function */
+	videodev.puts = video_puts;	/* 'puts' function */
 
 	error = stdio_register(&videodev);
 

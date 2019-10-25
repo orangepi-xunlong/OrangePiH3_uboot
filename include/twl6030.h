@@ -2,11 +2,24 @@
  * (C) Copyright 2010
  * Texas Instruments, <www.ti.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
-
-#ifndef TWL6030_H
-#define TWL6030_H
 
 #include <common.h>
 #include <i2c.h>
@@ -20,53 +33,16 @@
 #define TWL6030_CHIP_PWM	0x49
 
 /* Slave Address 0x48 */
-#define TWL6030_STS_HW_CONDITIONS	0x21
-
-#define TWL6030_STS_HW_CONDITIONS_PWRON	(1 << 0)
-
-#define TWL6030_PHOENIX_DEV_ON		0x25
-
-#define TWL6030_PHOENIX_APP_DEVOFF	(1 << 0)
-#define TWL6030_PHOENIX_CON_DEVOFF	(1 << 1)
-#define TWL6030_PHOENIX_MOD_DEVOFF	(1 << 2)
-
-#define TWL6030_PH_STS_BOOT		0x29
-
-#define TWL6030_PH_STS_BOOT0		(1 << 0)
-#define TWL6030_PH_STS_BOOT1		(1 << 1)
-#define TWL6030_PH_STS_BOOT2		(1 << 2)
-#define TWL6030_PH_STS_BOOT3		(1 << 3)
-
-#define TWL6030_VAUX1_CFG_STATE		0x86
-#define TWL6030_VAUX1_CFG_VOLTAGE	0x87
-#define TWL6030_VMMC_CFG_STATE		0x9A
-#define TWL6030_VMMC_CFG_VOLTAGE	0x9B
-#define TWL6030_VUSB_CFG_STATE		0xA2
-#define TWL6030_VUSB_CFG_VOLTAGE	0xA3
-
-#define TWL6030_CFG_GRP_P1		(1 << 0)
-#define TWL6030_CFG_STATE_ON		(1 << 0)
-#define TWL6030_CFG_STATE_P1		(TWL6030_CFG_GRP_P1 << 5)
-#define TWL6030_CFG_VOLTAGE_18		0x09
-#define TWL6030_CFG_VOLTAGE_28		0x13
-#define TWL6030_CFG_VOLTAGE_30		0x15
-#define TWL6030_CFG_VOLTAGE_33		0x18
+#define VUSB_CFG_STATE		0xA2
 
 #define MISC1			0xE4
 #define VAC_MEAS		(1 << 2)
 #define VBAT_MEAS		(1 << 1)
 #define BB_MEAS			(1 << 0)
 
-#define TWL6030_MISC2			0xE5
-#define TWL6030_MISC2_VUSB_IN_PMID	(1 << 3)
-#define TWL6030_MISC2_VUSB_IN_VSYS	(1 << 4)
+#define MISC2			0xE5
 
 /* Slave Address 0x49 */
-
-#define TWL6030_CONTROLLER_STAT1		0xE3
-
-#define TWL6030_CONTROLLER_STAT1_VAC_DET	(1 << 3)
-#define TWL6030_CONTROLLER_STAT1_VBUS_DET	(1 << 2)
 
 /* Battery CHARGER REGISTERS */
 #define CONTROLLER_INT_MASK	0xE0
@@ -145,77 +121,12 @@
 #define CTRL_P2_EOCP2	(1 << 1)
 #define CTRL_P2_BUSY	(1 << 0)
 
-#define TWL6032_CTRL_P1	0x36
-#define CTRL_P1_SP1	(1 << 3)
-
 #define GPCH0_LSB	0x57
 #define GPCH0_MSB	0x58
 
-#define TWL6032_GPCH0_LSB	0x3b
-
-#define TWL6032_GPSELECT_ISB	0x35
-
-#define USB_PRODUCT_ID_LSB	0x02
-
-#define TWL6030_GPADC_VBAT_CHNL	0x07
-#define TWL6032_GPADC_VBAT_CHNL	0x12
-
-#define TWL6030_GPADC_CTRL	0x2e
-#define TWL6032_GPADC_CTRL2	0x2f
-#define GPADC_CTRL2_CH18_SCALER_EN	(1 << 2)
-#define GPADC_CTRL_SCALER_DIV4		(1 << 3)
-
-#define TWL6030_VBAT_MULT	40 * 1000
-#define TWL6032_VBAT_MULT	25 * 1000
-
-#define TWL6030_VBAT_SHIFT	(10 + 3)
-#define TWL6032_VBAT_SHIFT	(12 + 2)
-
-enum twl603x_chip_type{
-	chip_TWL6030,
-	chip_TWL6032,
-	chip_TWL603X_cnt
-};
-
-struct twl6030_data{
-	u8 chip_type;
-	u8 adc_rbase;
-	u8 adc_ctrl;
-	u8 adc_enable;
-	int vbat_mult;
-	int vbat_shift;
-};
-
-/* Functions to read and write from TWL6030 */
-static inline int twl6030_i2c_write_u8(u8 chip_no, u8 reg, u8 val)
-{
-	return i2c_write(chip_no, reg, 1, &val, 1);
-}
-
-static inline int twl6030_i2c_read_u8(u8 chip_no, u8 reg, u8 *val)
-{
-	return i2c_read(chip_no, reg, 1, val, 1);
-}
-
-/*
- * Power
- */
-
-void twl6030_power_off(void);
 void twl6030_init_battery_charging(void);
 void twl6030_usb_device_settings(void);
 void twl6030_start_usb_charging(void);
 void twl6030_stop_usb_charging(void);
 int twl6030_get_battery_voltage(void);
 int twl6030_get_battery_current(void);
-void twl6030_power_mmc_init(int dev_index);
-
-/*
- * Input
- */
-
-int twl6030_input_power_button(void);
-int twl6030_input_charger(void);
-int twl6030_input_usb(void);
-
-#endif /* TWL6030_H */

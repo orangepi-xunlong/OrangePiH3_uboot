@@ -5,107 +5,89 @@
  * (C) Copyright 2007 Pengutronix, Sascha Hauer <s.hauer@pengutronix.de>
  * (C) Copyright 2007 Pengutronix, Juergen Beisert <j.beisert@pengutronix.de>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
 #include <malloc.h>
-#include <memalign.h>
 #include <net.h>
-#include <netdev.h>
 #include <miiphy.h>
 #include "fec_mxc.h"
 
 #include <asm/arch/clock.h>
 #include <asm/arch/imx-regs.h>
-#include <asm/imx-common/sys_proto.h>
 #include <asm/io.h>
 #include <asm/errno.h>
-#include <linux/compiler.h>
 
 DECLARE_GLOBAL_DATA_PTR;
-
-/*
- * Timeout the transfer after 5 mS. This is usually a bit more, since
- * the code in the tightloops this timeout is used in adds some overhead.
- */
-#define FEC_XFER_TIMEOUT	5000
-
-/*
- * The standard 32-byte DMA alignment does not work on mx6solox, which requires
- * 64-byte alignment in the DMA RX FEC buffer.
- * Introduce the FEC_DMA_RX_MINALIGN which can cover mx6solox needs and also
- * satisfies the alignment on other SoCs (32-bytes)
- */
-#define FEC_DMA_RX_MINALIGN	64
 
 #ifndef CONFIG_MII
 #error "CONFIG_MII has to be defined!"
 #endif
 
-#ifndef CONFIG_FEC_XCV_TYPE
-#define CONFIG_FEC_XCV_TYPE MII100
-#endif
-
-/*
- * The i.MX28 operates with packets in big endian. We need to swap them before
- * sending and after receiving.
- */
-#ifdef CONFIG_MX28
-#define CONFIG_FEC_MXC_SWAP_PACKET
-#endif
-
-#define RXDESC_PER_CACHELINE (ARCH_DMA_MINALIGN/sizeof(struct fec_bd))
-
-/* Check various alignment issues at compile time */
-#if ((ARCH_DMA_MINALIGN < 16) || (ARCH_DMA_MINALIGN % 16 != 0))
-#error "ARCH_DMA_MINALIGN must be multiple of 16!"
-#endif
-
-#if ((PKTALIGN < ARCH_DMA_MINALIGN) || \
-	(PKTALIGN % ARCH_DMA_MINALIGN != 0))
-#error "PKTALIGN must be multiple of ARCH_DMA_MINALIGN!"
-#endif
-
 #undef DEBUG
 
-#ifdef CONFIG_FEC_MXC_SWAP_PACKET
-static void swap_packet(uint32_t *packet, int length)
-{
-	int i;
+struct nbuf {
+	uint8_t data[1500];	/**< actual data */
+	int length;		/**< actual length */
+	int used;		/**< buffer in use or not */
+	uint8_t head[16];	/**< MAC header(6 + 6 + 2) + 2(aligned) */
+};
 
-	for (i = 0; i < DIV_ROUND_UP(length, 4); i++)
-		packet[i] = __swab32(packet[i]);
-}
-#endif
+struct fec_priv gfec = {
+	.eth       = (struct ethernet_regs *)IMX_FEC_BASE,
+	.xcv_type  = MII100,
+	.rbd_base  = NULL,
+	.rbd_index = 0,
+	.tbd_base  = NULL,
+	.tbd_index = 0,
+	.bd        = NULL,
+	.rdb_ptr   = NULL,
+	.base_ptr  = NULL,
+};
 
 /*
  * MII-interface related functions
  */
-static int fec_mdio_read(struct ethernet_regs *eth, uint8_t phyAddr,
-		uint8_t regAddr)
+static int fec_miiphy_read(const char *dev, uint8_t phyAddr, uint8_t regAddr,
+		uint16_t *retVal)
 {
+	struct eth_device *edev = eth_get_dev_by_name(dev);
+	struct fec_priv *fec = (struct fec_priv *)edev->priv;
+
 	uint32_t reg;		/* convenient holder for the PHY register */
 	uint32_t phy;		/* convenient holder for the PHY */
 	uint32_t start;
-	int val;
 
 	/*
 	 * reading from any PHY's register is done by properly
 	 * programming the FEC's MII data register.
 	 */
-	writel(FEC_IEVENT_MII, &eth->ievent);
+	writel(FEC_IEVENT_MII, &fec->eth->ievent);
 	reg = regAddr << FEC_MII_DATA_RA_SHIFT;
 	phy = phyAddr << FEC_MII_DATA_PA_SHIFT;
 
 	writel(FEC_MII_DATA_ST | FEC_MII_DATA_OP_RD | FEC_MII_DATA_TA |
-			phy | reg, &eth->mii_data);
+			phy | reg, &fec->eth->mii_data);
 
 	/*
 	 * wait for the related interrupt
 	 */
 	start = get_timer(0);
-	while (!(readl(&eth->ievent) & FEC_IEVENT_MII)) {
+	while (!(readl(&fec->eth->ievent) & FEC_IEVENT_MII)) {
 		if (get_timer(start) > (CONFIG_SYS_HZ / 1000)) {
 			printf("Read MDIO failed...\n");
 			return -1;
@@ -115,47 +97,34 @@ static int fec_mdio_read(struct ethernet_regs *eth, uint8_t phyAddr,
 	/*
 	 * clear mii interrupt bit
 	 */
-	writel(FEC_IEVENT_MII, &eth->ievent);
+	writel(FEC_IEVENT_MII, &fec->eth->ievent);
 
 	/*
 	 * it's now safe to read the PHY's register
 	 */
-	val = (unsigned short)readl(&eth->mii_data);
-	debug("%s: phy: %02x reg:%02x val:%#x\n", __func__, phyAddr,
-			regAddr, val);
-	return val;
+	*retVal = readl(&fec->eth->mii_data);
+	debug("fec_miiphy_read: phy: %02x reg:%02x val:%#x\n", phyAddr,
+			regAddr, *retVal);
+	return 0;
 }
 
-static void fec_mii_setspeed(struct ethernet_regs *eth)
+static void fec_mii_setspeed(struct fec_priv *fec)
 {
 	/*
 	 * Set MII_SPEED = (1/(mii_speed * 2)) * System Clock
 	 * and do not drop the Preamble.
-	 *
-	 * The i.MX28 and i.MX6 types have another field in the MSCR (aka
-	 * MII_SPEED) register that defines the MDIO output hold time. Earlier
-	 * versions are RAZ there, so just ignore the difference and write the
-	 * register always.
-	 * The minimal hold time according to IEE802.3 (clause 22) is 10 ns.
-	 * HOLDTIME + 1 is the number of clk cycles the fec is holding the
-	 * output.
-	 * The HOLDTIME bitfield takes values between 0 and 7 (inclusive).
-	 * Given that ceil(clkrate / 5000000) <= 64, the calculation for
-	 * holdtime cannot result in a value greater than 3.
 	 */
-	u32 pclk = imx_get_fecclk();
-	u32 speed = DIV_ROUND_UP(pclk, 5000000);
-	u32 hold = DIV_ROUND_UP(pclk, 100000000) - 1;
-#ifdef FEC_QUIRK_ENET_MAC
-	speed--;
-#endif
-	writel(speed << 1 | hold << 8, &eth->mii_speed);
-	debug("%s: mii_speed %08x\n", __func__, readl(&eth->mii_speed));
+	writel((((imx_get_fecclk() / 1000000) + 2) / 5) << 1,
+			&fec->eth->mii_speed);
+	debug("fec_init: mii_speed %#lx\n",
+			fec->eth->mii_speed);
 }
-
-static int fec_mdio_write(struct ethernet_regs *eth, uint8_t phyAddr,
-		uint8_t regAddr, uint16_t data)
+static int fec_miiphy_write(const char *dev, uint8_t phyAddr, uint8_t regAddr,
+		uint16_t data)
 {
+	struct eth_device *edev = eth_get_dev_by_name(dev);
+	struct fec_priv *fec = (struct fec_priv *)edev->priv;
+
 	uint32_t reg;		/* convenient holder for the PHY register */
 	uint32_t phy;		/* convenient holder for the PHY */
 	uint32_t start;
@@ -164,13 +133,13 @@ static int fec_mdio_write(struct ethernet_regs *eth, uint8_t phyAddr,
 	phy = phyAddr << FEC_MII_DATA_PA_SHIFT;
 
 	writel(FEC_MII_DATA_ST | FEC_MII_DATA_OP_WR |
-		FEC_MII_DATA_TA | phy | reg | data, &eth->mii_data);
+		FEC_MII_DATA_TA | phy | reg | data, &fec->eth->mii_data);
 
 	/*
 	 * wait for the MII interrupt
 	 */
 	start = get_timer(0);
-	while (!(readl(&eth->ievent) & FEC_IEVENT_MII)) {
+	while (!(readl(&fec->eth->ievent) & FEC_IEVENT_MII)) {
 		if (get_timer(start) > (CONFIG_SYS_HZ / 1000)) {
 			printf("Write MDIO failed...\n");
 			return -1;
@@ -180,66 +149,42 @@ static int fec_mdio_write(struct ethernet_regs *eth, uint8_t phyAddr,
 	/*
 	 * clear MII interrupt bit
 	 */
-	writel(FEC_IEVENT_MII, &eth->ievent);
-	debug("%s: phy: %02x reg:%02x val:%#x\n", __func__, phyAddr,
+	writel(FEC_IEVENT_MII, &fec->eth->ievent);
+	debug("fec_miiphy_write: phy: %02x reg:%02x val:%#x\n", phyAddr,
 			regAddr, data);
 
 	return 0;
 }
 
-static int fec_phy_read(struct mii_dev *bus, int phyAddr, int dev_addr,
-			int regAddr)
-{
-	return fec_mdio_read(bus->priv, phyAddr, regAddr);
-}
-
-static int fec_phy_write(struct mii_dev *bus, int phyAddr, int dev_addr,
-			 int regAddr, u16 data)
-{
-	return fec_mdio_write(bus->priv, phyAddr, regAddr, data);
-}
-
-#ifndef CONFIG_PHYLIB
 static int miiphy_restart_aneg(struct eth_device *dev)
 {
-	int ret = 0;
-#if !defined(CONFIG_FEC_MXC_NO_ANEG)
-	struct fec_priv *fec = (struct fec_priv *)dev->priv;
-	struct ethernet_regs *eth = fec->bus->priv;
-
 	/*
 	 * Wake up from sleep if necessary
 	 * Reset PHY, then delay 300ns
 	 */
 #ifdef CONFIG_MX27
-	fec_mdio_write(eth, fec->phy_id, MII_DCOUNTER, 0x00FF);
+	miiphy_write(dev->name, CONFIG_FEC_MXC_PHYADDR, MII_DCOUNTER, 0x00FF);
 #endif
-	fec_mdio_write(eth, fec->phy_id, MII_BMCR, BMCR_RESET);
+	miiphy_write(dev->name, CONFIG_FEC_MXC_PHYADDR, MII_BMCR,
+			BMCR_RESET);
 	udelay(1000);
 
 	/*
 	 * Set the auto-negotiation advertisement register bits
 	 */
-	fec_mdio_write(eth, fec->phy_id, MII_ADVERTISE,
+	miiphy_write(dev->name, CONFIG_FEC_MXC_PHYADDR, MII_ADVERTISE,
 			LPA_100FULL | LPA_100HALF | LPA_10FULL |
 			LPA_10HALF | PHY_ANLPAR_PSB_802_3);
-	fec_mdio_write(eth, fec->phy_id, MII_BMCR,
+	miiphy_write(dev->name, CONFIG_FEC_MXC_PHYADDR, MII_BMCR,
 			BMCR_ANENABLE | BMCR_ANRESTART);
 
-	if (fec->mii_postcall)
-		ret = fec->mii_postcall(fec->phy_id);
-
-#endif
-	return ret;
+	return 0;
 }
 
-#ifndef CONFIG_FEC_FIXED_SPEED
 static int miiphy_wait_aneg(struct eth_device *dev)
 {
 	uint32_t start;
-	int status;
-	struct fec_priv *fec = (struct fec_priv *)dev->priv;
-	struct ethernet_regs *eth = fec->bus->priv;
+	uint16_t status;
 
 	/*
 	 * Wait for AN completion
@@ -251,9 +196,9 @@ static int miiphy_wait_aneg(struct eth_device *dev)
 			return -1;
 		}
 
-		status = fec_mdio_read(eth, fec->phy_id, MII_BMSR);
-		if (status < 0) {
-			printf("%s: Autonegotiation failed. status: %d\n",
+		if (miiphy_read(dev->name, CONFIG_FEC_MXC_PHYADDR,
+					MII_BMSR, &status)) {
+			printf("%s: Autonegotiation failed. status: 0x%04x\n",
 					dev->name, status);
 			return -1;
 		}
@@ -261,12 +206,9 @@ static int miiphy_wait_aneg(struct eth_device *dev)
 
 	return 0;
 }
-#endif /* CONFIG_FEC_FIXED_SPEED */
-#endif
-
 static int fec_rx_task_enable(struct fec_priv *fec)
 {
-	writel(FEC_R_DES_ACTIVE_RDAR, &fec->eth->r_des_active);
+	writel(1 << 24, &fec->eth->r_des_active);
 	return 0;
 }
 
@@ -277,7 +219,7 @@ static int fec_rx_task_disable(struct fec_priv *fec)
 
 static int fec_tx_task_enable(struct fec_priv *fec)
 {
-	writel(FEC_X_DES_ACTIVE_TDAR, &fec->eth->x_des_active);
+	writel(1 << 24, &fec->eth->x_des_active);
 	return 0;
 }
 
@@ -290,37 +232,43 @@ static int fec_tx_task_disable(struct fec_priv *fec)
  * Initialize receive task's buffer descriptors
  * @param[in] fec all we know about the device yet
  * @param[in] count receive buffer count to be allocated
- * @param[in] dsize desired size of each receive buffer
+ * @param[in] size size of each receive buffer
  * @return 0 on success
  *
- * Init all RX descriptors to default values.
+ * For this task we need additional memory for the data buffers. And each
+ * data buffer requires some alignment. Thy must be aligned to a specific
+ * boundary each (DB_DATA_ALIGNMENT).
  */
-static void fec_rbd_init(struct fec_priv *fec, int count, int dsize)
+static int fec_rbd_init(struct fec_priv *fec, int count, int size)
 {
-	uint32_t size;
-	uint8_t *data;
-	int i;
+	int ix;
+	uint32_t p = 0;
 
-	/*
-	 * Reload the RX descriptors with default values and wipe
-	 * the RX buffers.
-	 */
-	size = roundup(dsize, ARCH_DMA_MINALIGN);
-	for (i = 0; i < count; i++) {
-		data = (uint8_t *)fec->rbd_base[i].data_pointer;
-		memset(data, 0, dsize);
-		flush_dcache_range((uint32_t)data, (uint32_t)data + size);
-
-		fec->rbd_base[i].status = FEC_RBD_EMPTY;
-		fec->rbd_base[i].data_length = 0;
+	/* reserve data memory and consider alignment */
+	if (fec->rdb_ptr == NULL)
+		fec->rdb_ptr = malloc(size * count + DB_DATA_ALIGNMENT);
+	p = (uint32_t)fec->rdb_ptr;
+	if (!p) {
+		puts("fec_mxc: not enough malloc memory\n");
+		return -ENOMEM;
 	}
+	memset((void *)p, 0, size * count + DB_DATA_ALIGNMENT);
+	p += DB_DATA_ALIGNMENT-1;
+	p &= ~(DB_DATA_ALIGNMENT-1);
 
-	/* Mark the last RBD to close the ring. */
-	fec->rbd_base[i - 1].status = FEC_RBD_WRAP | FEC_RBD_EMPTY;
+	for (ix = 0; ix < count; ix++) {
+		writel(p, &fec->rbd_base[ix].data_pointer);
+		p += size;
+		writew(FEC_RBD_EMPTY, &fec->rbd_base[ix].status);
+		writew(0, &fec->rbd_base[ix].data_length);
+	}
+	/*
+	 * mark the last RBD to close the ring
+	 */
+	writew(FEC_RBD_WRAP | FEC_RBD_EMPTY, &fec->rbd_base[ix - 1].status);
 	fec->rbd_index = 0;
 
-	flush_dcache_range((unsigned)fec->rbd_base,
-			   (unsigned)fec->rbd_base + size);
+	return 0;
 }
 
 /**
@@ -337,15 +285,9 @@ static void fec_rbd_init(struct fec_priv *fec, int count, int dsize)
  */
 static void fec_tbd_init(struct fec_priv *fec)
 {
-	unsigned addr = (unsigned)fec->tbd_base;
-	unsigned size = roundup(2 * sizeof(struct fec_bd),
-				ARCH_DMA_MINALIGN);
-
-	memset(fec->tbd_base, 0, size);
-	fec->tbd_base[0].status = 0;
-	fec->tbd_base[1].status = FEC_TBD_WRAP;
+	writew(0x0000, &fec->tbd_base[0].status);
+	writew(FEC_TBD_WRAP, &fec->tbd_base[1].status);
 	fec->tbd_index = 0;
-	flush_dcache_range(addr, addr + size);
 }
 
 /**
@@ -355,18 +297,23 @@ static void fec_tbd_init(struct fec_priv *fec)
  */
 static void fec_rbd_clean(int last, struct fec_bd *pRbd)
 {
-	unsigned short flags = FEC_RBD_EMPTY;
+	/*
+	 * Reset buffer descriptor as empty
+	 */
 	if (last)
-		flags |= FEC_RBD_WRAP;
-	writew(flags, &pRbd->status);
+		writew(FEC_RBD_WRAP | FEC_RBD_EMPTY, &pRbd->status);
+	else
+		writew(FEC_RBD_EMPTY, &pRbd->status);
+	/*
+	 * no data in it
+	 */
 	writew(0, &pRbd->data_length);
 }
 
-static int fec_get_hwaddr(struct eth_device *dev, int dev_id,
-						unsigned char *mac)
+static int fec_get_hwaddr(struct eth_device *dev, unsigned char *mac)
 {
-	imx_get_mac_from_fuse(dev_id, mac);
-	return !is_valid_ethaddr(mac);
+	imx_get_mac_from_fuse(mac);
+	return !is_valid_ether_addr(mac);
 }
 
 static int fec_set_hwaddr(struct eth_device *dev)
@@ -389,40 +336,6 @@ static int fec_set_hwaddr(struct eth_device *dev)
 	return 0;
 }
 
-/*
- * Do initial configuration of the FEC registers
- */
-static void fec_reg_setup(struct fec_priv *fec)
-{
-	uint32_t rcntrl;
-
-	/*
-	 * Set interrupt mask register
-	 */
-	writel(0x00000000, &fec->eth->imask);
-
-	/*
-	 * Clear FEC-Lite interrupt event register(IEVENT)
-	 */
-	writel(0xffffffff, &fec->eth->ievent);
-
-
-	/*
-	 * Set FEC-Lite receive control register(R_CNTRL):
-	 */
-
-	/* Start with frame length = 1518, common for all modes. */
-	rcntrl = PKTSIZE << FEC_RCNTRL_MAX_FL_SHIFT;
-	if (fec->xcv_type != SEVENWIRE)		/* xMII modes */
-		rcntrl |= FEC_RCNTRL_FCE | FEC_RCNTRL_MII_MODE;
-	if (fec->xcv_type == RGMII)
-		rcntrl |= FEC_RCNTRL_RGMII;
-	else if (fec->xcv_type == RMII)
-		rcntrl |= FEC_RCNTRL_RMII;
-
-	writel(rcntrl, &fec->eth->r_cntrl);
-}
-
 /**
  * Start the FEC engine
  * @param[in] dev Our device to handle
@@ -430,40 +343,18 @@ static void fec_reg_setup(struct fec_priv *fec)
 static int fec_open(struct eth_device *edev)
 {
 	struct fec_priv *fec = (struct fec_priv *)edev->priv;
-	int speed;
-	uint32_t addr, size;
-	int i;
 
 	debug("fec_open: fec_open(dev)\n");
 	/* full-duplex, heartbeat disabled */
 	writel(1 << 2, &fec->eth->x_cntrl);
 	fec->rbd_index = 0;
 
-	/* Invalidate all descriptors */
-	for (i = 0; i < FEC_RBD_NUM - 1; i++)
-		fec_rbd_clean(0, &fec->rbd_base[i]);
-	fec_rbd_clean(1, &fec->rbd_base[i]);
-
-	/* Flush the descriptors into RAM */
-	size = roundup(FEC_RBD_NUM * sizeof(struct fec_bd),
-			ARCH_DMA_MINALIGN);
-	addr = (uint32_t)fec->rbd_base;
-	flush_dcache_range(addr, addr + size);
-
-#ifdef FEC_QUIRK_ENET_MAC
-	/* Enable ENET HW endian SWAP */
-	writel(readl(&fec->eth->ecntrl) | FEC_ECNTRL_DBSWAP,
-		&fec->eth->ecntrl);
-	/* Enable ENET store and forward mode */
-	writel(readl(&fec->eth->x_wmrk) | FEC_X_WMRK_STRFWD,
-		&fec->eth->x_wmrk);
-#endif
 	/*
 	 * Enable FEC-Lite controller
 	 */
 	writel(readl(&fec->eth->ecntrl) | FEC_ECNTRL_ETHER_EN,
 		&fec->eth->ecntrl);
-#if defined(CONFIG_MX25) || defined(CONFIG_MX53) || defined(CONFIG_MX6SL)
+#if defined(CONFIG_MX25) || defined(CONFIG_MX53)
 	udelay(100);
 	/*
 	 * setup the MII gasket for RMII mode
@@ -492,39 +383,9 @@ static int fec_open(struct eth_device *edev)
 	}
 #endif
 
-#ifdef CONFIG_PHYLIB
-	{
-		/* Start up the PHY */
-		int ret = phy_startup(fec->phydev);
-
-		if (ret) {
-			printf("Could not initialize PHY %s\n",
-			       fec->phydev->dev->name);
-			return ret;
-		}
-		speed = fec->phydev->speed;
-	}
-#elif CONFIG_FEC_FIXED_SPEED
-	speed = CONFIG_FEC_FIXED_SPEED;
-#else
 	miiphy_wait_aneg(edev);
-	speed = miiphy_speed(edev->name, fec->phy_id);
-	miiphy_duplex(edev->name, fec->phy_id);
-#endif
-
-#ifdef FEC_QUIRK_ENET_MAC
-	{
-		u32 ecr = readl(&fec->eth->ecntrl) & ~FEC_ECNTRL_SPEED;
-		u32 rcr = readl(&fec->eth->r_cntrl) & ~FEC_RCNTRL_RMII_10T;
-		if (speed == _1000BASET)
-			ecr |= FEC_ECNTRL_SPEED;
-		else if (speed != _100BASET)
-			rcr |= FEC_RCNTRL_RMII_10T;
-		writel(ecr, &fec->eth->ecntrl);
-		writel(rcr, &fec->eth->r_cntrl);
-	}
-#endif
-	debug("%s:Speed=%i\n", __func__, speed);
+	miiphy_speed(edev->name, CONFIG_FEC_MXC_PHYADDR);
+	miiphy_duplex(edev->name, CONFIG_FEC_MXC_PHYADDR);
 
 	/*
 	 * Enable SmartDMA receive task
@@ -537,26 +398,63 @@ static int fec_open(struct eth_device *edev)
 
 static int fec_init(struct eth_device *dev, bd_t* bd)
 {
+	uint32_t base;
 	struct fec_priv *fec = (struct fec_priv *)dev->priv;
-	uint32_t mib_ptr = (uint32_t)&fec->eth->rmon_t_drop;
-	int i;
 
 	/* Initialize MAC address */
 	fec_set_hwaddr(dev);
 
 	/*
-	 * Setup transmit descriptors, there are two in total.
+	 * reserve memory for both buffer descriptor chains at once
+	 * Datasheet forces the startaddress of each chain is 16 byte
+	 * aligned
 	 */
-	fec_tbd_init(fec);
+	if (fec->base_ptr == NULL)
+		fec->base_ptr = malloc((2 + FEC_RBD_NUM) *
+				sizeof(struct fec_bd) + DB_ALIGNMENT);
+	base = (uint32_t)fec->base_ptr;
+	if (!base) {
+		puts("fec_mxc: not enough malloc memory\n");
+		return -ENOMEM;
+	}
+	memset((void *)base, 0, (2 + FEC_RBD_NUM) *
+			sizeof(struct fec_bd) + DB_ALIGNMENT);
+	base += (DB_ALIGNMENT-1);
+	base &= ~(DB_ALIGNMENT-1);
 
-	/* Setup receive descriptors. */
-	fec_rbd_init(fec, FEC_RBD_NUM, FEC_MAX_PKT_SIZE);
+	fec->rbd_base = (struct fec_bd *)base;
 
-	fec_reg_setup(fec);
+	base += FEC_RBD_NUM * sizeof(struct fec_bd);
 
-	if (fec->xcv_type != SEVENWIRE)
-		fec_mii_setspeed(fec->bus->priv);
+	fec->tbd_base = (struct fec_bd *)base;
 
+	/*
+	 * Set interrupt mask register
+	 */
+	writel(0x00000000, &fec->eth->imask);
+
+	/*
+	 * Clear FEC-Lite interrupt event register(IEVENT)
+	 */
+	writel(0xffffffff, &fec->eth->ievent);
+
+
+	/*
+	 * Set FEC-Lite receive control register(R_CNTRL):
+	 */
+	if (fec->xcv_type == SEVENWIRE) {
+		/*
+		 * Frame length=1518; 7-wire mode
+		 */
+		writel(0x05ee0020, &fec->eth->r_cntrl);	/* FIXME 0x05ee0000 */
+	} else {
+		/*
+		 * Frame length=1518; MII mode;
+		 */
+		writel(0x05ee0024, &fec->eth->r_cntrl);	/* FIXME 0x05ee0004 */
+
+		fec_mii_setspeed(fec);
+	}
 	/*
 	 * Set Opcode/Pause Duration Register
 	 */
@@ -569,25 +467,33 @@ static int fec_init(struct eth_device *dev, bd_t* bd)
 	writel(0x00000000, &fec->eth->gaddr2);
 
 
-	/* Do not access reserved register for i.MX6UL */
-	if (!is_mx6ul()) {
-		/* clear MIB RAM */
-		for (i = mib_ptr; i <= mib_ptr + 0xfc; i += 4)
-			writel(0, i);
+	/* clear MIB RAM */
+	long *mib_ptr = (long *)(IMX_FEC_BASE + 0x200);
+	while (mib_ptr <= (long *)(IMX_FEC_BASE + 0x2FC))
+		*mib_ptr++ = 0;
 
-		/* FIFO receive start register */
-		writel(0x520, &fec->eth->r_fstart);
-	}
+	/* FIFO receive start register */
+	writel(0x520, &fec->eth->r_fstart);
 
 	/* size and address of each buffer */
 	writel(FEC_MAX_PKT_SIZE, &fec->eth->emrbr);
 	writel((uint32_t)fec->tbd_base, &fec->eth->etdsr);
 	writel((uint32_t)fec->rbd_base, &fec->eth->erdsr);
 
-#ifndef CONFIG_PHYLIB
+	/*
+	 * Initialize RxBD/TxBD rings
+	 */
+	if (fec_rbd_init(fec, FEC_RBD_NUM, FEC_MAX_PKT_SIZE) < 0) {
+		free(fec->base_ptr);
+		fec->base_ptr = NULL;
+		return -ENOMEM;
+	}
+	fec_tbd_init(fec);
+
+
 	if (fec->xcv_type != SEVENWIRE)
 		miiphy_restart_aneg(dev);
-#endif
+
 	fec_open(dev);
 	return 0;
 }
@@ -598,7 +504,7 @@ static int fec_init(struct eth_device *dev, bd_t* bd)
  */
 static void fec_halt(struct eth_device *dev)
 {
-	struct fec_priv *fec = (struct fec_priv *)dev->priv;
+	struct fec_priv *fec = &gfec;
 	int counter = 0xffff;
 
 	/*
@@ -638,13 +544,9 @@ static void fec_halt(struct eth_device *dev)
  * @param[in] length Data count in bytes
  * @return 0 on success
  */
-static int fec_send(struct eth_device *dev, void *packet, int length)
+static int fec_send(struct eth_device *dev, volatile void* packet, int length)
 {
 	unsigned int status;
-	uint32_t size, end;
-	uint32_t addr;
-	int timeout = FEC_XFER_TIMEOUT;
-	int ret = 0;
 
 	/*
 	 * This routine transmits one frame.  This routine only accepts
@@ -661,22 +563,12 @@ static int fec_send(struct eth_device *dev, void *packet, int length)
 	}
 
 	/*
-	 * Setup the transmit buffer. We are always using the first buffer for
-	 * transmission, the second will be empty and only used to stop the DMA
-	 * engine. We also flush the packet to RAM here to avoid cache trouble.
+	 * Setup the transmit buffer
+	 * Note: We are always using the first buffer for transmission,
+	 * the second will be empty and only used to stop the DMA engine
 	 */
-#ifdef CONFIG_FEC_MXC_SWAP_PACKET
-	swap_packet((uint32_t *)packet, length);
-#endif
-
-	addr = (uint32_t)packet;
-	end = roundup(addr + length, ARCH_DMA_MINALIGN);
-	addr &= ~(ARCH_DMA_MINALIGN - 1);
-	flush_dcache_range(addr, end);
-
 	writew(length, &fec->tbd_base[fec->tbd_index].data_length);
-	writel(addr, &fec->tbd_base[fec->tbd_index].data_pointer);
-
+	writel((uint32_t)packet, &fec->tbd_base[fec->tbd_index].data_pointer);
 	/*
 	 * update BD's status now
 	 * This block:
@@ -690,92 +582,26 @@ static int fec_send(struct eth_device *dev, void *packet, int length)
 	writew(status, &fec->tbd_base[fec->tbd_index].status);
 
 	/*
-	 * Flush data cache. This code flushes both TX descriptors to RAM.
-	 * After this code, the descriptors will be safely in RAM and we
-	 * can start DMA.
-	 */
-	size = roundup(2 * sizeof(struct fec_bd), ARCH_DMA_MINALIGN);
-	addr = (uint32_t)fec->tbd_base;
-	flush_dcache_range(addr, addr + size);
-
-	/*
-	 * Below we read the DMA descriptor's last four bytes back from the
-	 * DRAM. This is important in order to make sure that all WRITE
-	 * operations on the bus that were triggered by previous cache FLUSH
-	 * have completed.
-	 *
-	 * Otherwise, on MX28, it is possible to observe a corruption of the
-	 * DMA descriptors. Please refer to schematic "Figure 1-2" in MX28RM
-	 * for the bus structure of MX28. The scenario is as follows:
-	 *
-	 * 1) ARM core triggers a series of WRITEs on the AHB_ARB2 bus going
-	 *    to DRAM due to flush_dcache_range()
-	 * 2) ARM core writes the FEC registers via AHB_ARB2
-	 * 3) FEC DMA starts reading/writing from/to DRAM via AHB_ARB3
-	 *
-	 * Note that 2) does sometimes finish before 1) due to reordering of
-	 * WRITE accesses on the AHB bus, therefore triggering 3) before the
-	 * DMA descriptor is fully written into DRAM. This results in occasional
-	 * corruption of the DMA descriptor.
-	 */
-	readl(addr + size - 4);
-
-	/*
 	 * Enable SmartDMA transmit task
 	 */
 	fec_tx_task_enable(fec);
 
 	/*
-	 * Wait until frame is sent. On each turn of the wait cycle, we must
-	 * invalidate data cache to see what's really in RAM. Also, we need
-	 * barrier here.
+	 * wait until frame is sent .
 	 */
-	while (--timeout) {
-		if (!(readl(&fec->eth->x_des_active) & FEC_X_DES_ACTIVE_TDAR))
-			break;
+	while (readw(&fec->tbd_base[fec->tbd_index].status) & FEC_TBD_READY) {
+		udelay(1);
 	}
-
-	if (!timeout) {
-		ret = -EINVAL;
-		goto out;
-	}
-
-	/*
-	 * The TDAR bit is cleared when the descriptors are all out from TX
-	 * but on mx6solox we noticed that the READY bit is still not cleared
-	 * right after TDAR.
-	 * These are two distinct signals, and in IC simulation, we found that
-	 * TDAR always gets cleared prior than the READY bit of last BD becomes
-	 * cleared.
-	 * In mx6solox, we use a later version of FEC IP. It looks like that
-	 * this intrinsic behaviour of TDAR bit has changed in this newer FEC
-	 * version.
-	 *
-	 * Fix this by polling the READY bit of BD after the TDAR polling,
-	 * which covers the mx6solox case and does not harm the other SoCs.
-	 */
-	timeout = FEC_XFER_TIMEOUT;
-	while (--timeout) {
-		invalidate_dcache_range(addr, addr + size);
-		if (!(readw(&fec->tbd_base[fec->tbd_index].status) &
-		    FEC_TBD_READY))
-			break;
-	}
-
-	if (!timeout)
-		ret = -EINVAL;
-
-out:
-	debug("fec_send: status 0x%x index %d ret %i\n",
+	debug("fec_send: status 0x%x index %d\n",
 			readw(&fec->tbd_base[fec->tbd_index].status),
-			fec->tbd_index, ret);
+			fec->tbd_index);
 	/* for next transmission use the other buffer */
 	if (fec->tbd_index)
 		fec->tbd_index = 0;
 	else
 		fec->tbd_index = 1;
 
-	return ret;
+	return 0;
 }
 
 /**
@@ -789,17 +615,16 @@ static int fec_recv(struct eth_device *dev)
 	struct fec_bd *rbd = &fec->rbd_base[fec->rbd_index];
 	unsigned long ievent;
 	int frame_length, len = 0;
+	struct nbuf *frame;
 	uint16_t bd_status;
-	uint32_t addr, size, end;
-	int i;
-	ALLOC_CACHE_ALIGN_BUFFER(uchar, buff, FEC_MAX_PKT_SIZE);
+	uchar buff[FEC_MAX_PKT_SIZE];
 
 	/*
 	 * Check if any critical events have happened
 	 */
 	ievent = readl(&fec->eth->ievent);
 	writel(ievent, &fec->eth->ievent);
-	debug("fec_recv: ievent 0x%lx\n", ievent);
+	debug("fec_recv: ievent 0x%x\n", ievent);
 	if (ievent & FEC_IEVENT_BABR) {
 		fec_halt(dev);
 		fec_init(dev, fec->bd);
@@ -822,23 +647,8 @@ static int fec_recv(struct eth_device *dev)
 	}
 
 	/*
-	 * Read the buffer status. Before the status can be read, the data cache
-	 * must be invalidated, because the data in RAM might have been changed
-	 * by DMA. The descriptors are properly aligned to cachelines so there's
-	 * no need to worry they'd overlap.
-	 *
-	 * WARNING: By invalidating the descriptor here, we also invalidate
-	 * the descriptors surrounding this one. Therefore we can NOT change the
-	 * contents of this descriptor nor the surrounding ones. The problem is
-	 * that in order to mark the descriptor as processed, we need to change
-	 * the descriptor. The solution is to mark the whole cache line when all
-	 * descriptors in the cache line are processed.
+	 * ensure reading the right buffer status
 	 */
-	addr = (uint32_t)rbd;
-	addr &= ~(ARCH_DMA_MINALIGN - 1);
-	size = roundup(sizeof(struct fec_bd), ARCH_DMA_MINALIGN);
-	invalidate_dcache_range(addr, addr + size);
-
 	bd_status = readw(&rbd->status);
 	debug("fec_recv: status 0x%x\n", bd_status);
 
@@ -848,48 +658,25 @@ static int fec_recv(struct eth_device *dev)
 			/*
 			 * Get buffer address and size
 			 */
-			addr = readl(&rbd->data_pointer);
+			frame = (struct nbuf *)readl(&rbd->data_pointer);
 			frame_length = readw(&rbd->data_length) - 4;
-			/*
-			 * Invalidate data cache over the buffer
-			 */
-			end = roundup(addr + frame_length, ARCH_DMA_MINALIGN);
-			addr &= ~(ARCH_DMA_MINALIGN - 1);
-			invalidate_dcache_range(addr, end);
-
 			/*
 			 *  Fill the buffer and pass it to upper layers
 			 */
-#ifdef CONFIG_FEC_MXC_SWAP_PACKET
-			swap_packet((uint32_t *)addr, frame_length);
-#endif
-			memcpy(buff, (char *)addr, frame_length);
-			net_process_received_packet(buff, frame_length);
+			memcpy(buff, frame->data, frame_length);
+			NetReceive(buff, frame_length);
 			len = frame_length;
 		} else {
 			if (bd_status & FEC_RBD_ERR)
-				printf("error frame: 0x%08x 0x%08x\n",
-				       addr, bd_status);
+				printf("error frame: 0x%08lx 0x%08x\n",
+						(ulong)rbd->data_pointer,
+						bd_status);
 		}
-
 		/*
-		 * Free the current buffer, restart the engine and move forward
-		 * to the next buffer. Here we check if the whole cacheline of
-		 * descriptors was already processed and if so, we mark it free
-		 * as whole.
+		 * free the current buffer, restart the engine
+		 * and move forward to the next buffer
 		 */
-		size = RXDESC_PER_CACHELINE - 1;
-		if ((fec->rbd_index & size) == size) {
-			i = fec->rbd_index - size;
-			addr = (uint32_t)&fec->rbd_base[i];
-			for (; i <= fec->rbd_index ; i++) {
-				fec_rbd_clean(i == (FEC_RBD_NUM - 1),
-					      &fec->rbd_base[i]);
-			}
-			flush_dcache_range(addr,
-				addr + ARCH_DMA_MINALIGN);
-		}
-
+		fec_rbd_clean(fec->rbd_index == (FEC_RBD_NUM - 1) ? 1 : 0, rbd);
 		fec_rx_task_enable(fec);
 		fec->rbd_index = (fec->rbd_index + 1) % FEC_RBD_NUM;
 	}
@@ -898,115 +685,19 @@ static int fec_recv(struct eth_device *dev)
 	return len;
 }
 
-static void fec_set_dev_name(char *dest, int dev_id)
-{
-	sprintf(dest, (dev_id == -1) ? "FEC" : "FEC%i", dev_id);
-}
-
-static int fec_alloc_descs(struct fec_priv *fec)
-{
-	unsigned int size;
-	int i;
-	uint8_t *data;
-
-	/* Allocate TX descriptors. */
-	size = roundup(2 * sizeof(struct fec_bd), ARCH_DMA_MINALIGN);
-	fec->tbd_base = memalign(ARCH_DMA_MINALIGN, size);
-	if (!fec->tbd_base)
-		goto err_tx;
-
-	/* Allocate RX descriptors. */
-	size = roundup(FEC_RBD_NUM * sizeof(struct fec_bd), ARCH_DMA_MINALIGN);
-	fec->rbd_base = memalign(ARCH_DMA_MINALIGN, size);
-	if (!fec->rbd_base)
-		goto err_rx;
-
-	memset(fec->rbd_base, 0, size);
-
-	/* Allocate RX buffers. */
-
-	/* Maximum RX buffer size. */
-	size = roundup(FEC_MAX_PKT_SIZE, FEC_DMA_RX_MINALIGN);
-	for (i = 0; i < FEC_RBD_NUM; i++) {
-		data = memalign(FEC_DMA_RX_MINALIGN, size);
-		if (!data) {
-			printf("%s: error allocating rxbuf %d\n", __func__, i);
-			goto err_ring;
-		}
-
-		memset(data, 0, size);
-
-		fec->rbd_base[i].data_pointer = (uint32_t)data;
-		fec->rbd_base[i].status = FEC_RBD_EMPTY;
-		fec->rbd_base[i].data_length = 0;
-		/* Flush the buffer to memory. */
-		flush_dcache_range((uint32_t)data, (uint32_t)data + size);
-	}
-
-	/* Mark the last RBD to close the ring. */
-	fec->rbd_base[i - 1].status = FEC_RBD_WRAP | FEC_RBD_EMPTY;
-
-	fec->rbd_index = 0;
-	fec->tbd_index = 0;
-
-	return 0;
-
-err_ring:
-	for (; i >= 0; i--)
-		free((void *)fec->rbd_base[i].data_pointer);
-	free(fec->rbd_base);
-err_rx:
-	free(fec->tbd_base);
-err_tx:
-	return -ENOMEM;
-}
-
-static void fec_free_descs(struct fec_priv *fec)
-{
-	int i;
-
-	for (i = 0; i < FEC_RBD_NUM; i++)
-		free((void *)fec->rbd_base[i].data_pointer);
-	free(fec->rbd_base);
-	free(fec->tbd_base);
-}
-
-#ifdef CONFIG_PHYLIB
-int fec_probe(bd_t *bd, int dev_id, uint32_t base_addr,
-		struct mii_dev *bus, struct phy_device *phydev)
-#else
-static int fec_probe(bd_t *bd, int dev_id, uint32_t base_addr,
-		struct mii_dev *bus, int phy_id)
-#endif
+static int fec_probe(bd_t *bd)
 {
 	struct eth_device *edev;
-	struct fec_priv *fec;
+	struct fec_priv *fec = &gfec;
 	unsigned char ethaddr[6];
-	uint32_t start;
-	int ret = 0;
 
 	/* create and fill edev struct */
 	edev = (struct eth_device *)malloc(sizeof(struct eth_device));
 	if (!edev) {
-		puts("fec_mxc: not enough malloc memory for eth_device\n");
-		ret = -ENOMEM;
-		goto err1;
+		puts("fec_mxc: not enough malloc memory\n");
+		return -ENOMEM;
 	}
-
-	fec = (struct fec_priv *)malloc(sizeof(struct fec_priv));
-	if (!fec) {
-		puts("fec_mxc: not enough malloc memory for fec_priv\n");
-		ret = -ENOMEM;
-		goto err2;
-	}
-
 	memset(edev, 0, sizeof(*edev));
-	memset(fec, 0, sizeof(*fec));
-
-	ret = fec_alloc_descs(fec);
-	if (ret)
-		goto err3;
-
 	edev->priv = fec;
 	edev->init = fec_init;
 	edev->send = fec_send;
@@ -1014,136 +705,55 @@ static int fec_probe(bd_t *bd, int dev_id, uint32_t base_addr,
 	edev->halt = fec_halt;
 	edev->write_hwaddr = fec_set_hwaddr;
 
-	fec->eth = (struct ethernet_regs *)base_addr;
+	fec->eth = (struct ethernet_regs *)IMX_FEC_BASE;
 	fec->bd = bd;
 
-	fec->xcv_type = CONFIG_FEC_XCV_TYPE;
+	fec->xcv_type = MII100;
 
 	/* Reset chip. */
 	writel(readl(&fec->eth->ecntrl) | FEC_ECNTRL_RESET, &fec->eth->ecntrl);
-	start = get_timer(0);
-	while (readl(&fec->eth->ecntrl) & FEC_ECNTRL_RESET) {
-		if (get_timer(start) > (CONFIG_SYS_HZ * 5)) {
-			printf("FEC MXC: Timeout reseting chip\n");
-			goto err4;
-		}
+	while (readl(&fec->eth->ecntrl) & 1)
 		udelay(10);
-	}
 
-	fec_reg_setup(fec);
-	fec_set_dev_name(edev->name, dev_id);
-	fec->dev_id = (dev_id == -1) ? 0 : dev_id;
-	fec->bus = bus;
-	fec_mii_setspeed(bus->priv);
-#ifdef CONFIG_PHYLIB
-	fec->phydev = phydev;
-	phy_connect_dev(phydev, edev);
-	/* Configure phy */
-	phy_config(phydev);
-#else
-	fec->phy_id = phy_id;
-#endif
+	/*
+	 * Set interrupt mask register
+	 */
+	writel(0x00000000, &fec->eth->imask);
+
+	/*
+	 * Clear FEC-Lite interrupt event register(IEVENT)
+	 */
+	writel(0xffffffff, &fec->eth->ievent);
+
+	/*
+	 * Set FEC-Lite receive control register(R_CNTRL):
+	 */
+	/*
+	 * Frame length=1518; MII mode;
+	 */
+	writel(0x05ee0024, &fec->eth->r_cntrl);	/* FIXME 0x05ee0004 */
+	fec_mii_setspeed(fec);
+
+	sprintf(edev->name, "FEC");
+
+	miiphy_register(edev->name, fec_miiphy_read, fec_miiphy_write);
+
 	eth_register(edev);
 
-	if (fec_get_hwaddr(edev, dev_id, ethaddr) == 0) {
-		debug("got MAC%d address from fuse: %pM\n", dev_id, ethaddr);
+	if (fec_get_hwaddr(edev, ethaddr) == 0) {
+		printf("got MAC address from fuse: %pM\n", ethaddr);
 		memcpy(edev->enetaddr, ethaddr, 6);
-		if (!getenv("ethaddr"))
-			eth_setenv_enetaddr("ethaddr", ethaddr);
 	}
-	return ret;
-err4:
-	fec_free_descs(fec);
-err3:
-	free(fec);
-err2:
-	free(edev);
-err1:
-	return ret;
-}
 
-struct mii_dev *fec_get_miibus(uint32_t base_addr, int dev_id)
-{
-	struct ethernet_regs *eth = (struct ethernet_regs *)base_addr;
-	struct mii_dev *bus;
-	int ret;
-
-	bus = mdio_alloc();
-	if (!bus) {
-		printf("mdio_alloc failed\n");
-		return NULL;
-	}
-	bus->read = fec_phy_read;
-	bus->write = fec_phy_write;
-	bus->priv = eth;
-	fec_set_dev_name(bus->name, dev_id);
-
-	ret = mdio_register(bus);
-	if (ret) {
-		printf("mdio_register failed\n");
-		free(bus);
-		return NULL;
-	}
-	fec_mii_setspeed(eth);
-	return bus;
-}
-
-int fecmxc_initialize_multi(bd_t *bd, int dev_id, int phy_id, uint32_t addr)
-{
-	uint32_t base_mii;
-	struct mii_dev *bus = NULL;
-#ifdef CONFIG_PHYLIB
-	struct phy_device *phydev = NULL;
-#endif
-	int ret;
-
-#ifdef CONFIG_MX28
-	/*
-	 * The i.MX28 has two ethernet interfaces, but they are not equal.
-	 * Only the first one can access the MDIO bus.
-	 */
-	base_mii = MXS_ENET0_BASE;
-#else
-	base_mii = addr;
-#endif
-	debug("eth_init: fec_probe(bd, %i, %i) @ %08x\n", dev_id, phy_id, addr);
-	bus = fec_get_miibus(base_mii, dev_id);
-	if (!bus)
-		return -ENOMEM;
-#ifdef CONFIG_PHYLIB
-	phydev = phy_find_by_mask(bus, 1 << phy_id, PHY_INTERFACE_MODE_RGMII);
-	if (!phydev) {
-		mdio_unregister(bus);
-		free(bus);
-		return -ENOMEM;
-	}
-	ret = fec_probe(bd, dev_id, addr, bus, phydev);
-#else
-	ret = fec_probe(bd, dev_id, addr, bus, phy_id);
-#endif
-	if (ret) {
-#ifdef CONFIG_PHYLIB
-		free(phydev);
-#endif
-		mdio_unregister(bus);
-		free(bus);
-	}
-	return ret;
-}
-
-#ifdef CONFIG_FEC_MXC_PHYADDR
-int fecmxc_initialize(bd_t *bd)
-{
-	return fecmxc_initialize_multi(bd, -1, CONFIG_FEC_MXC_PHYADDR,
-			IMX_FEC_BASE);
-}
-#endif
-
-#ifndef CONFIG_PHYLIB
-int fecmxc_register_mii_postcall(struct eth_device *dev, int (*cb)(int))
-{
-	struct fec_priv *fec = (struct fec_priv *)dev->priv;
-	fec->mii_postcall = cb;
 	return 0;
 }
-#endif
+
+int fecmxc_initialize(bd_t *bd)
+{
+	int lout = 1;
+
+	debug("eth_init: fec_probe(bd)\n");
+	lout = fec_probe(bd);
+
+	return lout;
+}

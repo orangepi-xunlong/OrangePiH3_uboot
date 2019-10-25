@@ -12,7 +12,20 @@
  * (C) Copyright 2006-2007
  * Stefan Roese, DENX Software Engineering, sr@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /* define DEBUG for debugging output (obviously ;-)) */
@@ -304,7 +317,7 @@ void denali_core_search_data_eye(void)
 	val = (mfdcr(ddrcfgd) & ~DDR0_09_WR_DQS_SHIFT_MASK)
 	    | DDR0_09_WR_DQS_SHIFT_ENCODE(wr_dqs_shift);
 	mtdcr(ddrcfgd, val);
-	debug("DDR0_09=0x%08x\n", val);
+	debug("DDR0_09=0x%08lx\n", val);
 
 	/* -----------------------------------------------------------+
 	 * Set 'dqs_out_shift' = wr_dqs_shift + 32
@@ -314,7 +327,7 @@ void denali_core_search_data_eye(void)
 	val = (mfdcr(ddrcfgd) & ~DDR0_22_DQS_OUT_SHIFT_MASK)
 	    | DDR0_22_DQS_OUT_SHIFT_ENCODE(dqs_out_shift);
 	mtdcr(ddrcfgd, val);
-	debug("DDR0_22=0x%08x\n", val);
+	debug("DDR0_22=0x%08lx\n", val);
 
 	/* -----------------------------------------------------------+
 	 * Set 'dll_dqs_delay_X'.
@@ -324,7 +337,7 @@ void denali_core_search_data_eye(void)
 	val = (mfdcr(ddrcfgd) & ~DDR0_17_DLL_DQS_DELAY_0_MASK)
 	    | DDR0_17_DLL_DQS_DELAY_0_ENCODE(dll_dqs_delay_X);
 	mtdcr(ddrcfgd, val);
-	debug("DDR0_17=0x%08x\n", val);
+	debug("DDR0_17=0x%08lx\n", val);
 
 	/* dll_dqs_delay_1 to dll_dqs_delay_4 */
 	mtdcr(ddrcfga, DDR0_18);
@@ -334,7 +347,7 @@ void denali_core_search_data_eye(void)
 	    | DDR0_18_DLL_DQS_DELAY_2_ENCODE(dll_dqs_delay_X)
 	    | DDR0_18_DLL_DQS_DELAY_1_ENCODE(dll_dqs_delay_X);
 	mtdcr(ddrcfgd, val);
-	debug("DDR0_18=0x%08x\n", val);
+	debug("DDR0_18=0x%08lx\n", val);
 
 	/* dll_dqs_delay_5 to dll_dqs_delay_8 */
 	mtdcr(ddrcfga, DDR0_19);
@@ -344,7 +357,7 @@ void denali_core_search_data_eye(void)
 	    | DDR0_19_DLL_DQS_DELAY_6_ENCODE(dll_dqs_delay_X)
 	    | DDR0_19_DLL_DQS_DELAY_5_ENCODE(dll_dqs_delay_X);
 	mtdcr(ddrcfgd, val);
-	debug("DDR0_19=0x%08x\n", val);
+	debug("DDR0_19=0x%08lx\n", val);
 
 	/* -----------------------------------------------------------+
 	 * Assert 'start' parameter.

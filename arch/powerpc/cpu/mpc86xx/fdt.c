@@ -1,7 +1,9 @@
 /*
  * Copyright 2008, 2011 Freescale Semiconductor, Inc.
  *
- * SPDX-License-Identifier:	GPL-2.0
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * Version 2 as published by the Free Software Foundation.
  */
 
 #include <common.h>
@@ -18,7 +20,7 @@ void ft_cpu_setup(void *blob, bd_t *bd)
 {
 #ifdef CONFIG_MP
 	int off;
-	u32 bootpg = determine_mp_bootpg(NULL);
+	u32 bootpg = determine_mp_bootpg();
 #endif
 
 	do_fixup_by_prop_u32(blob, "device_type", "cpu", 4,
@@ -32,10 +34,10 @@ void ft_cpu_setup(void *blob, bd_t *bd)
 
 #if defined(CONFIG_MPC8641)
 	do_fixup_by_compat_u32(blob, "fsl,mpc8641-localbus",
-			       "bus-frequency", gd->arch.lbc_clk, 1);
+			       "bus-frequency", gd->lbc_clk, 1);
 #endif
 	do_fixup_by_compat_u32(blob, "fsl,elbc",
-			       "bus-frequency", gd->arch.lbc_clk, 1);
+			       "bus-frequency", gd->lbc_clk, 1);
 
 	fdt_fixup_memory(blob, (u64)bd->bi_memstart, (u64)bd->bi_memsize);
 

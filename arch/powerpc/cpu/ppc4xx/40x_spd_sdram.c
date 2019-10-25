@@ -23,7 +23,23 @@
  * (C) Copyright 2005
  * Stefan Roese, DENX Software Engineering, sr@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -36,6 +52,10 @@
 /*
  * Set default values
  */
+#ifndef CONFIG_SYS_I2C_SPEED
+#define CONFIG_SYS_I2C_SPEED	50000
+#endif
+
 #define ONE_BILLION	1000000000
 
 #define	 SDRAM0_CFG_DCE		0x80000000
@@ -96,24 +116,25 @@ long int spd_sdram(int(read_spd)(uint addr))
 {
 	int tmp,row,col;
 	int total_size,bank_size,bank_code;
+	int ecc_on;
 	int mode;
 	int bank_cnt;
 
 	int sdram0_pmit=0x07c00000;
-	int sdram0_b0cr;
-	int sdram0_b1cr = 0;
 #ifndef CONFIG_405EP /* not on PPC405EP */
-	int sdram0_b2cr = 0;
-	int sdram0_b3cr = 0;
 	int sdram0_besr0 = -1;
 	int sdram0_besr1 = -1;
 	int sdram0_eccesr = -1;
-	int sdram0_ecccfg;
-	int ecc_on;
 #endif
+	int sdram0_ecccfg;
 
 	int sdram0_rtr=0;
 	int sdram0_tr=0;
+
+	int sdram0_b0cr;
+	int sdram0_b1cr;
+	int sdram0_b2cr;
+	int sdram0_b3cr;
 
 	int sdram0_cfg=0;
 
@@ -138,7 +159,7 @@ long int spd_sdram(int(read_spd)(uint addr))
 		 * Make sure I2C controller is initialized
 		 * before continuing.
 		 */
-		i2c_set_bus_num(CONFIG_SYS_SPD_BUS_NUM);
+		i2c_init(CONFIG_SYS_I2C_SPEED, CONFIG_SYS_I2C_SLAVE);
 	}
 
 	/* Make shure we are using SDRAM */
@@ -274,7 +295,6 @@ long int spd_sdram(int(read_spd)(uint addr))
 	if (bank_cnt > 4)	/* we only have 4 banks to work with */
 		SPD_ERR("SDRAM - unsupported module rows for this width\n");
 
-#ifndef CONFIG_405EP /* not on PPC405EP */
 	/* now check for ECC ability of module. We only support ECC
 	 *   on 32 bit wide devices with 8 bit ECC.
 	 */
@@ -285,7 +305,6 @@ long int spd_sdram(int(read_spd)(uint addr))
 		sdram0_ecccfg = 0;
 		ecc_on = 0;
 	}
-#endif
 
 	/*------------------------------------------------------------------
 	 * calculate total size
@@ -359,6 +378,9 @@ long int spd_sdram(int(read_spd)(uint addr))
 	 * using the calculated values, compute the bank
 	 * config register values.
 	 * -------------------------------------------------------------------*/
+	sdram0_b1cr = 0;
+	sdram0_b2cr = 0;
+	sdram0_b3cr = 0;
 
 	/* compute the size of each bank */
 	bank_size = total_size / bank_cnt;
@@ -422,10 +444,8 @@ long int spd_sdram(int(read_spd)(uint addr))
 	/* SDRAM have a power on delay,	 500 micro should do */
 	udelay(500);
 	sdram0_cfg = SDRAM0_CFG_DCE | SDRAM0_CFG_BRPF(1) | SDRAM0_CFG_ECCDD | SDRAM0_CFG_EMDULR;
-#ifndef CONFIG_405EP /* not on PPC405EP */
 	if (ecc_on)
 		sdram0_cfg |= SDRAM0_CFG_MEMCHK;
-#endif
 	mtsdram(SDRAM0_CFG, sdram0_cfg);
 
 	return (total_size);

@@ -4,7 +4,23 @@
  *
  * Copyright 2007-2008,2010-2011 Freescale Semiconductor, Inc
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
+ *-------------------------------------------------------------------
+ *
  */
 
 #ifndef  __FSL_ESDHC_H__
@@ -13,33 +29,17 @@
 #include <asm/errno.h>
 #include <asm/byteorder.h>
 
-/* needed for the mmc_cfg definition */
-#include <mmc.h>
-
-#ifdef CONFIG_FSL_ESDHC_ADAPTER_IDENT
-#include "../board/freescale/common/qixis.h"
-#endif
-
 /* FSL eSDHC-specific constants */
 #define SYSCTL			0x0002e02c
 #define SYSCTL_INITA		0x08000000
 #define SYSCTL_TIMEOUT_MASK	0x000f0000
 #define SYSCTL_CLOCK_MASK	0x0000fff0
-#if !defined(CONFIG_FSL_USDHC)
+#define SYSCTL_RSTA		0x01000000
 #define SYSCTL_CKEN		0x00000008
 #define SYSCTL_PEREN		0x00000004
 #define SYSCTL_HCKEN		0x00000002
 #define SYSCTL_IPGEN		0x00000001
-#endif
 #define SYSCTL_RSTA		0x01000000
-#define SYSCTL_RSTC		0x02000000
-#define SYSCTL_RSTD		0x04000000
-
-#define VENDORSPEC_CKEN		0x00004000
-#define VENDORSPEC_PEREN	0x00002000
-#define VENDORSPEC_HCKEN	0x00001000
-#define VENDORSPEC_IPGEN	0x00000800
-#define VENDORSPEC_INIT		0x20007809
 
 #define IRQSTAT			0x0002e030
 #define IRQSTAT_DMAE		(0x10000000)
@@ -62,9 +62,7 @@
 #define IRQSTAT_CC		(0x00000001)
 
 #define CMD_ERR		(IRQSTAT_CIE | IRQSTAT_CEBE | IRQSTAT_CCE)
-#define DATA_ERR	(IRQSTAT_DEBE | IRQSTAT_DCE | IRQSTAT_DTOE | \
-				IRQSTAT_DMAE)
-#define DATA_COMPLETE	(IRQSTAT_TC | IRQSTAT_DINT)
+#define DATA_ERR	(IRQSTAT_DEBE | IRQSTAT_DCE | IRQSTAT_DTOE)
 
 #define IRQSTATEN		0x0002e034
 #define IRQSTATEN_DMAE		(0x10000000)
@@ -86,18 +84,13 @@
 #define IRQSTATEN_TC		(0x00000002)
 #define IRQSTATEN_CC		(0x00000001)
 
-#define ESDHCCTL		0x0002e40c
-#define ESDHCCTL_PCS		(0x00080000)
-
 #define PRSSTAT			0x0002e024
-#define PRSSTAT_DAT0		(0x01000000)
 #define PRSSTAT_CLSL		(0x00800000)
 #define PRSSTAT_WPSPL		(0x00080000)
 #define PRSSTAT_CDPL		(0x00040000)
 #define PRSSTAT_CINS		(0x00010000)
 #define PRSSTAT_BREN		(0x00000800)
 #define PRSSTAT_BWEN		(0x00000400)
-#define PRSSTAT_SDSTB		(0X00000008)
 #define PRSSTAT_DLA		(0x00000004)
 #define PRSSTAT_CICHB		(0x00000002)
 #define PRSSTAT_CIDHB		(0x00000001)
@@ -124,7 +117,6 @@
 #define XFERTYP_RSPTYP_48_BUSY	0x00030000
 #define XFERTYP_MSBSEL		0x00000020
 #define XFERTYP_DTDSEL		0x00000010
-#define XFERTYP_DDREN		0x00000008
 #define XFERTYP_AC12EN		0x00000004
 #define XFERTYP_BCEN		0x00000002
 #define XFERTYP_DMAEN		0x00000001
@@ -171,30 +163,13 @@
 #define ESDHC_HOSTCAPBLT_DMAS	0x00400000
 #define ESDHC_HOSTCAPBLT_HSS	0x00200000
 
-#define ESDHC_VENDORSPEC_VSELECT 0x00000002 /* Use 1.8V */
-
 struct fsl_esdhc_cfg {
-	phys_addr_t esdhc_base;
-	u32	sdhc_clk;
-	u8	max_bus_width;
-	u8	wp_enable;
-	struct mmc_config cfg;
+	u32	esdhc_base;
+	u32	no_snoop;
 };
 
 /* Select the correct accessors depending on endianess */
-#if defined CONFIG_SYS_FSL_ESDHC_LE
-#define esdhc_read32		in_le32
-#define esdhc_write32		out_le32
-#define esdhc_clrsetbits32	clrsetbits_le32
-#define esdhc_clrbits32		clrbits_le32
-#define esdhc_setbits32		setbits_le32
-#elif defined(CONFIG_SYS_FSL_ESDHC_BE)
-#define esdhc_read32            in_be32
-#define esdhc_write32           out_be32
-#define esdhc_clrsetbits32      clrsetbits_be32
-#define esdhc_clrbits32         clrbits_be32
-#define esdhc_setbits32         setbits_be32
-#elif __BYTE_ORDER == __LITTLE_ENDIAN
+#if __BYTE_ORDER == __LITTLE_ENDIAN
 #define esdhc_read32		in_le32
 #define esdhc_write32		out_le32
 #define esdhc_clrsetbits32	clrsetbits_le32
@@ -218,7 +193,5 @@ void fdt_fixup_esdhc(void *blob, bd_t *bd);
 static inline int fsl_esdhc_mmc_init(bd_t *bis) { return -ENOSYS; }
 static inline void fdt_fixup_esdhc(void *blob, bd_t *bd) {}
 #endif /* CONFIG_FSL_ESDHC */
-void __noreturn mmc_boot(void);
-void mmc_spl_load_image(uint32_t offs, unsigned int size, void *vdst);
 
 #endif  /* __FSL_ESDHC_H__ */

@@ -1,6 +1,25 @@
-/*
- * SPDX-License-Identifier:	GPL-2.0	IBM-pibs
- */
+/*-----------------------------------------------------------------------------+
+  |   This source code is dual-licensed.  You may use it under the terms of the
+  |   GNU General Public License version 2, or under the license below.
+  |
+  |	  This source code has been made available to you by IBM on an AS-IS
+  |	  basis.  Anyone receiving this source is licensed under IBM
+  |	  copyrights to use it in any way he or she deems fit, including
+  |	  copying it, modifying it, compiling it, and redistributing it either
+  |	  with or without modifications.  No license under IBM patents or
+  |	  patent applications is to be implied by the copyright license.
+  |
+  |	  Any user of this software should understand that IBM cannot provide
+  |	  technical support for this software and will not be responsible for
+  |	  any consequences resulting from the use of this software.
+  |
+  |	  Any person who transfers this source code or any derivative work
+  |	  must include the IBM copyright notice, this paragraph, and the
+  |	  preceding two paragraphs in the transferred software.
+  |
+  |	  COPYRIGHT   I B M   CORPORATION 1995
+  |	  LICENSED MATERIAL  -	PROGRAM PROPERTY OF I B M
+  +-----------------------------------------------------------------------------*/
 /*-----------------------------------------------------------------------------+
   |
   |  File Name:	 miiphy.c
@@ -168,9 +187,10 @@ int phy_setup_aneg (char *devname, unsigned char addr)
  */
 unsigned int miiphy_getemac_offset(u8 addr)
 {
-#if defined(CONFIG_440) && \
+#if (defined(CONFIG_440) && \
     !defined(CONFIG_440SP) && !defined(CONFIG_440SPE) && \
-    !defined(CONFIG_460EX) && !defined(CONFIG_460GT)
+    !defined(CONFIG_460EX) && !defined(CONFIG_460GT)) && \
+    defined(CONFIG_NET_MULTI)
 	unsigned long zmii;
 	unsigned long eoffset;
 
@@ -208,7 +228,7 @@ unsigned int miiphy_getemac_offset(u8 addr)
 	return (eoffset);
 #else
 
-#if defined(CONFIG_405EX)
+#if defined(CONFIG_NET_MULTI) && defined(CONFIG_405EX)
 	unsigned long rgmii;
 	int devnum = 1;
 
@@ -318,7 +338,8 @@ static int emac_miiphy_command(u8 addr, u8 reg, int cmd, u16 value)
 	return 0;
 }
 
-int emac4xx_miiphy_read(struct mii_dev *bus, int addr, int devad, int reg)
+int emac4xx_miiphy_read (const char *devname, unsigned char addr, unsigned char reg,
+			 unsigned short *value)
 {
 	unsigned long sta_reg;
 	unsigned long emac_reg;
@@ -329,15 +350,17 @@ int emac4xx_miiphy_read(struct mii_dev *bus, int addr, int devad, int reg)
 		return -1;
 
 	sta_reg = in_be32((void *)EMAC0_STACR + emac_reg);
-	return sta_reg >> 16;
+	*value = sta_reg >> 16;
+
+	return 0;
 }
 
 /***********************************************************/
 /* write a phy reg and return the value with a rc	    */
 /***********************************************************/
 
-int emac4xx_miiphy_write(struct mii_dev *bus, int addr, int devad, int reg,
-			 u16 value)
+int emac4xx_miiphy_write (const char *devname, unsigned char addr, unsigned char reg,
+			  unsigned short value)
 {
 	return emac_miiphy_command(addr, reg, EMAC_STACR_WRITE, value);
 }

@@ -2,7 +2,23 @@
  * (C) Copyright 2010
  * Heiko Schocher, DENX Software Engineering, hs@denx.de
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 #include <common.h>
 #include <command.h>
@@ -68,10 +84,12 @@ int rtc_get( struct rtc_time *tmp )
 	tmp->tm_yday = 0;
 	tmp->tm_isdst = 0;
 
-	debug( "Get DATE: %4d-%02d-%02d (wday=%d)  TIME: %2d:%02d:%02d\n",
+#ifdef RTC_DEBUG
+	printf( "Get DATE: %4d-%02d-%02d (wday=%d)  TIME: %2d:%02d:%02d\n",
 		tmp->tm_year, tmp->tm_mon, tmp->tm_mday, tmp->tm_wday,
 		tmp->tm_hour, tmp->tm_min, tmp->tm_sec );
 
+#endif
 	return 0;
 }
 
@@ -79,10 +97,11 @@ int rtc_set( struct rtc_time *tmp )
 {
 	int	ret;
 	unsigned char buf[RTC_RV3029_PAGE_LEN];
-
-	debug( "Set DATE: %4d-%02d-%02d (wday=%d)  TIME: %2d:%02d:%02d\n",
+#ifdef RTC_DEBUG
+	printf( "Set DATE: %4d-%02d-%02d (wday=%d)  TIME: %2d:%02d:%02d\n",
 		tmp->tm_year, tmp->tm_mon, tmp->tm_mday, tmp->tm_wday,
 		tmp->tm_hour, tmp->tm_min, tmp->tm_sec);
+#endif
 
 	if (tmp->tm_year < 2000) {
 		printf("RTC: year %d < 2000 not possible\n", tmp->tm_year);
@@ -103,15 +122,16 @@ int rtc_set( struct rtc_time *tmp )
 
 	/* give the RTC some time to update */
 	udelay(1000);
-	return ret;
+	return 0;
 }
 
 /* sets EERE-Bit  (automatic EEPROM refresh) */
 static void set_eere_bit(int state)
 {
+	int ret;
 	unsigned char reg_ctrl1;
 
-	(void)i2c_read(CONFIG_SYS_I2C_RTC_ADDR, RTC_RV3029_CTRL1, 1,
+	ret = i2c_read(CONFIG_SYS_I2C_RTC_ADDR, RTC_RV3029_CTRL1, 1,
 			&reg_ctrl1, 1);
 
 	if (state)
@@ -119,18 +139,18 @@ static void set_eere_bit(int state)
 	else
 		reg_ctrl1 &= (~RTC_RV3029_CTRL1_EERE);
 
-	(void)i2c_write(CONFIG_SYS_I2C_RTC_ADDR, RTC_RV3029_CTRL1, 1,
+	ret = i2c_write(CONFIG_SYS_I2C_RTC_ADDR, RTC_RV3029_CTRL1, 1,
 		&reg_ctrl1, 1);
 }
 
 /* waits until EEPROM page is no longer busy (times out after 10ms*loops) */
 static int wait_eebusy(int loops)
 {
-	int i;
+	int i, ret;
 	unsigned char ctrl_status;
 
 	for (i = 0; i < loops; i++) {
-		(void)i2c_read(CONFIG_SYS_I2C_RTC_ADDR, RTC_RV3029_CTRL_STATUS,
+		ret = i2c_read(CONFIG_SYS_I2C_RTC_ADDR, RTC_RV3029_CTRL_STATUS,
 			1, &ctrl_status, 1);
 
 		if ((ctrl_status & RTC_RV3029_CTRLS_EEBUSY) == 0)
@@ -142,10 +162,11 @@ static int wait_eebusy(int loops)
 
 void rtc_reset (void)
 {
+	int	ret;
 	unsigned char buf[RTC_RV3029_PAGE_LEN];
 
 	buf[0] = RTC_RV3029_CTRL_SYS_R;
-	(void)i2c_write(CONFIG_SYS_I2C_RTC_ADDR, RTC_RV3029_CTRL_RESET, 1,
+	ret = i2c_write(CONFIG_SYS_I2C_RTC_ADDR, RTC_RV3029_CTRL_RESET, 1,
 			buf, 1);
 
 #if defined(CONFIG_SYS_RV3029_TCR)
@@ -157,7 +178,7 @@ void rtc_reset (void)
 	set_eere_bit(0);
 	wait_eebusy(100);
 	/* read current trickle charger setting */
-	(void)i2c_read(CONFIG_SYS_I2C_RTC_ADDR, RTC_RV3029_EEPROM_CTRL,
+	ret = i2c_read(CONFIG_SYS_I2C_RTC_ADDR, RTC_RV3029_EEPROM_CTRL,
 			1, buf, 1);
 	/* enable automatic EEPROM refresh again */
 	set_eere_bit(1);
@@ -174,7 +195,7 @@ void rtc_reset (void)
 		 */
 		set_eere_bit(0);
 		wait_eebusy(100);
-		(void)i2c_write(CONFIG_SYS_I2C_RTC_ADDR,
+		ret = i2c_write(CONFIG_SYS_I2C_RTC_ADDR,
 				RTC_RV3029_EEPROM_CTRL, 1, buf, 1);
 		/*
 		 * it is necessary to wait 10ms before EEBUSY-Bit may be read

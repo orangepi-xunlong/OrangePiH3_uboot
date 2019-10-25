@@ -8,13 +8,28 @@
  * Marvell Semiconductor <www.marvell.com>
  * Written-by: Prafulla Wadaskar <prafulla@marvell.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+ * MA 02110-1301 USA
  */
 
 #include <common.h>
 #include <miiphy.h>
-#include <asm/arch/cpu.h>
-#include <asm/arch/soc.h>
+#include <asm/arch/kirkwood.h>
 #include <asm/arch/mpp.h>
 #include "openrd.h"
 
@@ -27,12 +42,12 @@ int board_early_init_f(void)
 	 * There are maximum 64 gpios controlled through 2 sets of registers
 	 * the  below configuration configures mainly initial LED status
 	 */
-	mvebu_config_gpio(OPENRD_OE_VAL_LOW,
-			  OPENRD_OE_VAL_HIGH,
-			  OPENRD_OE_LOW, OPENRD_OE_HIGH);
+	kw_config_gpio(OPENRD_OE_VAL_LOW,
+			OPENRD_OE_VAL_HIGH,
+			OPENRD_OE_LOW, OPENRD_OE_HIGH);
 
 	/* Multi-Purpose Pins Functionality configuration */
-	static const u32 kwmpp_config[] = {
+	u32 kwmpp_config[] = {
 		MPP0_NF_IO2,
 		MPP1_NF_IO3,
 		MPP2_NF_IO4,
@@ -86,7 +101,7 @@ int board_early_init_f(void)
 		0
 	};
 
-	kirkwood_mpp_conf(kwmpp_config, NULL);
+	kirkwood_mpp_conf(kwmpp_config);
 	return 0;
 }
 
@@ -104,7 +119,7 @@ int board_init(void)
 #endif
 
 	/* adress of boot parameters */
-	gd->bd->bi_boot_params = mvebu_sdram_bar(0) + 0x100;
+	gd->bd->bi_boot_params = kw_sdram_bar(0) + 0x100;
 	return 0;
 }
 
@@ -119,8 +134,9 @@ void mv_phy_init(char *name)
 		return;
 
 	/* command to read PHY dev address */
-	if (miiphy_read(name, 0xEE, 0xEE, (u16 *)&devadr)) {
-		printf("Err..%s could not read PHY dev address\n", __func__);
+	if (miiphy_read(name, 0xEE, 0xEE, (u16 *) &devadr)) {
+		printf("Err..%s could not read PHY dev address\n",
+			__FUNCTION__);
 		return;
 	}
 

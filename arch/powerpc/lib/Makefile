@@ -2,61 +2,74 @@
 # (C) Copyright 2000-2006
 # Wolfgang Denk, DENX Software Engineering, wd@denx.de.
 #
-# SPDX-License-Identifier:	GPL-2.0+
+# See file CREDITS for list of people who contributed to this
+# project.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 2 of
+# the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+# MA 02111-1307 USA
 #
 
-## Build a couple of necessary functions into a private libgcc
-## if the user asked for it
-lib-$(CONFIG_USE_PRIVATE_LIBGCC) += _ashldi3.o _ashrdi3.o _lshrdi3.o
+include $(TOPDIR)/config.mk
 
-MINIMAL=
+LIB	= $(obj)lib$(ARCH).o
 
-ifdef CONFIG_SPL_BUILD
-ifdef CONFIG_SPL_INIT_MINIMAL
-MINIMAL=y
-endif
-endif
+SOBJS-y	+= ppccache.o
+SOBJS-y	+= ppcstring.o
+SOBJS-y	+= ticks.o
+SOBJS-y	+= reloc.o
 
-ifdef MINIMAL
-obj-y += cache.o time.o
-obj-y += ticks.o
-else
+COBJS-$(CONFIG_BAT_RW) += bat_rw.o
+COBJS-y	+= board.o
+COBJS-y	+= bootm.o
+COBJS-$(CONFIG_BOOTCOUNT_LIMIT) += bootcount.o
+COBJS-y	+= cache.o
+COBJS-y	+= extable.o
+COBJS-y	+= interrupts.o
+COBJS-$(CONFIG_CMD_KGDB) += kgdb.o
+COBJS-y	+= time.o
 
-obj-y	+= ppcstring.o
-
-obj-y	+= ppccache.o
-obj-y	+= ticks.o
-obj-y	+= reloc.o
-
-obj-$(CONFIG_BAT_RW) += bat_rw.o
-obj-$(CONFIG_CMD_BOOTM) += bootm.o
-obj-y	+= cache.o
-obj-y	+= extable.o
-obj-y	+= interrupts.o
-obj-$(CONFIG_CMD_KGDB) += kgdb.o
-obj-$(CONFIG_CMD_IDE) += ide.o
-obj-y	+= stack.o
-obj-y	+= time.o
-
-# Don't include the MPC5xxx special memcpy into the
-# SPL U-Boot image. memcpy is used in the SPL NOR
-# flash driver. And we need the real, fast memcpy
-# here. We have no problems with unaligned access.
-ifndef CONFIG_SPL_BUILD
 # Workaround for local bus unaligned access problems
 # on MPC512x and MPC5200
 ifdef CONFIG_MPC512X
-AFLAGS_ppcstring.o += -Dmemcpy=__memcpy
-obj-y += memcpy_mpc5200.o
+$(obj)ppcstring.o: AFLAGS += -Dmemcpy=__memcpy
+COBJS-y += memcpy_mpc5200.o
 endif
 ifdef CONFIG_MPC5200
-AFLAGS_ppcstring.o += -Dmemcpy=__memcpy
-obj-y += memcpy_mpc5200.o
-endif
+$(obj)ppcstring.o: AFLAGS += -Dmemcpy=__memcpy
+COBJS-y += memcpy_mpc5200.o
 endif
 
-endif # not minimal
+COBJS	+= $(sort $(COBJS-y))
 
-ifdef CONFIG_SPL_BUILD
-obj-$(CONFIG_SPL_FRAMEWORK) += spl.o
-endif
+SRCS	:= $(SOBJS-y:.o=.S) $(COBJS-y:.o=.c)
+OBJS	:= $(addprefix $(obj),$(SOBJS-y) $(COBJS-y))
+
+$(LIB):	$(obj).depend $(OBJS)
+	@if ! $(CROSS_COMPILE)readelf -S $(OBJS) | grep -q '\.fixup.*PROGBITS';\
+	then \
+		echo "ERROR: Your compiler doesn't generate .fixup sections!";\
+		echo "       Upgrade to a recent toolchain."; \
+		exit 1; \
+	fi;
+	$(call cmd_link_o_target, $(OBJS))
+
+#########################################################################
+
+# defines $(obj).depend target
+include $(SRCTREE)/rules.mk
+
+sinclude $(obj).depend
+
+#########################################################################

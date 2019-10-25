@@ -2,7 +2,23 @@
  * (C) Copyright 2000
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -15,11 +31,16 @@
 
 #include <common.h>
 #include <command.h>
-#include <memalign.h>
 #include <ide.h>
 #include "part_mac.h"
 
-#ifdef HAVE_BLOCK_DEVICE
+#if defined(CONFIG_CMD_IDE) || \
+    defined(CONFIG_CMD_MG_DISK) || \
+    defined(CONFIG_CMD_SCSI) || \
+    defined(CONFIG_CMD_SATA) || \
+    defined(CONFIG_CMD_USB) || \
+    defined(CONFIG_MMC) || \
+    defined(CONFIG_SYSTEMACE)
 
 /* stdlib.h causes some compatibility problems; should fixe these! -- wd */
 #ifndef __ldiv_t_defined
@@ -32,54 +53,53 @@ extern ldiv_t ldiv (long int __numer, long int __denom);
 #endif
 
 
-static int part_mac_read_ddb(struct blk_desc *dev_desc,
-			     mac_driver_desc_t *ddb_p);
-static int part_mac_read_pdb(struct blk_desc *dev_desc, int part,
-			     mac_partition_t *pdb_p);
+static int part_mac_read_ddb (block_dev_desc_t *dev_desc, mac_driver_desc_t *ddb_p);
+static int part_mac_read_pdb (block_dev_desc_t *dev_desc, int part, mac_partition_t *pdb_p);
 
 /*
  * Test for a valid MAC partition
  */
-static int part_test_mac(struct blk_desc *dev_desc)
+int test_part_mac (block_dev_desc_t *dev_desc)
 {
-	ALLOC_CACHE_ALIGN_BUFFER(mac_driver_desc_t, ddesc, 1);
-	ALLOC_CACHE_ALIGN_BUFFER(mac_partition_t, mpart, 1);
+	mac_driver_desc_t	ddesc;
+	mac_partition_t		mpart;
 	ulong i, n;
 
-	if (part_mac_read_ddb (dev_desc, ddesc)) {
+	if (part_mac_read_ddb (dev_desc, &ddesc)) {
 		/* error reading Driver Desriptor Block, or no valid Signature */
 		return (-1);
 	}
 
 	n = 1;	/* assuming at least one partition */
 	for (i=1; i<=n; ++i) {
-		if ((blk_dread(dev_desc, i, 1, (ulong *)mpart) != 1) ||
-		    (mpart->signature != MAC_PARTITION_MAGIC) ) {
+		if ((dev_desc->block_read(dev_desc->dev, i, 1, (ulong *)&mpart) != 1) ||
+		    (mpart.signature != MAC_PARTITION_MAGIC) ) {
 			return (-1);
 		}
 		/* update partition count */
-		n = mpart->map_count;
+		n = mpart.map_count;
 	}
 	return (0);
 }
 
-static void part_print_mac(struct blk_desc *dev_desc)
+
+void print_part_mac (block_dev_desc_t *dev_desc)
 {
 	ulong i, n;
-	ALLOC_CACHE_ALIGN_BUFFER(mac_driver_desc_t, ddesc, 1);
-	ALLOC_CACHE_ALIGN_BUFFER(mac_partition_t, mpart, 1);
+	mac_driver_desc_t	ddesc;
+	mac_partition_t		mpart;
 	ldiv_t mb, gb;
 
-	if (part_mac_read_ddb (dev_desc, ddesc)) {
+	if (part_mac_read_ddb (dev_desc, &ddesc)) {
 		/* error reading Driver Desriptor Block, or no valid Signature */
 		return;
 	}
 
-	n  = ddesc->blk_count;
+	n  = ddesc.blk_count;
 
-	mb = ldiv(n, ((1024 * 1024) / ddesc->blk_size)); /* MB */
+	mb = ldiv(n, ((1024 * 1024) / ddesc.blk_size)); /* MB */
 	/* round to 1 digit */
-	mb.rem *= 10 * ddesc->blk_size;
+	mb.rem *= 10 * ddesc.blk_size;
 	mb.rem += 512 * 1024;
 	mb.rem /= 1024 * 1024;
 
@@ -93,10 +113,10 @@ static void part_print_mac(struct blk_desc *dev_desc)
 		"DeviceType=0x%x, DeviceId=0x%x\n\n"
 		"   #:                 type name"
 		"                   length   base       (size)\n",
-		ddesc->blk_size,
-		ddesc->blk_count,
+		ddesc.blk_size,
+		ddesc.blk_count,
 		mb.quot, mb.rem, gb.quot, gb.rem,
-		ddesc->dev_type, ddesc->dev_id
+		ddesc.dev_type, ddesc.dev_id
 		);
 
 	n = 1;	/* assuming at least one partition */
@@ -105,25 +125,25 @@ static void part_print_mac(struct blk_desc *dev_desc)
 		char c;
 
 		printf ("%4ld: ", i);
-		if (blk_dread(dev_desc, i, 1, (ulong *)mpart) != 1) {
+		if (dev_desc->block_read (dev_desc->dev, i, 1, (ulong *)&mpart) != 1) {
 			printf ("** Can't read Partition Map on %d:%ld **\n",
-				dev_desc->devnum, i);
+				dev_desc->dev, i);
 			return;
 		}
 
-		if (mpart->signature != MAC_PARTITION_MAGIC) {
-			printf("** Bad Signature on %d:%ld - expected 0x%04x, got 0x%04x\n",
-			       dev_desc->devnum, i, MAC_PARTITION_MAGIC,
-			       mpart->signature);
+		if (mpart.signature != MAC_PARTITION_MAGIC) {
+			printf ("** Bad Signature on %d:%ld - "
+				"expected 0x%04x, got 0x%04x\n",
+				dev_desc->dev, i, MAC_PARTITION_MAGIC, mpart.signature);
 			return;
 		}
 
 		/* update partition count */
-		n = mpart->map_count;
+		n = mpart.map_count;
 
 		c      = 'k';
-		bytes  = mpart->block_count;
-		bytes /= (1024 / ddesc->blk_size);  /* kB; assumes blk_size == 512 */
+		bytes  = mpart.block_count;
+		bytes /= (1024 / ddesc.blk_size);  /* kB; assumes blk_size == 512 */
 		if (bytes >= 1024) {
 			bytes >>= 10;
 			c = 'M';
@@ -134,10 +154,10 @@ static void part_print_mac(struct blk_desc *dev_desc)
 		}
 
 		printf ("%20.32s %-18.32s %10u @ %-10u (%3ld%c)\n",
-			mpart->type,
-			mpart->name,
-			mpart->block_count,
-			mpart->start_block,
+			mpart.type,
+			mpart.name,
+			mpart.block_count,
+			mpart.start_block,
 			bytes, c
 			);
 	}
@@ -149,10 +169,9 @@ static void part_print_mac(struct blk_desc *dev_desc)
 /*
  * Read Device Descriptor Block
  */
-static int part_mac_read_ddb(struct blk_desc *dev_desc,
-			     mac_driver_desc_t *ddb_p)
+static int part_mac_read_ddb (block_dev_desc_t *dev_desc, mac_driver_desc_t *ddb_p)
 {
-	if (blk_dread(dev_desc, 0, 1, (ulong *)ddb_p) != 1) {
+	if (dev_desc->block_read(dev_desc->dev, 0, 1, (ulong *)ddb_p) != 1) {
 		printf ("** Can't read Driver Desriptor Block **\n");
 		return (-1);
 	}
@@ -170,8 +189,7 @@ static int part_mac_read_ddb(struct blk_desc *dev_desc,
 /*
  * Read Partition Descriptor Block
  */
-static int part_mac_read_pdb(struct blk_desc *dev_desc, int part,
-			     mac_partition_t *pdb_p)
+static int part_mac_read_pdb (block_dev_desc_t *dev_desc, int part, mac_partition_t *pdb_p)
 {
 	int n = 1;
 
@@ -181,16 +199,16 @@ static int part_mac_read_pdb(struct blk_desc *dev_desc, int part,
 		 * partition 1 first since this is the only way to
 		 * know how many partitions we have.
 		 */
-		if (blk_dread(dev_desc, n, 1, (ulong *)pdb_p) != 1) {
+		if (dev_desc->block_read (dev_desc->dev, n, 1, (ulong *)pdb_p) != 1) {
 			printf ("** Can't read Partition Map on %d:%d **\n",
-				dev_desc->devnum, n);
+				dev_desc->dev, n);
 			return (-1);
 		}
 
 		if (pdb_p->signature != MAC_PARTITION_MAGIC) {
-			printf("** Bad Signature on %d:%d: expected 0x%04x, got 0x%04x\n",
-			       dev_desc->devnum, n, MAC_PARTITION_MAGIC,
-			       pdb_p->signature);
+			printf ("** Bad Signature on %d:%d: "
+				"expected 0x%04x, got 0x%04x\n",
+				dev_desc->dev, n, MAC_PARTITION_MAGIC, pdb_p->signature);
 			return (-1);
 		}
 
@@ -199,9 +217,9 @@ static int part_mac_read_pdb(struct blk_desc *dev_desc, int part,
 
 		if ((part < 1) || (part > pdb_p->map_count)) {
 			printf ("** Invalid partition %d:%d [%d:1...%d:%d only]\n",
-				dev_desc->devnum, part,
-				dev_desc->devnum,
-				dev_desc->devnum, pdb_p->map_count);
+				dev_desc->dev, part,
+				dev_desc->dev,
+				dev_desc->dev, pdb_p->map_count);
 			return (-1);
 		}
 
@@ -212,35 +230,27 @@ static int part_mac_read_pdb(struct blk_desc *dev_desc, int part,
 	/* NOTREACHED */
 }
 
-static int part_get_info_mac(struct blk_desc *dev_desc, int part,
-				  disk_partition_t *info)
+int get_partition_info_mac (block_dev_desc_t *dev_desc, int part, disk_partition_t *info)
 {
-	ALLOC_CACHE_ALIGN_BUFFER(mac_driver_desc_t, ddesc, 1);
-	ALLOC_CACHE_ALIGN_BUFFER(mac_partition_t, mpart, 1);
+	mac_driver_desc_t	ddesc;
+	mac_partition_t		mpart;
 
-	if (part_mac_read_ddb (dev_desc, ddesc)) {
+	if (part_mac_read_ddb (dev_desc, &ddesc)) {
 		return (-1);
 	}
 
-	info->blksz = ddesc->blk_size;
+	info->blksz = ddesc.blk_size;
 
-	if (part_mac_read_pdb (dev_desc, part, mpart)) {
+	if (part_mac_read_pdb (dev_desc, part, &mpart)) {
 		return (-1);
 	}
 
-	info->start = mpart->start_block;
-	info->size  = mpart->block_count;
-	memcpy (info->type, mpart->type, sizeof(info->type));
-	memcpy (info->name, mpart->name, sizeof(info->name));
+	info->start = mpart.start_block;
+	info->size  = mpart.block_count;
+	memcpy (info->type, mpart.type, sizeof(info->type));
+	memcpy (info->name, mpart.name, sizeof(info->name));
 
 	return (0);
 }
 
-U_BOOT_PART_TYPE(mac) = {
-	.name		= "MAC",
-	.part_type	= PART_TYPE_MAC,
-	.get_info	= part_get_info_mac,
-	.print		= part_print_mac,
-	.test		= part_test_mac,
-};
 #endif

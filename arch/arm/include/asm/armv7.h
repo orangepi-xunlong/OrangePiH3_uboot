@@ -3,36 +3,33 @@
  * Texas Instruments, <www.ti.com>
  * Aneesh V <aneesh@ti.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 #ifndef ARMV7_H
 #define ARMV7_H
+#include <linux/types.h>
 
 /* Cortex-A9 revisions */
 #define MIDR_CORTEX_A9_R0P1	0x410FC091
 #define MIDR_CORTEX_A9_R1P2	0x411FC092
 #define MIDR_CORTEX_A9_R1P3	0x411FC093
 #define MIDR_CORTEX_A9_R2P10	0x412FC09A
-
-/* Cortex-A15 revisions */
-#define MIDR_CORTEX_A15_R0P0	0x410FC0F0
-#define MIDR_CORTEX_A15_R2P2	0x412FC0F2
-
-/* Cortex-A7 revisions */
-#define MIDR_CORTEX_A7_R0P0	0x410FC070
-
-#define MIDR_PRIMARY_PART_MASK	0xFF0FFFF0
-
-/* ID_PFR1 feature fields */
-#define CPUID_ARM_SEC_SHIFT		4
-#define CPUID_ARM_SEC_MASK		(0xF << CPUID_ARM_SEC_SHIFT)
-#define CPUID_ARM_VIRT_SHIFT		12
-#define CPUID_ARM_VIRT_MASK		(0xF << CPUID_ARM_VIRT_SHIFT)
-#define CPUID_ARM_GENTIMER_SHIFT	16
-#define CPUID_ARM_GENTIMER_MASK		(0xF << CPUID_ARM_GENTIMER_SHIFT)
-
-/* valid bits in CBAR register / PERIPHBASE value */
-#define CBAR_MASK			0xFFFF8000
 
 /* CCSIDR */
 #define CCSIDR_LINE_SIZE_OFFSET		0
@@ -56,86 +53,21 @@
 #define ARMV7_CLIDR_CTYPE_INSTRUCTION_DATA	3
 #define ARMV7_CLIDR_CTYPE_UNIFIED		4
 
-#ifndef __ASSEMBLY__
-#include <linux/types.h>
-#include <asm/io.h>
-#include <asm/barriers.h>
-
 /*
- * Workaround for ARM errata # 798870
- * Set L2ACTLR[7] to reissue any memory transaction in the L2 that has been
- * stalled for 1024 cycles to verify that its hazard condition still exists.
+ * CP15 Barrier instructions
+ * Please note that we have separate barrier instructions in ARMv7
+ * However, we use the CP15 based instructtions because we use
+ * -march=armv5 in U-Boot
  */
-static inline void v7_enable_l2_hazard_detect(void)
-{
-	uint32_t val;
+#define CP15ISB	asm volatile ("mcr     p15, 0, %0, c7, c5, 4" : : "r" (0))
+#define CP15DSB	asm volatile ("mcr     p15, 0, %0, c7, c10, 4" : : "r" (0))
+#define CP15DMB	asm volatile ("mcr     p15, 0, %0, c7, c10, 5" : : "r" (0))
 
-	/* L2ACTLR[7]: Enable hazard detect timeout */
-	asm volatile ("mrc     p15, 1, %0, c15, c0, 0\n\t" : "=r"(val));
-	val |= (1 << 7);
-	asm volatile ("mcr     p15, 1, %0, c15, c0, 0\n\t" : : "r"(val));
-}
-
-/*
- * Workaround for ARM errata # 799270
- * Ensure that the L2 logic has been used within the previous 256 cycles
- * before modifying the ACTLR.SMP bit. This is required during boot before
- * MMU has been enabled, or during a specified reset or power down sequence.
- */
-static inline void v7_enable_smp(uint32_t address)
-{
-	uint32_t temp, val;
-
-	/* Read auxiliary control register */
-	asm volatile ("mrc     p15, 0, %0, c1, c0, 1\n\t" : "=r"(val));
-
-	/* Enable SMP */
-	val |= (1 << 6);
-
-	/* Dummy read to assure L2 access */
-	temp = readl(address);
-	temp &= 0;
-	val |= temp;
-
-	/* Write auxiliary control register */
-	asm volatile ("mcr     p15, 0, %0, c1, c0, 1\n\t" : : "r"(val));
-
-	CP15DSB;
-	CP15ISB;
-}
-
-void v7_en_l2_hazard_detect(void);
 void v7_outer_cache_enable(void);
 void v7_outer_cache_disable(void);
 void v7_outer_cache_flush_all(void);
 void v7_outer_cache_inval_all(void);
 void v7_outer_cache_flush_range(u32 start, u32 end);
 void v7_outer_cache_inval_range(u32 start, u32 end);
-
-#ifdef CONFIG_ARMV7_NONSEC
-
-int armv7_init_nonsec(void);
-int armv7_apply_memory_carveout(u64 *start, u64 *size);
-bool armv7_boot_nonsec(void);
-
-/* defined in assembly file */
-unsigned int _nonsec_init(void);
-void _do_nonsec_entry(void *target_pc, unsigned long r0,
-		      unsigned long r1, unsigned long r2);
-void _smp_pen(void);
-
-extern char __secure_start[];
-extern char __secure_end[];
-extern char __secure_stack_start[];
-extern char __secure_stack_end[];
-
-#endif /* CONFIG_ARMV7_NONSEC */
-
-void v7_arch_cp15_set_l2aux_ctrl(u32 l2auxctrl, u32 cpu_midr,
-				 u32 cpu_rev_comb, u32 cpu_variant,
-				 u32 cpu_rev);
-void v7_arch_cp15_set_acr(u32 acr, u32 cpu_midr, u32 cpu_rev_comb,
-			  u32 cpu_variant, u32 cpu_rev);
-#endif /* ! __ASSEMBLY__ */
 
 #endif

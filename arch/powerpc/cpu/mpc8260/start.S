@@ -3,7 +3,23 @@
  *  Copyright (C) 1999	Magnus Damm <kieraypc01.p.y.kie.era.ericsson.se>
  *  Copyright (C) 2000, 2001,2002 Wolfgang Denk <wd@denx.de>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -13,6 +29,9 @@
 #include <config.h>
 #include <mpc8260.h>
 #include <version.h>
+
+#define CONFIG_8260 1		/* needed for Linux kernel header files */
+#define _LINUX_CONFIG_H 1	/* avoid reading Linux autoconf.h file	*/
 
 #include <ppc_asm.tmpl>
 #include <ppc_defs.h>
@@ -46,8 +65,11 @@
 	GOT_ENTRY(transfer_to_handler)
 
 	GOT_ENTRY(__init_end)
-	GOT_ENTRY(__bss_end)
+	GOT_ENTRY(__bss_end__)
 	GOT_ENTRY(__bss_start)
+#if defined(CONFIG_HYMOD)
+	GOT_ENTRY(environment)
+#endif
 	END_GOT
 
 /*
@@ -134,7 +156,28 @@ _hrcw_table:
 
 	.globl	_start
 _start:
+#if defined(CONFIG_MPC8260ADS) && defined(CONFIG_SYS_DEFAULT_IMMR)
+	lis	r3, CONFIG_SYS_DEFAULT_IMMR@h
+	nop
+	lwz	r4, 0(r3)
+	nop
+	rlwinm	r4, r4, 0, 8, 5
+	nop
+	oris	r4, r4, 0x0200
+	nop
+	stw	r4, 0(r3)
+	nop
+#endif /* CONFIG_MPC8260ADS && CONFIG_SYS_DEFAULT_IMMR */
+
 	mfmsr	r5			/* save msr contents		*/
+
+#if defined(CONFIG_COGENT)
+	/* this is what the cogent EPROM does */
+	li	r0, 0
+	mtmsr	r0
+	isync
+	bl	cogent_init_8260
+#endif	/* CONFIG_COGENT */
 
 #if defined(CONFIG_SYS_DEFAULT_IMMR)
 	lis	r3, CONFIG_SYS_IMMR@h
@@ -371,6 +414,57 @@ int_return:
 	SYNC
 	rfi
 
+#if defined(CONFIG_COGENT)
+
+/*
+ * This code initialises the MPC8260 processor core
+ * (conforms to PowerPC 603e spec)
+ */
+
+	.globl	cogent_init_8260
+cogent_init_8260:
+
+	/* Taken from page 14 of CMA282 manual				*/
+	/*--------------------------------------------------------------*/
+
+	lis	r4, (CONFIG_SYS_IMMR+IM_REGBASE)@h
+	lis	r3, CONFIG_SYS_IMMR@h
+	stw	r3, IM_IMMR@l(r4)
+	lwz	r3, IM_IMMR@l(r4)
+	stw	r3, 0(r0)
+	lis	r3, CONFIG_SYS_SYPCR@h
+	ori	r3, r3, CONFIG_SYS_SYPCR@l
+	stw	r3, IM_SYPCR@l(r4)
+	lwz	r3, IM_SYPCR@l(r4)
+	stw	r3, 4(r0)
+	lis	r3, CONFIG_SYS_SCCR@h
+	ori	r3, r3, CONFIG_SYS_SCCR@l
+	stw	r3, IM_SCCR@l(r4)
+	lwz	r3, IM_SCCR@l(r4)
+	stw	r3, 8(r0)
+
+	/* the rest of this was disassembled from the			*/
+	/* EPROM code that came with my CMA282 CPU module		*/
+	/*--------------------------------------------------------------*/
+
+	lis	r1, 0x1234
+	ori	r1, r1, 0x5678
+	stw	r1, 0x20(r0)
+	lwz	r1, 0x20(r0)
+	stw	r1, 0x24(r0)
+	lwz	r1, 0x24(r0)
+	lis	r3, 0x0e80
+	ori	r3, r3, 0
+	stw	r1, 4(r3)
+	lwz	r1, 4(r3)
+
+	/* Done!							*/
+	/*--------------------------------------------------------------*/
+
+	blr
+
+#endif	/* CONFIG_COGENT */
+
 /*
  * This code initialises the MPC8260 processor core
  * (conforms to PowerPC 603e spec)
@@ -397,9 +491,11 @@ init_8260_core:
 	/*--------------------------------------------------------------*/
 
 	lis	r3, (CONFIG_SYS_IMMR+IM_REGBASE)@h
+#if !defined(CONFIG_COGENT)
 	lis	r4, CONFIG_SYS_SYPCR@h
 	ori	r4, r4, CONFIG_SYS_SYPCR@l
 	stw	r4, IM_SYPCR@l(r3)
+#endif /* !CONFIG_COGENT */
 #if defined(CONFIG_WATCHDOG)
 	li	r4, 21868		/* = 0x556c */
 	sth	r4, IM_SWSR@l(r3)
@@ -814,7 +910,18 @@ clear_bss:
 	 * Now clear BSS segment
 	 */
 	lwz	r3,GOT(__bss_start)
-	lwz	r4,GOT(__bss_end)
+#if defined(CONFIG_HYMOD)
+	/*
+	 * For HYMOD - the environment is the very last item in flash.
+	 * The real .bss stops just before environment starts, so only
+	 * clear up to that point.
+	 *
+	 * taken from mods for FADS board
+	 */
+	lwz	r4,GOT(environment)
+#else
+	lwz	r4,GOT(__bss_end__)
+#endif
 
 	cmplw	0, r3, r4
 	beq	6f

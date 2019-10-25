@@ -18,7 +18,7 @@
 #ifndef __ASM_PROC_PROCESSOR_H
 #define __ASM_PROC_PROCESSOR_H
 
-#include <asm/proc-armv/domain.h>
+#include <asm/proc/domain.h>
 
 #define KERNEL_STACK_SIZE	PAGE_SIZE
 

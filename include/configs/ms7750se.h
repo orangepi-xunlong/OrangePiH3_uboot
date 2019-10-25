@@ -3,12 +3,30 @@
  *
  * Copyright (C) 2007 Nobuhiro Iwamatsu <iwamatsu@nigauri.org>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef __MS7750SE_H
 #define __MS7750SE_H
 
+#define CONFIG_SH		1
+#define CONFIG_SH4		1
 #define CONFIG_CPU_SH7750	1
 /* #define CONFIG_CPU_SH7751	1 */
 /* #define CONFIG_CPU_TYPE_R	1 */
@@ -18,11 +36,18 @@
 /*
  * Command line configuration.
  */
+/*#include <config_cmd_default.h>*/
+
+#define CONFIG_CMD_DFL
+#define CONFIG_CMD_FLASH
+#define CONFIG_CMD_SAVEENV
+
 #define CONFIG_SCIF_CONSOLE	1
 #define CONFIG_BAUDRATE		38400
 #define CONFIG_CONS_SCIF1	1
-#define CONFIG_BOARD_LATE_INIT
+#define BOARD_LATE_INIT		1
 
+#define CONFIG_BOOTDELAY	-1
 #define CONFIG_BOOTARGS		"console=ttySC0,38400"
 #define CONFIG_ENV_OVERWRITE	1
 
@@ -31,10 +56,13 @@
 #define CONFIG_SYS_SDRAM_SIZE		(64 * 1024 * 1024)
 
 #define CONFIG_SYS_LONGHELP
+#define CONFIG_SYS_PROMPT		"=> "
 #define CONFIG_SYS_CBSIZE		256
 #define CONFIG_SYS_PBSIZE		256
 #define CONFIG_SYS_MAXARGS		16
 #define CONFIG_SYS_BARGSIZE		512
+/* List of legal baudrate settings for this board */
+#define CONFIG_SYS_BAUDRATE_TABLE	{ 115200, 57600, 38400, 19200, 9600 }
 
 #define CONFIG_SYS_TEXT_BASE		0x8FFC0000
 #define CONFIG_SYS_MEMTEST_START	(CONFIG_SYS_SDRAM_BASE)
@@ -63,6 +91,7 @@
 #undef  CONFIG_SYS_FLASH_QUIET_TEST
 #define CONFIG_SYS_FLASH_EMPTY_INFO				/* print 'E' for empty sector on flinfo */
 
+
 #define CONFIG_ENV_IS_IN_FLASH
 #define CONFIG_ENV_SECT_SIZE	0x20000
 #define CONFIG_ENV_SIZE		(CONFIG_ENV_SECT_SIZE)
@@ -72,8 +101,7 @@
 
 /* Board Clock */
 #define CONFIG_SYS_CLK_FREQ	33333333
-#define CONFIG_SH_TMU_CLK_FREQ CONFIG_SYS_CLK_FREQ
-#define CONFIG_SH_SCIF_CLK_FREQ CONFIG_SYS_CLK_FREQ
 #define CONFIG_SYS_TMU_CLK_DIV		4
+#define CONFIG_SYS_HZ		1000
 
 #endif /* __MS7750SE_H */

@@ -2,52 +2,54 @@
 # (C) Copyright 2000-2007
 # Wolfgang Denk, DENX Software Engineering, wd@denx.de.
 #
-# SPDX-License-Identifier:	GPL-2.0+
+# See file CREDITS for list of people who contributed to this
+# project.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 2 of
+# the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+# MA 02111-1307 USA
 #
 
-obj-$(CONFIG_MISC) += misc-uclass.o
-obj-$(CONFIG_ALI152X) += ali512x.o
-obj-$(CONFIG_ALTERA_SYSID) += altera_sysid.o
-obj-$(CONFIG_DS4510)  += ds4510.o
-obj-$(CONFIG_CBMEM_CONSOLE) += cbmem_console.o
-ifndef CONFIG_SPL_BUILD
-obj-$(CONFIG_CROS_EC) += cros_ec.o
-obj-$(CONFIG_CROS_EC_LPC) += cros_ec_lpc.o
-obj-$(CONFIG_CROS_EC_I2C) += cros_ec_i2c.o
-obj-$(CONFIG_CROS_EC_SANDBOX) += cros_ec_sandbox.o
-obj-$(CONFIG_CROS_EC_SPI) += cros_ec_spi.o
-obj-$(CONFIG_FSL_DEBUG_SERVER) += fsl_debug_server.o
-endif
-obj-$(CONFIG_FSL_IIM) += fsl_iim.o
-obj-$(CONFIG_GPIO_LED) += gpio_led.o
-obj-$(CONFIG_I2C_EEPROM) += i2c_eeprom.o
-obj-$(CONFIG_FSL_MC9SDZ60) += mc9sdz60.o
-obj-$(CONFIG_MXC_OCOTP) += mxc_ocotp.o
-obj-$(CONFIG_MXS_OCOTP) += mxs_ocotp.o
-obj-$(CONFIG_NUVOTON_NCT6102D) += nuvoton_nct6102d.o
-obj-$(CONFIG_NS87308) += ns87308.o
-obj-$(CONFIG_PDSP188x) += pdsp188x.o
-obj-$(CONFIG_$(SPL_)PWRSEQ) += pwrseq-uclass.o
-ifdef CONFIG_DM_I2C
-ifndef CONFIG_SPL_BUILD
-obj-$(CONFIG_SANDBOX) += i2c_eeprom_emul.o
-endif
-endif
-obj-$(CONFIG_SMSC_LPC47M) += smsc_lpc47m.o
-obj-$(CONFIG_SMSC_SIO1007) += smsc_sio1007.o
-obj-$(CONFIG_STATUS_LED) += status_led.o
-obj-$(CONFIG_SANDBOX) += swap_case.o
-ifdef CONFIG_SPL_OF_PLATDATA
-ifdef CONFIG_SPL_BUILD
-obj-$(CONFIG_SANDBOX) += spltest_sandbox.o
-endif
-endif
-obj-$(CONFIG_SANDBOX) += syscon_sandbox.o
-obj-$(CONFIG_TEGRA186_BPMP) += tegra186_bpmp.o
-obj-$(CONFIG_TWL4030_LED) += twl4030_led.o
-obj-$(CONFIG_FSL_IFC) += fsl_ifc.o
-obj-$(CONFIG_FSL_SEC_MON) += fsl_sec_mon.o
-obj-$(CONFIG_PCA9551_LED) += pca9551_led.o
-obj-$(CONFIG_FSL_DEVICE_DISABLE) += fsl_devdis.o
-obj-$(CONFIG_WINBOND_W83627) += winbond_w83627.o
-obj-$(CONFIG_QFW) += qfw.o
+include $(TOPDIR)/config.mk
+
+LIB	:= $(obj)libmisc.o
+
+COBJS-$(CONFIG_ALI152X) += ali512x.o
+COBJS-$(CONFIG_DS4510)  += ds4510.o
+COBJS-$(CONFIG_FSL_LAW) += fsl_law.o
+COBJS-$(CONFIG_FSL_PMIC) += fsl_pmic.o
+COBJS-$(CONFIG_GPIO_LED) += gpio_led.o
+COBJS-$(CONFIG_FSL_MC9SDZ60) += mc9sdz60.o
+COBJS-$(CONFIG_NS87308) += ns87308.o
+COBJS-$(CONFIG_PDSP188x) += pdsp188x.o
+COBJS-$(CONFIG_STATUS_LED) += status_led.o
+COBJS-$(CONFIG_TWL4030_LED) += twl4030_led.o
+
+COBJS	:= $(COBJS-y)
+SRCS	:= $(COBJS:.o=.c)
+OBJS	:= $(addprefix $(obj),$(COBJS))
+
+all:	$(LIB)
+
+$(LIB):	$(obj).depend $(OBJS)
+	$(call cmd_link_o_target, $(OBJS))
+
+#########################################################################
+
+# defines $(obj).depend target
+include $(SRCTREE)/rules.mk
+
+sinclude $(obj).depend
+
+#########################################################################

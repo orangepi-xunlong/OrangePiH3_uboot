@@ -1,9 +1,54 @@
 /*
  * libfdt - Flat Device Tree manipulation
  * Copyright (C) 2006 David Gibson, IBM Corporation.
- * SPDX-License-Identifier:	GPL-2.0+ BSD-2-Clause
+ *
+ * libfdt is dual licensed: you can use it either under the terms of
+ * the GPL, or the BSD license, at your option.
+ *
+ *  a) This library is free software; you can redistribute it and/or
+ *     modify it under the terms of the GNU General Public License as
+ *     published by the Free Software Foundation; either version 2 of the
+ *     License, or (at your option) any later version.
+ *
+ *     This library is distributed in the hope that it will be useful,
+ *     but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *     GNU General Public License for more details.
+ *
+ *     You should have received a copy of the GNU General Public
+ *     License along with this library; if not, write to the Free
+ *     Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
+ *     MA 02110-1301 USA
+ *
+ * Alternatively,
+ *
+ *  b) Redistribution and use in source and binary forms, with or
+ *     without modification, are permitted provided that the following
+ *     conditions are met:
+ *
+ *     1. Redistributions of source code must retain the above
+ *        copyright notice, this list of conditions and the following
+ *        disclaimer.
+ *     2. Redistributions in binary form must reproduce the above
+ *        copyright notice, this list of conditions and the following
+ *        disclaimer in the documentation and/or other materials
+ *        provided with the distribution.
+ *
+ *     THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
+ *     CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+ *     INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ *     MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ *     DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+ *     CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ *     SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ *     NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ *     LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ *     HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ *     CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ *     OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ *     EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-#include <libfdt_env.h>
+#include "libfdt_env.h"
 
 #ifndef USE_HOSTCC
 #include <fdt.h>
@@ -43,9 +88,9 @@ static int _fdt_rw_check_header(void *fdt)
 
 #define FDT_RW_CHECK_HEADER(fdt) \
 	{ \
-		int __err; \
-		if ((__err = _fdt_rw_check_header(fdt)) != 0) \
-			return __err; \
+		int err; \
+		if ((err = _fdt_rw_check_header(fdt)) != 0) \
+			return err; \
 	}
 
 static inline int _fdt_data_size(void *fdt)
@@ -168,7 +213,7 @@ static int _fdt_resize_property(void *fdt, int nodeoffset, const char *name,
 	int err;
 
 	*prop = fdt_get_property_w(fdt, nodeoffset, name, &oldlen);
-	if (!(*prop))
+	if (! (*prop))
 		return oldlen;
 
 	if ((err = _fdt_splice_struct(fdt, (*prop)->data, FDT_TAGALIGN(oldlen),
@@ -248,33 +293,6 @@ int fdt_setprop(void *fdt, int nodeoffset, const char *name,
 	return 0;
 }
 
-int fdt_appendprop(void *fdt, int nodeoffset, const char *name,
-		   const void *val, int len)
-{
-	struct fdt_property *prop;
-	int err, oldlen, newlen;
-
-	FDT_RW_CHECK_HEADER(fdt);
-
-	prop = fdt_get_property_w(fdt, nodeoffset, name, &oldlen);
-	if (prop) {
-		newlen = len + oldlen;
-		err = _fdt_splice_struct(fdt, prop->data,
-					 FDT_TAGALIGN(oldlen),
-					 FDT_TAGALIGN(newlen));
-		if (err)
-			return err;
-		prop->len = cpu_to_fdt32(newlen);
-		memcpy(prop->data + oldlen, val, len);
-	} else {
-		err = _fdt_add_property(fdt, nodeoffset, name, len, &prop);
-		if (err)
-			return err;
-		memcpy(prop->data, val, len);
-	}
-	return 0;
-}
-
 int fdt_delprop(void *fdt, int nodeoffset, const char *name)
 {
 	struct fdt_property *prop;
@@ -283,7 +301,7 @@ int fdt_delprop(void *fdt, int nodeoffset, const char *name)
 	FDT_RW_CHECK_HEADER(fdt);
 
 	prop = fdt_get_property_w(fdt, nodeoffset, name, &len);
-	if (!prop)
+	if (! prop)
 		return len;
 
 	proplen = sizeof(*prop) + FDT_TAGALIGN(len);
@@ -298,7 +316,7 @@ int fdt_add_subnode_namelen(void *fdt, int parentoffset,
 	int nodelen;
 	int err;
 	uint32_t tag;
-	fdt32_t *endtag;
+	uint32_t *endtag;
 
 	FDT_RW_CHECK_HEADER(fdt);
 
@@ -325,7 +343,7 @@ int fdt_add_subnode_namelen(void *fdt, int parentoffset,
 	nh->tag = cpu_to_fdt32(FDT_BEGIN_NODE);
 	memset(nh->name, 0, FDT_TAGALIGN(namelen+1));
 	memcpy(nh->name, name, namelen);
-	endtag = (fdt32_t *)((char *)nh + nodelen - FDT_TAGSIZE);
+	endtag = (uint32_t *)((char *)nh + nodelen - FDT_TAGSIZE);
 	*endtag = cpu_to_fdt32(FDT_END_NODE);
 
 	return offset;
@@ -446,38 +464,6 @@ int fdt_pack(void *fdt)
 		* sizeof(struct fdt_reserve_entry);
 	_fdt_packblocks(fdt, fdt, mem_rsv_size, fdt_size_dt_struct(fdt));
 	fdt_set_totalsize(fdt, _fdt_data_size(fdt));
-
-	return 0;
-}
-
-int fdt_remove_unused_strings(const void *old, void *new)
-{
-	const struct fdt_property *old_prop;
-	struct fdt_property *new_prop;
-	int size = fdt_totalsize(old);
-	int next_offset, offset;
-	const char *str;
-	int ret;
-	int tag = FDT_PROP;
-
-	/* Make a copy and remove the strings */
-	memcpy(new, old, size);
-	fdt_set_size_dt_strings(new, 0);
-
-	/* Add every property name back into the new string table */
-	for (offset = 0; tag != FDT_END; offset = next_offset) {
-		tag = fdt_next_tag(old, offset, &next_offset);
-		if (tag != FDT_PROP)
-			continue;
-		old_prop = fdt_get_property_by_offset(old, offset, NULL);
-		new_prop = (struct fdt_property *)(unsigned long)
-			fdt_get_property_by_offset(new, offset, NULL);
-		str = fdt_string(old, fdt32_to_cpu(old_prop->nameoff));
-		ret = _fdt_find_add_string(new, str);
-		if (ret < 0)
-			return ret;
-		new_prop->nameoff = cpu_to_fdt32(ret);
-	}
 
 	return 0;
 }

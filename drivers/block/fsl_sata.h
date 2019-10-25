@@ -2,7 +2,20 @@
  * Copyright (C) 2007-2008 Freescale Semiconductor, Inc.
  *		Dave Liu <daveliu@freescale.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef __FSL_SATA_H__
@@ -90,7 +103,6 @@ typedef struct fsl_sata_reg {
 */
 #define HCONTROL_ONOFF			0x80000000 /* Online or offline request */
 #define HCONTROL_FORCE_OFFLINE		0x40000000 /* Force offline request */
-#define HCONTROL_ENTERPRISE_EN		0x10000000 /* Enterprise mode enabled */
 #define HCONTROL_HDR_SNOOP		0x00000400 /* Command header snoop */
 #define HCONTROL_PMP_ATTACHED		0x00000200 /* Port multiplier attached */
 
@@ -163,11 +175,10 @@ typedef struct fsl_sata_reg {
 * Command Header Entry
 */
 typedef struct cmd_hdr_entry {
-	__le32 cda;		/* Command Descriptor Address,
-				   4 bytes aligned */
-	__le32 prde_fis_len;	/* Number of PRD entries and FIS length */
-	__le32 ttl;		/* Total transfer length */
-	__le32 attribute;	/* the attribute of command */
+	u32 cda;		/* Command Descriptor Address, 4 bytes aligned */
+	u32 prde_fis_len;	/* Number of PRD entries and FIS length */
+	u32 ttl;		/* Total transfer length */
+	u32 attribute;		/* the attribute of command */
 } __attribute__ ((packed)) cmd_hdr_entry_t;
 
 #define SATA_HC_CMD_HDR_ENTRY_SIZE	sizeof(struct cmd_hdr_entry)
@@ -218,10 +229,10 @@ typedef struct cmd_hdr_tbl {
 * PRD entry - Physical Region Descriptor entry
 */
 typedef struct prd_entry {
-	__le32 dba;	/* Data base address, 4 bytes aligned */
+	u32 dba;	/* Data base address, 4 bytes aligned */
 	u32 res1;
 	u32 res2;
-	__le32 ext_c_ddc; /* Indirect PRD flags, snoop and data word count */
+	u32 ext_c_ddc;	/* Indirect PRD flags, snoop and data word count */
 } __attribute__ ((packed)) prd_entry_t;
 
 #define SATA_HC_CMD_DESC_PRD_SIZE	sizeof(struct prd_entry)

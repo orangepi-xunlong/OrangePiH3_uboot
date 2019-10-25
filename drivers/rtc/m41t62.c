@@ -5,7 +5,20 @@
  * based on a the Linux rtc-m41t80.c driver which is:
  *   Alexander Bigga <ab@mycable.de>, 2006 (c) mycable GmbH
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -49,8 +62,6 @@
 
 #define M41T62_FEATURE_HT	(1 << 0)
 #define M41T62_FEATURE_BL	(1 << 1)
-
-#define M41T80_ALHOUR_HT	(1 << 6)	/* HT: Halt Update Bit */
 
 int rtc_get(struct rtc_time *tm)
 {
@@ -121,15 +132,9 @@ int rtc_set(struct rtc_time *tm)
 
 void rtc_reset(void)
 {
-	u8 val;
-
 	/*
-	 * M41T82: Make sure HT (Halt Update) bit is cleared.
-	 * This bit is 0 in M41T62 so its save to clear it always.
+	 * Nothing to do
 	 */
-	i2c_read(CONFIG_SYS_I2C_RTC_ADDR, M41T62_REG_ALARM_HOUR, 1, &val, 1);
-	val &= ~M41T80_ALHOUR_HT;
-	i2c_write(CONFIG_SYS_I2C_RTC_ADDR, M41T62_REG_ALARM_HOUR, 1, &val, 1);
 }
 
 #endif

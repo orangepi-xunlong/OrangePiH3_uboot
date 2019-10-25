@@ -2,7 +2,23 @@
  * (C) Copyright 2000-2002
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -50,20 +66,14 @@ int get_clocks (void)
 
 	val = *(vu_long *)MPC5XXX_CDM_CFG;
 	if (val & (1 << 8)) {
-		gd->arch.ipb_clk = gd->bus_clk / 2;
+		gd->ipb_clk = gd->bus_clk / 2;
 	} else {
-		gd->arch.ipb_clk = gd->bus_clk;
+		gd->ipb_clk = gd->bus_clk;
 	}
 	switch (val & 3) {
-	case 0:
-		gd->pci_clk = gd->arch.ipb_clk;
-		break;
-	case 1:
-		gd->pci_clk = gd->arch.ipb_clk / 2;
-		break;
-	default:
-		gd->pci_clk = gd->bus_clk / 4;
-		break;
+		case 0: gd->pci_clk = gd->ipb_clk; break;
+		case 1: gd->pci_clk = gd->ipb_clk / 2; break;
+		default: gd->pci_clk = gd->bus_clk / 4; break;
 	}
 
 	return (0);
@@ -75,7 +85,7 @@ int prt_mpc5xxx_clks (void)
 
 	printf ("       Bus %s MHz, IPB %s MHz, PCI %s MHz\n",
 		strmhz(buf1, gd->bus_clk),
-		strmhz(buf2, gd->arch.ipb_clk),
+		strmhz(buf2, gd->ipb_clk),
 		strmhz(buf3, gd->pci_clk)
 	);
 	return (0);

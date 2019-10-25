@@ -4,7 +4,23 @@
  * (C) Copyright 2008
  * Feng Kan, Applied Micro Circuits Corp., fkan@amcc.com
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 #ifndef __CONFIG_H
 #define __CONFIG_H
@@ -12,6 +28,7 @@
 /*-----------------------------------------------------------------------
  * High Level Configuration Options
  *----------------------------------------------------------------------*/
+#define CONFIG_4xx			1	/* ... PPC4xx family	*/
 #define CONFIG_440			1	/* ... PPC460 family	*/
 #define CONFIG_460SX			1	/* ... PPC460 family	*/
 #define CONFIG_BOARD_EARLY_INIT_F	1	/* Call board_pre_init	*/
@@ -93,13 +110,13 @@
 /*-----------------------------------------------------------------------
  * I2C
  *----------------------------------------------------------------------*/
-#define CONFIG_SYS_I2C_PPC4XX_SPEED_0		400000
+#define CONFIG_SYS_I2C_SPEED		400000	/* I2C speed			*/
 
 #define IIC0_BOOTPROM_ADDR	0x50
 #define IIC0_ALT_BOOTPROM_ADDR	0x54
 
 /* Don't probe these addrs */
-#define CONFIG_SYS_I2C_NOPROBES	{ {0, 0x50}, {0, 0x52}, {0, 0x53}, {0, 0x54} }
+#define CONFIG_SYS_I2C_NOPROBES	{0x50, 0x52, 0x53, 0x54}
 
 #define CONFIG_SYS_I2C_EEPROM_ADDR_LEN	2	/* Bytes of address		*/
 
@@ -120,6 +137,7 @@
 	CONFIG_AMCC_DEF_ENV						\
 	CONFIG_AMCC_DEF_ENV_POWERPC					\
 	CONFIG_AMCC_DEF_ENV_NOR_UPD					\
+	CONFIG_AMCC_DEF_ENV_NAND_UPD					\
 	"kernel_addr=fc000000\0"					\
 	"fdt_addr=fc1e0000\0"						\
 	"ramdisk_addr=fc200000\0"					\
@@ -132,6 +150,7 @@
 
 #define CONFIG_BOOTCOMMAND	"run flash_self"
 
+#define CONFIG_BOOTDELAY	5	/* autoboot after 5 seconds	*/
 
 #define	CONFIG_IBM_EMAC4_V4	1
 #define CONFIG_PHY_RESET	1	/* reset phy upon startup	*/

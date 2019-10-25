@@ -2,7 +2,23 @@
  * (C) Copyright 2001
  * Denis Peter, MPL AG Switzerland, d.peter@mpl.ch.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 #ifndef _PART_CD_H
 #define _PART_CD_H
@@ -29,8 +45,8 @@ typedef struct iso_pri_rec {
 	char					sysid[32];		/* system Identifier */
 	char					volid[32];		/* volume Identifier */
 	unsigned char zeros1[8];		/* unused */
-	unsigned int volsiz_LE;		/* volume size Little Endian */
-	unsigned int volsiz_BE;		/* volume size Big Endian */
+	unsigned long volsiz_LE;		/* volume size Little Endian */
+	unsigned long volsiz_BE;		/* volume size Big Endian */
 	unsigned char zeros2[32];		/* unused */
 	unsigned short setsize_LE;	/* volume set size LE */
 	unsigned short setsize_BE;	/* volume set size BE */
@@ -38,12 +54,12 @@ typedef struct iso_pri_rec {
 	unsigned short seqnum_BE;		/* volume sequence number BE */
 	unsigned short secsize_LE;	/* sector size LE */
 	unsigned short secsize_BE;	/* sector size BE */
-	unsigned int pathtablen_LE;/* Path Table size LE */
-	unsigned int pathtablen_BE;/* Path Table size BE */
-	unsigned int firstsek_LEpathtab1_LE; /* location of first occurrence of little endian type path table */
-	unsigned int firstsek_LEpathtab2_LE; /* location of optional occurrence of little endian type path table */
-	unsigned int firstsek_BEpathtab1_BE; /* location of first occurrence of big endian type path table */
-	unsigned int firstsek_BEpathtab2_BE; /* location of optional occurrence of big endian type path table */
+	unsigned long pathtablen_LE;/* Path Table size LE */
+	unsigned long pathtablen_BE;/* Path Table size BE */
+	unsigned long firstsek_LEpathtab1_LE; /* location of first occurrence of little endian type path table */
+	unsigned long firstsek_LEpathtab2_LE; /* location of optional occurrence of little endian type path table */
+	unsigned long firstsek_BEpathtab1_BE; /* location of first occurrence of big endian type path table */
+	unsigned long firstsek_BEpathtab2_BE; /* location of optional occurrence of big endian type path table */
 	unsigned char rootdir[34];	/* directory record for root dir */
 	char					volsetid[128];/* Volume set identifier */
 	char					pubid[128];		/* Publisher identifier */
@@ -67,8 +83,8 @@ typedef struct iso_sup_rec {
 	char					sysid[32];		/* system Identifier */
 	char					volid[32];		/* volume Identifier */
 	unsigned char zeros1[8];		/* unused */
-	unsigned int volsiz_LE;		/* volume size Little Endian */
-	unsigned int volsiz_BE;		/* volume size Big Endian */
+	unsigned long volsiz_LE;		/* volume size Little Endian */
+	unsigned long volsiz_BE;		/* volume size Big Endian */
 	unsigned char escapeseq[32];/* Escape sequences */
 	unsigned short setsize_LE;	/* volume set size LE */
 	unsigned short setsize_BE;	/* volume set size BE */
@@ -76,12 +92,12 @@ typedef struct iso_sup_rec {
 	unsigned short seqnum_BE;		/* volume sequence number BE */
 	unsigned short secsize_LE;	/* sector size LE */
 	unsigned short secsize_BE;	/* sector size BE */
-	unsigned int pathtablen_LE;/* Path Table size LE */
-	unsigned int pathtablen_BE;/* Path Table size BE */
-	unsigned int firstsek_LEpathtab1_LE; /* location of first occurrence of little endian type path table */
-	unsigned int firstsek_LEpathtab2_LE; /* location of optional occurrence of little endian type path table */
-	unsigned int firstsek_BEpathtab1_BE; /* location of first occurrence of big endian type path table */
-	unsigned int firstsek_BEpathtab2_BE; /* location of optional occurrence of big endian type path table */
+	unsigned long pathtablen_LE;/* Path Table size LE */
+	unsigned long pathtablen_BE;/* Path Table size BE */
+	unsigned long firstsek_LEpathtab1_LE; /* location of first occurrence of little endian type path table */
+	unsigned long firstsek_LEpathtab2_LE; /* location of optional occurrence of little endian type path table */
+	unsigned long firstsek_BEpathtab1_BE; /* location of first occurrence of big endian type path table */
+	unsigned long firstsek_BEpathtab2_BE; /* location of optional occurrence of big endian type path table */
 	unsigned char rootdir[34];	/* directory record for root dir */
 	char					volsetid[128];/* Volume set identifier */
 	char					pubid[128];		/* Publisher identifier */
@@ -104,10 +120,10 @@ typedef struct iso_part_rec {
 	unsigned char unused;
 	char					sysid[32];		 /* system Identifier */
 	char					volid[32];		/* volume partition Identifier */
-	unsigned int partloc_LE;		/* volume partition location LE */
-	unsigned int partloc_BE;		/* volume partition location BE */
-	unsigned int partsiz_LE;		/* volume partition size LE */
-	unsigned int partsiz_BE;		/* volume partition size BE */
+	unsigned long partloc_LE;		/* volume partition location LE */
+	unsigned long partloc_BE;		/* volume partition location BE */
+	unsigned long partsiz_LE;		/* volume partition size LE */
+	unsigned long partsiz_BE;		/* volume partition size BE */
 }iso_part_rec_t;
 
 

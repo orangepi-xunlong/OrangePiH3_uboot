@@ -3,7 +3,20 @@
  *
  * Dave Liu <daveliu@freescale.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include "common.h"
@@ -11,12 +24,12 @@
 #include "malloc.h"
 #include "asm/errno.h"
 #include "asm/io.h"
-#include "linux/immap_qe.h"
+#include "asm/immap_qe.h"
+#include "qe.h"
 #include "uccf.h"
 #include "uec.h"
 #include "uec_phy.h"
 #include "miiphy.h"
-#include <fsl_qe.h>
 #include <phy.h>
 
 /* Default UTBIPAR SMI address */
@@ -251,10 +264,13 @@ static int uec_open(uec_private_t *uec, comm_dir_e mode)
 
 static int uec_stop(uec_private_t *uec, comm_dir_e mode)
 {
+	ucc_fast_private_t	*uccf;
+
 	if (!uec || !uec->uccf) {
 		printf("%s: No handle passed.\n", __FUNCTION__);
 		return -EINVAL;
 	}
+	uccf = uec->uccf;
 
 	/* check if the UCC number is in range. */
 	if (uec->uec_info->uf_info.ucc_num >= UCC_MAX_NUM) {
@@ -309,6 +325,7 @@ static int uec_set_mac_if_mode(uec_private_t *uec,
 		phy_interface_t if_mode, int speed)
 {
 	phy_interface_t		enet_if_mode;
+	uec_info_t		*uec_info;
 	uec_t			*uec_regs;
 	u32			upsmr;
 	u32			maccfg2;
@@ -318,6 +335,7 @@ static int uec_set_mac_if_mode(uec_private_t *uec,
 		return -EINVAL;
 	}
 
+	uec_info = uec->uec_info;
 	uec_regs = uec->uec_regs;
 	enet_if_mode = if_mode;
 
@@ -498,10 +516,12 @@ bus_fail:
 static void adjust_link(struct eth_device *dev)
 {
 	uec_private_t		*uec = (uec_private_t *)dev->priv;
+	uec_t			*uec_regs;
 	struct uec_mii_info	*mii_info = uec->mii_info;
 
 	extern void change_phy_interface_mode(struct eth_device *dev,
 				 phy_interface_t mode, int speed);
+	uec_regs = uec->uec_regs;
 
 	if (mii_info->link) {
 		/* Now we make sure that we can be in full duplex mode.
@@ -567,7 +587,8 @@ static void phy_change(struct eth_device *dev)
 {
 	uec_private_t	*uec = (uec_private_t *)dev->priv;
 
-#if defined(CONFIG_P1012) || defined(CONFIG_P1021) || defined(CONFIG_P1025)
+#if defined(CONFIG_P1012) || defined(CONFIG_P1016) || \
+    defined(CONFIG_P1021) || defined(CONFIG_P1025)
 	ccsr_gur_t *gur = (void *)(CONFIG_SYS_MPC85xx_GUTS_ADDR);
 
 	/* QE9 and QE12 need to be set for enabling QE MII managment signals */
@@ -578,7 +599,8 @@ static void phy_change(struct eth_device *dev)
 	/* Update the link, speed, duplex */
 	uec->mii_info->phyinfo->read_status(uec->mii_info);
 
-#if defined(CONFIG_P1012) || defined(CONFIG_P1021) || defined(CONFIG_P1025)
+#if defined(CONFIG_P1012) || defined(CONFIG_P1016) || \
+    defined(CONFIG_P1021) || defined(CONFIG_P1025)
 	/*
 	 * QE12 is muxed with LBCTL, it needs to be released for enabling
 	 * LBCTL signal for LBC usage.
@@ -623,20 +645,20 @@ static int uec_miiphy_find_dev_by_name(const char *devname)
  * Returns:
  *  0 on success
  */
-static int uec_miiphy_read(struct mii_dev *bus, int addr, int devad, int reg)
+static int uec_miiphy_read(const char *devname, unsigned char addr,
+			    unsigned char reg, unsigned short *value)
 {
-	unsigned short value = 0;
 	int devindex = 0;
 
-	if (bus->name == NULL) {
+	if (devname == NULL || value == NULL) {
 		debug("%s: NULL pointer given\n", __FUNCTION__);
 	} else {
-		devindex = uec_miiphy_find_dev_by_name(bus->name);
+		devindex = uec_miiphy_find_dev_by_name(devname);
 		if (devindex >= 0) {
-			value = uec_read_phy_reg(devlist[devindex], addr, reg);
+			*value = uec_read_phy_reg(devlist[devindex], addr, reg);
 		}
 	}
-	return value;
+	return 0;
 }
 
 /*
@@ -645,15 +667,15 @@ static int uec_miiphy_read(struct mii_dev *bus, int addr, int devad, int reg)
  * Returns:
  *  0 on success
  */
-static int uec_miiphy_write(struct mii_dev *bus, int addr, int devad, int reg,
-			    u16 value)
+static int uec_miiphy_write(const char *devname, unsigned char addr,
+			     unsigned char reg, unsigned short value)
 {
 	int devindex = 0;
 
-	if (bus->name == NULL) {
+	if (devname == NULL) {
 		debug("%s: NULL pointer given\n", __FUNCTION__);
 	} else {
-		devindex = uec_miiphy_find_dev_by_name(bus->name);
+		devindex = uec_miiphy_find_dev_by_name(devname);
 		if (devindex >= 0) {
 			uec_write_phy_reg(devlist[devindex], addr, reg, value);
 		}
@@ -1193,14 +1215,16 @@ static int uec_init(struct eth_device* dev, bd_t *bd)
 	uec_private_t		*uec;
 	int			err, i;
 	struct phy_info         *curphy;
-#if defined(CONFIG_P1012) || defined(CONFIG_P1021) || defined(CONFIG_P1025)
+#if defined(CONFIG_P1012) || defined(CONFIG_P1016) || \
+    defined(CONFIG_P1021) || defined(CONFIG_P1025)
 	ccsr_gur_t *gur = (void *)(CONFIG_SYS_MPC85xx_GUTS_ADDR);
 #endif
 
 	uec = (uec_private_t *)dev->priv;
 
 	if (uec->the_first_run == 0) {
-#if defined(CONFIG_P1012) || defined(CONFIG_P1021) || defined(CONFIG_P1025)
+#if defined(CONFIG_P1012) || defined(CONFIG_P1016) || \
+    defined(CONFIG_P1021) || defined(CONFIG_P1025)
 	/* QE9 and QE12 need to be set for enabling QE MII managment signals */
 	setbits_be32(&gur->pmuxcr, MPC85xx_PMUXCR_QE9);
 	setbits_be32(&gur->pmuxcr, MPC85xx_PMUXCR_QE12);
@@ -1232,7 +1256,8 @@ static int uec_init(struct eth_device* dev, bd_t *bd)
 			udelay(100000);
 		} while (1);
 
-#if defined(CONFIG_P1012) || defined(CONFIG_P1021) || defined(CONFIG_P1025)
+#if defined(CONFIG_P1012) || defined(CONFIG_P1016) || \
+    defined(CONFIG_P1021) || defined(CONFIG_P1025)
 		/* QE12 needs to be released for enabling LBCTL signal*/
 		clrbits_be32(&gur->pmuxcr, MPC85xx_PMUXCR_QE12);
 #endif
@@ -1270,7 +1295,7 @@ static void uec_halt(struct eth_device* dev)
 	uec_stop(uec, COMM_DIR_RX_AND_TX);
 }
 
-static int uec_send(struct eth_device *dev, void *buf, int len)
+static int uec_send(struct eth_device* dev, volatile void *buf, int len)
 {
 	uec_private_t		*uec;
 	ucc_fast_private_t	*uccf;
@@ -1333,7 +1358,7 @@ static int uec_recv(struct eth_device* dev)
 		if (!(status & RxBD_ERROR)) {
 			data = BD_DATA(bd);
 			len = BD_LENGTH(bd);
-			net_process_received_packet(data, len);
+			NetReceive(data, len);
 		} else {
 			printf("%s: Rx error\n", dev->name);
 		}
@@ -1399,17 +1424,7 @@ int uec_initialize(bd_t *bis, uec_info_t *uec_info)
 	}
 
 #if defined(CONFIG_MII) || defined(CONFIG_CMD_MII)
-	int retval;
-	struct mii_dev *mdiodev = mdio_alloc();
-	if (!mdiodev)
-		return -ENOMEM;
-	strncpy(mdiodev->name, dev->name, MDIO_NAME_LEN);
-	mdiodev->read = uec_miiphy_read;
-	mdiodev->write = uec_miiphy_write;
-
-	retval = mdio_register(mdiodev);
-	if (retval < 0)
-		return retval;
+	miiphy_register(dev->name, uec_miiphy_read, uec_miiphy_write);
 #endif
 
 	return 1;

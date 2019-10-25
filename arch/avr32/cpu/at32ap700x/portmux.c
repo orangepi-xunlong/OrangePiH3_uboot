@@ -1,7 +1,23 @@
 /*
  * Copyright (C) 2006, 2008 Atmel Corporation
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 #include <common.h>
 
@@ -106,7 +122,7 @@ void portmux_enable_macb1(unsigned long flags, unsigned long drive_strength)
 		portd_mask |= (1 << 15);/* SPD	*/
 
 	/* REVISIT: Some pins are probably pure outputs */
-	portmux_select_peripheral(PORTMUX_PORT_D, portd_mask,
+	portmux_select_peripheral(PORTMUX_PORT_D, portc_mask,
 			PORTMUX_FUNC_B, PORTMUX_BUSKEEPER);
 	portmux_select_peripheral(PORTMUX_PORT_C, portc_mask,
 			PORTMUX_FUNC_B, PORTMUX_BUSKEEPER);

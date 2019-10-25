@@ -1,5 +1,5 @@
 /*
- * U-Boot - Configuration file for BF561 Acvilon System On Module
+ * U-boot - Configuration file for BF561 Acvilon System On Module
  * For more information please go to http://www.niistt.ru/
  */
 
@@ -8,11 +8,13 @@
 
 #include <asm/config-pre.h>
 
+
 /*
  * Processor Settings
  */
 #define CONFIG_BFIN_CPU             bf561-0.5
 #define CONFIG_BFIN_BOOT_MODE       BFIN_BOOT_BYPASS
+
 
 /*
  * Clock Settings
@@ -37,6 +39,7 @@
 /* Values can range from 1-15						*/
 #define CONFIG_SCLK_DIV				5
 
+
 /*
  * Memory Settings
  */
@@ -50,8 +53,9 @@
 #define CONFIG_EBIU_AMBCTL0_VAL		0xffc2ffc2
 #define CONFIG_EBIU_AMBCTL1_VAL		0x99b35554
 
-#define CONFIG_SYS_MONITOR_LEN		(384 * 1024)
+#define CONFIG_SYS_MONITOR_LEN		(256 * 1024)
 #define CONFIG_SYS_MALLOC_LEN		(128 * 1024)
+
 
 /*
  * RTC Settings
@@ -67,10 +71,14 @@
 #define CONFIG_SYS_DTT_LOW_TEMP -30
 #define CONFIG_SYS_DTT_HYSTERESIS       3*/
 
+
 /*
  * Network Settings
  */
 #define ADI_CMDS_NETWORK			1
+#define CONFIG_NET_MULTI
+#define CONFIG_CMD_NET
+#define CONFIG_CMD_MII
 #define CONFIG_CMD_DATE
 #define CONFIG_CMD_DTT
 
@@ -85,10 +93,15 @@
 
 #define CONFIG_HOSTNAME		bf561-acvilon
 
+/* Uncomment next line to use fixed MAC address */
+/* #define CONFIG_ETHADDR				02:80:ad:20:31:e8 */
+
+
 /*
  * Flash Settings
  */
 #define CONFIG_SYS_NO_FLASH
+
 
 /*
  * I2C Settings
@@ -99,20 +112,26 @@
 #define CONFIG_PCA9564_I2C
 #define CONFIG_PCA9564_BASE			0x2c000000
 
+
 /*
  * SPI Settings
  */
 #define CONFIG_BFIN_SPI
 #define CONFIG_ENV_SPI_MAX_HZ		10000000
 #define CONFIG_SF_DEFAULT_SPEED		10000000
+#define CONFIG_SPI_FLASH
+#define CONFIG_SPI_FLASH_ATMEL
+
 
 /*
  * Env Storage Settings
  */
 #define CONFIG_ENV_IS_IN_SPI_FLASH
+/* #define CONFIG_CMD_SAVEENV */
 #define CONFIG_ENV_SECT_SIZE		(1056 * 8)
 #define CONFIG_ENV_OFFSET			((16 + 256) * 1056)
 #define CONFIG_ENV_SIZE				(8 * 1056)
+
 
 /*
  * NAND Settings
@@ -135,11 +154,14 @@
 #define NAND_PLAT_WRITE_ADR(chip, cmd) BFIN_NAND_WRITE(BFIN_NAND_ALE(chip), cmd)
 #define NAND_PLAT_GPIO_DEV_READY       GPIO_PF10
 
+
 /*
  * Misc Settings
  */
 #define CONFIG_UART_CONSOLE			0
 #define CONFIG_BAUDRATE				57600
+#define CONFIG_SYS_PROMPT "Acvilon> "
+
 
 /*
  * Pull in common ADI header for remaining command/environment setup

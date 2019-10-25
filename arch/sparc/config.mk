@@ -1,25 +1,28 @@
 #
-# (C) Copyright 2015
-# Daniel Hellstrom, Cobham Gaisler, daniel@gaisler.com.
+# (C) Copyright 2007
+# Daniel Hellstrom, Gaisler Research, daniel@gaisler.com
 #
-# SPDX-License-Identifier:	GPL-2.0+
+# See file CREDITS for list of people who contributed to this
+# project.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 2 of
+# the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+# MA 02111-1307 USA
 #
 
-ifeq ($(CROSS_COMPILE),)
-CROSS_COMPILE := sparc-linux-
-endif
+CROSS_COMPILE ?= sparc-elf-
 
-# This GCC compiler is known to work:
-#  https://www.kernel.org/pub/tools/crosstool/files/bin/x86_64/4.9.0/
+CONFIG_STANDALONE_LOAD_ADDR ?= 0x00000000 -L $(gcclibdir) -T sparc.lds
 
-gcclibdir := $(shell dirname `$(CC) -print-libgcc-file-name`)
-
-CONFIG_STANDALONE_LOAD_ADDR ?= 0x00000000 -L $(gcclibdir) \
-			       -T $(srctree)/examples/standalone/sparc.lds
-
-cpuflags-$(CONFIG_LEON2) := -mcpu=leon
-cpuflags-$(CONFIG_LEON3) := -mcpu=leon3
-
-PLATFORM_CPPFLAGS += $(cpuflags-y)
-
-PLATFORM_RELFLAGS += -fPIC
+PLATFORM_CPPFLAGS += -DCONFIG_SPARC -D__sparc__

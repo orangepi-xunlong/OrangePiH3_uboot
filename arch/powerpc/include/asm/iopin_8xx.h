@@ -1,5 +1,21 @@
 /*
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -26,7 +42,7 @@ typedef struct {
 #define IOPIN_PORTC	2
 #define IOPIN_PORTD	3
 
-static __inline__ void
+extern __inline__ void
 iopin_set_high(iopin_t *iopin)
 {
 	if (iopin->port == IOPIN_PORTA) {
@@ -44,7 +60,7 @@ iopin_set_high(iopin_t *iopin)
 	}
 }
 
-static __inline__ void
+extern __inline__ void
 iopin_set_low(iopin_t *iopin)
 {
 	if (iopin->port == IOPIN_PORTA) {
@@ -62,7 +78,7 @@ iopin_set_low(iopin_t *iopin)
 	}
 }
 
-static __inline__ uint
+extern __inline__ uint
 iopin_is_high(iopin_t *iopin)
 {
 	if (iopin->port == IOPIN_PORTA) {
@@ -81,7 +97,7 @@ iopin_is_high(iopin_t *iopin)
 	return 0;
 }
 
-static __inline__ uint
+extern __inline__ uint
 iopin_is_low(iopin_t *iopin)
 {
 	if (iopin->port == IOPIN_PORTA) {
@@ -100,7 +116,7 @@ iopin_is_low(iopin_t *iopin)
 	return 0;
 }
 
-static __inline__ void
+extern __inline__ void
 iopin_set_out(iopin_t *iopin)
 {
 	if (iopin->port == IOPIN_PORTA) {
@@ -118,7 +134,7 @@ iopin_set_out(iopin_t *iopin)
 	}
 }
 
-static __inline__ void
+extern __inline__ void
 iopin_set_in(iopin_t *iopin)
 {
 	if (iopin->port == IOPIN_PORTA) {
@@ -136,7 +152,7 @@ iopin_set_in(iopin_t *iopin)
 	}
 }
 
-static __inline__ uint
+extern __inline__ uint
 iopin_is_out(iopin_t *iopin)
 {
 	if (iopin->port == IOPIN_PORTA) {
@@ -155,7 +171,7 @@ iopin_is_out(iopin_t *iopin)
 	return 0;
 }
 
-static __inline__ uint
+extern __inline__ uint
 iopin_is_in(iopin_t *iopin)
 {
 	if (iopin->port == IOPIN_PORTA) {
@@ -174,7 +190,7 @@ iopin_is_in(iopin_t *iopin)
 	return 0;
 }
 
-static __inline__ void
+extern __inline__ void
 iopin_set_odr(iopin_t *iopin)
 {
 	if (iopin->port == IOPIN_PORTA) {
@@ -186,7 +202,7 @@ iopin_set_odr(iopin_t *iopin)
 	}
 }
 
-static __inline__ void
+extern __inline__ void
 iopin_set_act(iopin_t *iopin)
 {
 	if (iopin->port == IOPIN_PORTA) {
@@ -198,7 +214,7 @@ iopin_set_act(iopin_t *iopin)
 	}
 }
 
-static __inline__ uint
+extern __inline__ uint
 iopin_is_odr(iopin_t *iopin)
 {
 	if (iopin->port == IOPIN_PORTA) {
@@ -211,7 +227,7 @@ iopin_is_odr(iopin_t *iopin)
 	return 0;
 }
 
-static __inline__ uint
+extern __inline__ uint
 iopin_is_act(iopin_t *iopin)
 {
 	if (iopin->port == IOPIN_PORTA) {
@@ -224,7 +240,7 @@ iopin_is_act(iopin_t *iopin)
 	return 0;
 }
 
-static __inline__ void
+extern __inline__ void
 iopin_set_ded(iopin_t *iopin)
 {
 	if (iopin->port == IOPIN_PORTA) {
@@ -242,7 +258,7 @@ iopin_set_ded(iopin_t *iopin)
 	}
 }
 
-static __inline__ void
+extern __inline__ void
 iopin_set_gen(iopin_t *iopin)
 {
 	if (iopin->port == IOPIN_PORTA) {
@@ -260,7 +276,7 @@ iopin_set_gen(iopin_t *iopin)
 	}
 }
 
-static __inline__ uint
+extern __inline__ uint
 iopin_is_ded(iopin_t *iopin)
 {
 	if (iopin->port == IOPIN_PORTA) {
@@ -279,7 +295,7 @@ iopin_is_ded(iopin_t *iopin)
 	return 0;
 }
 
-static __inline__ uint
+extern __inline__ uint
 iopin_is_gen(iopin_t *iopin)
 {
 	if (iopin->port == IOPIN_PORTA) {
@@ -298,7 +314,7 @@ iopin_is_gen(iopin_t *iopin)
 	return 0;
 }
 
-static __inline__ void
+extern __inline__ void
 iopin_set_opt2(iopin_t *iopin)
 {
 	if (iopin->port == IOPIN_PORTC) {
@@ -307,7 +323,7 @@ iopin_set_opt2(iopin_t *iopin)
 	}
 }
 
-static __inline__ void
+extern __inline__ void
 iopin_set_opt1(iopin_t *iopin)
 {
 	if (iopin->port == IOPIN_PORTC) {
@@ -316,7 +332,7 @@ iopin_set_opt1(iopin_t *iopin)
 	}
 }
 
-static __inline__ uint
+extern __inline__ uint
 iopin_is_opt2(iopin_t *iopin)
 {
 	if (iopin->port == IOPIN_PORTC) {
@@ -326,7 +342,7 @@ iopin_is_opt2(iopin_t *iopin)
 	return 0;
 }
 
-static __inline__ uint
+extern __inline__ uint
 iopin_is_opt1(iopin_t *iopin)
 {
 	if (iopin->port == IOPIN_PORTC) {
@@ -336,7 +352,7 @@ iopin_is_opt1(iopin_t *iopin)
 	return 0;
 }
 
-static __inline__ void
+extern __inline__ void
 iopin_set_falledge(iopin_t *iopin)
 {
 	if (iopin->port == IOPIN_PORTC) {
@@ -345,7 +361,7 @@ iopin_set_falledge(iopin_t *iopin)
 	}
 }
 
-static __inline__ void
+extern __inline__ void
 iopin_set_anyedge(iopin_t *iopin)
 {
 	if (iopin->port == IOPIN_PORTC) {
@@ -354,7 +370,7 @@ iopin_set_anyedge(iopin_t *iopin)
 	}
 }
 
-static __inline__ uint
+extern __inline__ uint
 iopin_is_falledge(iopin_t *iopin)
 {
 	if (iopin->port == IOPIN_PORTC) {
@@ -364,7 +380,7 @@ iopin_is_falledge(iopin_t *iopin)
 	return 0;
 }
 
-static __inline__ uint
+extern __inline__ uint
 iopin_is_anyedge(iopin_t *iopin)
 {
 	if (iopin->port == IOPIN_PORTC) {

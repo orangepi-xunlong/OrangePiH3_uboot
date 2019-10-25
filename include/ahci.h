@@ -3,7 +3,24 @@
  * Author: Jason Jin<Jason.jin@freescale.com>
  *         Zhang Wei<wei.zhang@freescale.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
  */
 #ifndef _AHCI_H_
 #define _AHCI_H_
@@ -13,13 +30,12 @@
 #define AHCI_PCI_BAR		0x24
 #define AHCI_MAX_SG		56 /* hardware max is 64K */
 #define AHCI_CMD_SLOT_SZ	32
-#define AHCI_MAX_CMD_SLOT	32
 #define AHCI_RX_FIS_SZ		256
 #define AHCI_CMD_TBL_HDR	0x80
 #define AHCI_CMD_TBL_CDB	0x40
 #define AHCI_CMD_TBL_SZ		AHCI_CMD_TBL_HDR + (AHCI_MAX_SG * 16)
-#define AHCI_PORT_PRIV_DMA_SZ	(AHCI_CMD_SLOT_SZ * AHCI_MAX_CMD_SLOT + \
-				AHCI_CMD_TBL_SZ	+ AHCI_RX_FIS_SZ)
+#define AHCI_PORT_PRIV_DMA_SZ	AHCI_CMD_SLOT_SZ + AHCI_CMD_TBL_SZ	\
+				+ AHCI_RX_FIS_SZ
 #define AHCI_CMD_ATAPI		(1 << 5)
 #define AHCI_CMD_WRITE		(1 << 6)
 #define AHCI_CMD_PREFETCH	(1 << 7)
@@ -34,7 +50,6 @@
 #define HOST_IRQ_STAT		0x08 /* interrupt status */
 #define HOST_PORTS_IMPL		0x0c /* bitmap of implemented ports */
 #define HOST_VERSION		0x10 /* AHCI spec. version compliancy */
-#define HOST_CAP2		0x24 /* host capabilities, extended */
 
 /* HOST_CTL bits */
 #define HOST_RESET		(1 << 0)  /* reset controller; self-clear */
@@ -57,10 +72,6 @@
 #define PORT_SCR_CTL		0x2c /* SATA phy register: SControl */
 #define PORT_SCR_ERR		0x30 /* SATA phy register: SError */
 #define PORT_SCR_ACT		0x34 /* SATA phy register: SActive */
-
-#ifdef CONFIG_SUNXI_AHCI
-#define PORT_P0DMACR		0x70 /* SUNXI specific "DMA register" */
-#endif
 
 /* PORT_IRQ_{STAT,MASK} bits */
 #define PORT_IRQ_COLD_PRES	(1 << 31) /* cold presence detect */
@@ -91,11 +102,6 @@
 				| PORT_IRQ_DMAS_FIS | PORT_IRQ_PIOS_FIS	\
 				| PORT_IRQ_D2H_REG_FIS
 
-/* PORT_SCR_STAT bits */
-#define PORT_SCR_STAT_DET_MASK	0x3
-#define PORT_SCR_STAT_DET_COMINIT 0x1
-#define PORT_SCR_STAT_DET_PHYRDY 0x3
-
 /* PORT_CMD bits */
 #define PORT_CMD_ATAPI		(1 << 24) /* Device is ATAPI */
 #define PORT_CMD_LIST_ON	(1 << 15) /* cmd list DMA engine running */
@@ -111,6 +117,29 @@
 #define PORT_CMD_ICC_SLUMBER	(0x6 << 28) /* Put i/f in slumber state */
 
 #define AHCI_MAX_PORTS		32
+
+/* SETFEATURES stuff */
+#define SETFEATURES_XFER	0x03
+#define XFER_UDMA_7		0x47
+#define XFER_UDMA_6		0x46
+#define XFER_UDMA_5		0x45
+#define XFER_UDMA_4		0x44
+#define XFER_UDMA_3		0x43
+#define XFER_UDMA_2		0x42
+#define XFER_UDMA_1		0x41
+#define XFER_UDMA_0		0x40
+#define XFER_MW_DMA_2		0x22
+#define XFER_MW_DMA_1		0x21
+#define XFER_MW_DMA_0		0x20
+#define XFER_SW_DMA_2		0x12
+#define XFER_SW_DMA_1		0x11
+#define XFER_SW_DMA_0		0x10
+#define XFER_PIO_4		0x0C
+#define XFER_PIO_3		0x0B
+#define XFER_PIO_2		0x0A
+#define XFER_PIO_1		0x09
+#define XFER_PIO_0		0x08
+#define XFER_PIO_SLOW		0x00
 
 #define ATA_FLAG_SATA		(1 << 3)
 #define ATA_FLAG_NO_LEGACY	(1 << 4) /* no legacy mode check */
@@ -135,27 +164,23 @@ struct ahci_sg {
 };
 
 struct ahci_ioports {
-	void __iomem	*cmd_addr;
-	void __iomem	*scr_addr;
-	void __iomem	*port_mmio;
+	u32	cmd_addr;
+	u32	scr_addr;
+	u32	port_mmio;
 	struct ahci_cmd_hdr	*cmd_slot;
 	struct ahci_sg		*cmd_tbl_sg;
-	ulong	cmd_tbl;
+	u32	cmd_tbl;
 	u32	rx_fis;
 };
 
 struct ahci_probe_ent {
-#ifdef CONFIG_DM_PCI
-	struct udevice *dev;
-#else
 	pci_dev_t	dev;
-#endif
 	struct ahci_ioports	port[AHCI_MAX_PORTS];
 	u32	n_ports;
 	u32	hard_port_no;
 	u32	host_flags;
 	u32	host_set_flags;
-	void __iomem *mmio_base;
+	u32	mmio_base;
 	u32     pio_mask;
 	u32	udma_mask;
 	u32	flags;
@@ -164,7 +189,6 @@ struct ahci_probe_ent {
 	u32	link_port_map; /*linkup port map*/
 };
 
-int ahci_init(void __iomem *base);
-int ahci_reset(void __iomem *base);
+int ahci_init(u32 base);
 
 #endif

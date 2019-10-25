@@ -2,39 +2,52 @@
 # (C) Copyright 2000-2003
 # Wolfgang Denk, DENX Software Engineering, wd@denx.de.
 #
-# SPDX-License-Identifier:	GPL-2.0+
+# See file CREDITS for list of people who contributed to this
+# project.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 2 of
+# the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+# MA 02111-1307 USA
 #
 
-obj-y	:= reset.o
-ifeq ($(CONFIG_TIMER),)
-obj-y	+= timer.o
-else
+include $(TOPDIR)/config.mk
+
+LIB	= $(obj)libomap-common.o
+
+SOBJS	:= reset.o
+
+COBJS	:= timer.o
+COBJS	+= utils.o
+COBJS	+= gpio.o
+
 ifdef CONFIG_SPL_BUILD
-obj-y	+= timer.o
-endif
-endif
-obj-y	+= utils.o
-
-ifneq ($(CONFIG_OMAP44XX)$(CONFIG_OMAP54XX),)
-obj-y	+= hwinit-common.o
-obj-y	+= clocks-common.o
-obj-y	+= emif-common.o
-obj-y	+= vc.o
-obj-y	+= abb.o
+COBJS	+= spl.o
 endif
 
-ifneq ($(CONFIG_OMAP54XX),)
-obj-y	+= pipe3-phy.o
-obj-$(CONFIG_SCSI_AHCI_PLAT) += sata.o
-endif
+SRCS	:= $(SOBJS:.o=.S) $(COBJS:.o=.c)
+OBJS	:= $(addprefix $(obj),$(SOBJS) $(COBJS))
 
-ifeq ($(CONFIG_SYS_DCACHE_OFF),)
-obj-y	+= omap-cache.o
-endif
+all:	$(obj).depend $(LIB)
 
-obj-y	+= boot-common.o
-obj-y	+= lowlevel_init.o
+$(LIB):	$(OBJS)
+	$(call cmd_link_o_target, $(OBJS))
 
-obj-y	+= mem-common.o
+#########################################################################
 
-obj-$(CONFIG_TI_SECURE_DEVICE) += sec-common.o
+# defines $(obj).depend target
+include $(SRCTREE)/rules.mk
+
+sinclude $(obj).depend
+
+#########################################################################

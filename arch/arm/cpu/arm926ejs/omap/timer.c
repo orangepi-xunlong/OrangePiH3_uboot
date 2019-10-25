@@ -16,23 +16,36 @@
  * (C) Copyright 2004
  * Philippe Robin, ARM Ltd. <philippe.robin@arm.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
-#include <asm/io.h>
 
-#define TIMER_CLOCK	(CONFIG_SYS_CLK_FREQ / (2 << CONFIG_SYS_PTV))
-#define TIMER_LOAD_VAL	0xffffffff
+#define TIMER_LOAD_VAL 0xffffffff
 
 /* macro to read the 32 bit timer */
-#define READ_TIMER	readl(CONFIG_SYS_TIMERBASE+8) \
-			/ (TIMER_CLOCK / CONFIG_SYS_HZ)
+#define READ_TIMER (*(volatile ulong *)(CONFIG_SYS_TIMERBASE+8))
 
 DECLARE_GLOBAL_DATA_PTR;
 
-#define timestamp gd->arch.tbl
-#define lastdec gd->arch.lastinc
+#define timestamp gd->tbl
+#define lastdec gd->lastinc
 
 int timer_init (void)
 {
@@ -101,8 +114,7 @@ ulong get_timer_masked (void)
 		 * (TLV-now) amount of time after passing though -1
 		 * nts = new "advancing time stamp"...it could also roll and cause problems.
 		 */
-		timestamp += lastdec + (TIMER_LOAD_VAL / (TIMER_CLOCK /
-					CONFIG_SYS_HZ)) - now;
+		timestamp += lastdec + TIMER_LOAD_VAL - now;
 	}
 	lastdec = now;
 
@@ -148,5 +160,8 @@ unsigned long long get_ticks(void)
  */
 ulong get_tbclk (void)
 {
-	return CONFIG_SYS_HZ;
+	ulong tbclk;
+
+	tbclk = CONFIG_SYS_HZ;
+	return tbclk;
 }

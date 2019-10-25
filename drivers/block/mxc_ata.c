@@ -10,7 +10,20 @@
  * part of eCos, the Embedded Configurable Operating System.
  * Copyright (C) 1998, 1999, 2000, 2001, 2002 Red Hat, Inc.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -83,6 +96,7 @@ static uint16_t pio_tA[NR_PIO_SPECS]	= { 50,  50,  50,  50,  50 };
 #define	REG2OFF(reg)	((((uint32_t)reg) & 0x3) * 8)
 static void set_ata_bus_timing(unsigned char mode)
 {
+	uint32_t val;
 	uint32_t T = 1000000000 / mxc_get_clock(MXC_IPG_CLK);
 
 	struct mxc_ata_config_regs *ata_regs;
@@ -92,19 +106,22 @@ static void set_ata_bus_timing(unsigned char mode)
 		return;
 
 	/* Write TIME_OFF/ON/1/2W */
-	writeb(3, &ata_regs->time_off);
-	writeb(3, &ata_regs->time_on);
-	writeb((pio_t1[mode] + T) / T, &ata_regs->time_1);
-	writeb((pio_t2_8[mode] + T) / T, &ata_regs->time_2w);
+	val =	(3 << REG2OFF(&ata_regs->time_off)) |
+		(3 << REG2OFF(&ata_regs->time_on)) |
+		(((pio_t1[mode] + T) / T) << REG2OFF(&ata_regs->time_1)) |
+		(((pio_t2_8[mode] + T) / T) << REG2OFF(&ata_regs->time_2w));
+	writel(val, &ata_regs->time_off);
 
 	/* Write TIME_2R/AX/RDX/4 */
-	writeb((pio_t2_8[mode] + T) / T, &ata_regs->time_2r);
-	writeb((pio_tA[mode] + T) / T + 2, &ata_regs->time_ax);
-	writeb(1, &ata_regs->time_pio_rdx);
-	writeb((pio_t4[mode] + T) / T, &ata_regs->time_4);
+	val =	(((pio_t2_8[mode] + T) / T) << REG2OFF(&ata_regs->time_2r)) |
+		(((pio_tA[mode] + T) / T + 2) << REG2OFF(&ata_regs->time_ax)) |
+		(1 << REG2OFF(&ata_regs->time_pio_rdx)) |
+		(((pio_t4[mode] + T) / T) << REG2OFF(&ata_regs->time_4));
+	writel(val, &ata_regs->time_2r);
 
 	/* Write TIME_9 ; the rest of timing registers is irrelevant for PIO */
-	writeb((pio_t9[mode] + T) / T, &ata_regs->time_9);
+	val =	(((pio_t9[mode] + T) / T) << REG2OFF(&ata_regs->time_9));
+	writel(val, &ata_regs->time_9);
 }
 
 int ide_preinit(void)

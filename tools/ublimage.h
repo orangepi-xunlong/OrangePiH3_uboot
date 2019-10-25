@@ -6,11 +6,33 @@
  * (C) Copyright 2009
  * Stefano Babic, DENX Software Engineering, sbabic@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef _UBLIMAGE_H_
 #define _UBLIMAGE_H_
+
+#include <config.h>
+
+#if !defined(CONFIG_SYS_UBL_BLOCK)
+#define CONFIG_SYS_UBL_BLOCK 512
+#endif
 
 enum ublimage_cmd {
 	CMD_INVALID,
@@ -49,9 +71,6 @@ enum ublimage_fld_types {
 /* Define max UBL image size */
 #define UBL_IMAGE_SIZE              (0x00003800u)
 
-/* one NAND block */
-#define UBL_BLOCK_SIZE 2048
-
 /* from sprufg5a.pdf Table 109 */
 struct ubl_header {
 	uint32_t	magic;	/* Magic Number, see UBL_* defines */
@@ -78,7 +97,7 @@ struct ubl_header {
 				 * Magic Number indicates fast EMIF boot).
 				 */
 	/* to fit in one nand block */
-	unsigned char	res[UBL_BLOCK_SIZE - 8 * 4];
+	unsigned char	res[CONFIG_SYS_UBL_BLOCK - 8 * 4];
 };
 
 #endif /* _UBLIMAGE_H_ */

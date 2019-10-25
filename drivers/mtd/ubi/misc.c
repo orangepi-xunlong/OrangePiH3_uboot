@@ -1,7 +1,19 @@
 /*
  * Copyright (c) International Business Machines Corp., 2006
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See
+ * the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  *
  * Author: Artem Bityutskiy (Битюцкий Артём)
  */
@@ -63,8 +75,6 @@ int ubi_check_volume(struct ubi_device *ubi, int vol_id)
 	for (i = 0; i < vol->used_ebs; i++) {
 		int size;
 
-		cond_resched();
-
 		if (i == vol->used_ebs - 1)
 			size = vol->last_eb_bytes;
 		else
@@ -72,7 +82,7 @@ int ubi_check_volume(struct ubi_device *ubi, int vol_id)
 
 		err = ubi_eba_read_leb(ubi, vol, i, buf, 0, size, 1);
 		if (err) {
-			if (mtd_is_eccerr(err))
+			if (err == -EBADMSG)
 				err = 1;
 			break;
 		}
@@ -83,62 +93,14 @@ int ubi_check_volume(struct ubi_device *ubi, int vol_id)
 }
 
 /**
- * ubi_update_reserved - update bad eraseblock handling accounting data.
- * @ubi: UBI device description object
- *
- * This function calculates the gap between current number of PEBs reserved for
- * bad eraseblock handling and the required level of PEBs that must be
- * reserved, and if necessary, reserves more PEBs to fill that gap, according
- * to availability. Should be called with ubi->volumes_lock held.
- */
-void ubi_update_reserved(struct ubi_device *ubi)
-{
-	int need = ubi->beb_rsvd_level - ubi->beb_rsvd_pebs;
-
-	if (need <= 0 || ubi->avail_pebs == 0)
-		return;
-
-	need = min_t(int, need, ubi->avail_pebs);
-	ubi->avail_pebs -= need;
-	ubi->rsvd_pebs += need;
-	ubi->beb_rsvd_pebs += need;
-	ubi_msg(ubi, "reserved more %d PEBs for bad PEB handling", need);
-}
-
-/**
- * ubi_calculate_reserved - calculate how many PEBs must be reserved for bad
+ * ubi_calculate_rsvd_pool - calculate how many PEBs must be reserved for bad
  * eraseblock handling.
  * @ubi: UBI device description object
  */
 void ubi_calculate_reserved(struct ubi_device *ubi)
 {
-	/*
-	 * Calculate the actual number of PEBs currently needed to be reserved
-	 * for future bad eraseblock handling.
-	 */
-	ubi->beb_rsvd_level = ubi->bad_peb_limit - ubi->bad_peb_count;
-	if (ubi->beb_rsvd_level < 0) {
-		ubi->beb_rsvd_level = 0;
-		ubi_warn(ubi, "number of bad PEBs (%d) is above the expected limit (%d), not reserving any PEBs for bad PEB handling, will use available PEBs (if any)",
-			 ubi->bad_peb_count, ubi->bad_peb_limit);
-	}
-}
-
-/**
- * ubi_check_pattern - check if buffer contains only a certain byte pattern.
- * @buf: buffer to check
- * @patt: the pattern to check
- * @size: buffer size in bytes
- *
- * This function returns %1 in there are only @patt bytes in @buf, and %0 if
- * something else was also found.
- */
-int ubi_check_pattern(const void *buf, uint8_t patt, int size)
-{
-	int i;
-
-	for (i = 0; i < size; i++)
-		if (((const uint8_t *)buf)[i] != patt)
-			return 0;
-	return 1;
+	ubi->beb_rsvd_level = ubi->good_peb_count/100;
+	ubi->beb_rsvd_level *= CONFIG_MTD_UBI_BEB_RESERVE;
+	if (ubi->beb_rsvd_level < MIN_RESEVED_PEBS)
+		ubi->beb_rsvd_level = MIN_RESEVED_PEBS;
 }

@@ -2,68 +2,54 @@
  * (C) Copyright 2009
  * Stefano Babic, DENX Software Engineering, sbabic@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef _IMXIMAGE_H_
 #define _IMXIMAGE_H_
 
-#define MAX_HW_CFG_SIZE_V2 220 /* Max number of registers imx can set for v2 */
+#define MAX_HW_CFG_SIZE_V2 121 /* Max number of registers imx can set for v2 */
 #define MAX_HW_CFG_SIZE_V1 60  /* Max number of registers imx can set for v1 */
 #define APP_CODE_BARKER	0xB1
 #define DCD_BARKER	0xB17219E9
 
-/*
- * NOTE: This file must be kept in sync with arch/arm/include/asm/\
- *       imx-common/imximage.cfg because tools/imximage.c can not
- *       cross-include headers from arch/arm/ and vice-versa.
- */
-#define CMD_DATA_STR	"DATA"
+#define HEADER_OFFSET	0x400
 
-/* Initial Vector Table Offset */
-#define FLASH_OFFSET_UNDEFINED	0xFFFFFFFF
+#define CMD_DATA_STR	"DATA"
 #define FLASH_OFFSET_STANDARD	0x400
 #define FLASH_OFFSET_NAND	FLASH_OFFSET_STANDARD
 #define FLASH_OFFSET_SD		FLASH_OFFSET_STANDARD
 #define FLASH_OFFSET_SPI	FLASH_OFFSET_STANDARD
 #define FLASH_OFFSET_ONENAND	0x100
-#define FLASH_OFFSET_NOR	0x1000
-#define FLASH_OFFSET_SATA	FLASH_OFFSET_STANDARD
-#define FLASH_OFFSET_QSPI	0x1000
 
-/* Initial Load Region Size */
-#define FLASH_LOADSIZE_UNDEFINED	0xFFFFFFFF
-#define FLASH_LOADSIZE_STANDARD		0x1000
-#define FLASH_LOADSIZE_NAND		FLASH_LOADSIZE_STANDARD
-#define FLASH_LOADSIZE_SD		FLASH_LOADSIZE_STANDARD
-#define FLASH_LOADSIZE_SPI		FLASH_LOADSIZE_STANDARD
-#define FLASH_LOADSIZE_ONENAND		0x400
-#define FLASH_LOADSIZE_NOR		0x0 /* entire image */
-#define FLASH_LOADSIZE_SATA		FLASH_LOADSIZE_STANDARD
-#define FLASH_LOADSIZE_QSPI		0x0 /* entire image */
-
-/* Command tags and parameters */
-#define IVT_HEADER_TAG			0xD1
-#define IVT_VERSION			0x40
-#define DCD_HEADER_TAG			0xD2
-#define DCD_VERSION			0x40
-#define DCD_WRITE_DATA_COMMAND_TAG	0xCC
-#define DCD_WRITE_DATA_PARAM		0x4
-#define DCD_WRITE_CLR_BIT_PARAM	0xC
-#define DCD_CHECK_DATA_COMMAND_TAG	0xCF
-#define DCD_CHECK_BITS_SET_PARAM	0x14
-#define DCD_CHECK_BITS_CLR_PARAM	0x04
+#define IVT_HEADER_TAG 0xD1
+#define IVT_VERSION 0x40
+#define DCD_HEADER_TAG 0xD2
+#define DCD_COMMAND_TAG 0xCC
+#define DCD_VERSION 0x40
+#define DCD_COMMAND_PARAM 0x4
 
 enum imximage_cmd {
 	CMD_INVALID,
 	CMD_IMAGE_VERSION,
 	CMD_BOOT_FROM,
-	CMD_BOOT_OFFSET,
-	CMD_WRITE_DATA,
-	CMD_WRITE_CLR_BIT,
-	CMD_CHECK_BITS_SET,
-	CMD_CHECK_BITS_CLR,
-	CMD_CSF,
+	CMD_DATA
 };
 
 enum imximage_fld_types {
@@ -133,15 +119,10 @@ typedef struct {
 	uint8_t param;
 } __attribute__((packed)) write_dcd_command_t;
 
-struct dcd_v2_cmd {
-	write_dcd_command_t write_dcd_command;
-	dcd_addr_data_t addr_data[MAX_HW_CFG_SIZE_V2];
-};
-
 typedef struct {
 	ivt_header_t header;
-	struct dcd_v2_cmd dcd_cmd;
-	uint32_t padding[1]; /* end up on an 8-byte boundary */
+	write_dcd_command_t write_dcd_command;
+	dcd_addr_data_t addr_data[MAX_HW_CFG_SIZE_V2];
 } dcd_v2_t;
 
 typedef struct {
@@ -167,12 +148,12 @@ typedef struct {
 	dcd_v2_t dcd_table;
 } imx_header_v2_t;
 
-/* The header must be aligned to 4k on MX53 for NAND boot */
 struct imx_header {
 	union {
 		imx_header_v1_t hdr_v1;
 		imx_header_v2_t hdr_v2;
 	} header;
+	uint32_t flash_offset;
 };
 
 typedef void (*set_dcd_val_t)(struct imx_header *imxhdr,
@@ -180,14 +161,13 @@ typedef void (*set_dcd_val_t)(struct imx_header *imxhdr,
 					int fld, uint32_t value,
 					uint32_t off);
 
-typedef void (*set_dcd_param_t)(struct imx_header *imxhdr, uint32_t dcd_len,
-					int32_t cmd);
-
 typedef void (*set_dcd_rst_t)(struct imx_header *imxhdr,
 					uint32_t dcd_len,
 					char *name, int lineno);
 
-typedef void (*set_imx_hdr_t)(struct imx_header *imxhdr, uint32_t dcd_len,
-		uint32_t entry_point, uint32_t flash_offset);
+typedef void (*set_imx_hdr_t)(struct imx_header *imxhdr,
+					uint32_t dcd_len,
+					struct stat *sbuf,
+					struct mkimage_params *params);
 
 #endif /* _IMXIMAGE_H_ */

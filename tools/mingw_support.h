@@ -1,7 +1,19 @@
 /*
  * Copyright 2008 Extreme Engineering Solutions, Inc.
  *
- * SPDX-License-Identifier:	LGPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public
+ * License along with this software; if not, write to the
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef __MINGW_SUPPORT_H_
@@ -21,14 +33,6 @@
 /* Sharing types (must choose one and only one of these) */
 #define MAP_SHARED	0x01		/* Share changes */
 #define MAP_PRIVATE	0x02		/* Changes are private */
-
-/* File perms */
-#ifndef S_IRGRP
-# define S_IRGRP 0
-#endif
-#ifndef S_IWGRP
-# define S_IWGRP 0
-#endif
 
 /* Windows 64-bit access macros */
 #define LODWORD(x) ((DWORD)((DWORDLONG)(x)))

@@ -11,7 +11,7 @@
  * Some are available on 2.4 kernels; several are available, but not
  * yet pushed in the 2.6 mainline tree.
  *
- * Ported to U-Boot by: Thomas Smits <ts.smits@gmail.com> and
+ * Ported to U-boot by: Thomas Smits <ts.smits@gmail.com> and
  *                      Remy Bohmer <linux@bohmer.net>
  */
 #ifdef CONFIG_USB_GADGET_NET2280
@@ -56,6 +56,12 @@
 #define	gadget_is_sa1100(g)	(!strcmp("sa1100_udc", (g)->name))
 #else
 #define	gadget_is_sa1100(g)	0
+#endif
+
+#ifdef CONFIG_USB_GADGET_LH7A40X
+#define	gadget_is_lh7a40x(g)	(!strcmp("lh7a40x_udc", (g)->name))
+#else
+#define	gadget_is_lh7a40x(g)	0
 #endif
 
 /* handhelds.org tree (?) */
@@ -125,8 +131,8 @@
 #endif
 
 /* Mentor high speed "dual role" controller, in peripheral role */
-#ifdef CONFIG_USB_MUSB_GADGET
-#define gadget_is_musbhdrc(g)	(!strcmp("musb-hdrc", (g)->name))
+#ifdef CONFIG_USB_GADGET_MUSB_HDRC
+#define gadget_is_musbhdrc(g)	(!strcmp("musb_hdrc", (g)->name))
 #else
 #define gadget_is_musbhdrc(g)	0
 #endif
@@ -143,25 +149,6 @@
 #else
 #define	gadget_is_m66592(g)	0
 #endif
-
-#ifdef CONFIG_CI_UDC
-#define gadget_is_ci(g)        (!strcmp("ci_udc", (g)->name))
-#else
-#define gadget_is_ci(g)        0
-#endif
-
-#ifdef CONFIG_USB_GADGET_FOTG210
-#define gadget_is_fotg210(g)        (!strcmp("fotg210_udc", (g)->name))
-#else
-#define gadget_is_fotg210(g)        0
-#endif
-
-#ifdef CONFIG_USB_DWC3_GADGET
-#define gadget_is_dwc3(g)        (!strcmp("dwc3-gadget", (g)->name))
-#else
-#define gadget_is_dwc3(g)        0
-#endif
-
 
 
 /*
@@ -203,33 +190,31 @@ static inline int usb_gadget_controller_number(struct usb_gadget *gadget)
 		return 0x07;
 	else if (gadget_is_omap(gadget))
 		return 0x08;
-	else if (gadget_is_n9604(gadget))
+	else if (gadget_is_lh7a40x(gadget))
 		return 0x09;
-	else if (gadget_is_pxa27x(gadget))
+	else if (gadget_is_n9604(gadget))
 		return 0x10;
-	else if (gadget_is_s3c2410(gadget))
+	else if (gadget_is_pxa27x(gadget))
 		return 0x11;
-	else if (gadget_is_at91(gadget))
+	else if (gadget_is_s3c2410(gadget))
 		return 0x12;
-	else if (gadget_is_imx(gadget))
+	else if (gadget_is_at91(gadget))
 		return 0x13;
-	else if (gadget_is_musbhsfc(gadget))
+	else if (gadget_is_imx(gadget))
 		return 0x14;
-	else if (gadget_is_musbhdrc(gadget))
+	else if (gadget_is_musbhsfc(gadget))
 		return 0x15;
-	else if (gadget_is_mpc8272(gadget))
+	else if (gadget_is_musbhdrc(gadget))
 		return 0x16;
-	else if (gadget_is_atmel_usba(gadget))
+	else if (gadget_is_mpc8272(gadget))
 		return 0x17;
-	else if (gadget_is_fsl_usb2(gadget))
+	else if (gadget_is_atmel_usba(gadget))
 		return 0x18;
-	else if (gadget_is_amd5536udc(gadget))
+	else if (gadget_is_fsl_usb2(gadget))
 		return 0x19;
-	else if (gadget_is_m66592(gadget))
+	else if (gadget_is_amd5536udc(gadget))
 		return 0x20;
-	else if (gadget_is_ci(gadget))
+	else if (gadget_is_m66592(gadget))
 		return 0x21;
-	else if (gadget_is_fotg210(gadget))
-		return 0x22;
 	return -ENOENT;
 }

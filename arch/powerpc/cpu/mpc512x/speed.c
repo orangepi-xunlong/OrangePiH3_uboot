@@ -4,7 +4,23 @@
  *
  * Copyright (C) 2004-2006 Freescale Semiconductor, Inc.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  *
  * Based on the MPC83xx code.
  */
@@ -97,9 +113,9 @@ int get_clocks (void)
 		pci_clk = 333333;
 	}
 
-	gd->arch.ips_clk = ips_clk;
+	gd->ips_clk = ips_clk;
 	gd->pci_clk = pci_clk;
-	gd->arch.csb_clk = csb_clk;
+	gd->csb_clk = csb_clk;
 	gd->cpu_clk = core_clk;
 	gd->bus_clk = csb_clk;
 	return 0;
@@ -112,7 +128,7 @@ int get_clocks (void)
  *********************************************/
 ulong get_bus_freq (ulong dummy)
 {
-	return gd->arch.csb_clk;
+	return gd->csb_clk;
 }
 
 int do_clocks (cmd_tbl_t * cmdtp, int flag, int argc, char * const argv[])
@@ -121,13 +137,10 @@ int do_clocks (cmd_tbl_t * cmdtp, int flag, int argc, char * const argv[])
 
 	printf("Clock configuration:\n");
 	printf("  CPU:                 %-4s MHz\n", strmhz(buf, gd->cpu_clk));
-	printf("  Coherent System Bus: %-4s MHz\n",
-	       strmhz(buf, gd->arch.csb_clk));
-	printf("  IPS Bus:             %-4s MHz\n",
-	       strmhz(buf, gd->arch.ips_clk));
+	printf("  Coherent System Bus: %-4s MHz\n", strmhz(buf, gd->csb_clk));
+	printf("  IPS Bus:             %-4s MHz\n", strmhz(buf, gd->ips_clk));
 	printf("  PCI:                 %-4s MHz\n", strmhz(buf, gd->pci_clk));
-	printf("  DDR:                 %-4s MHz\n",
-	       strmhz(buf, 2 * gd->arch.csb_clk));
+	printf("  DDR:                 %-4s MHz\n", strmhz(buf, 2*gd->csb_clk));
 	return 0;
 }
 
@@ -135,3 +148,9 @@ U_BOOT_CMD(clocks, 1, 0, do_clocks,
 	"print clock configuration",
 	"    clocks"
 );
+
+int prt_mpc512x_clks (void)
+{
+	do_clocks (NULL, 0, 0, NULL);
+	return (0);
+}

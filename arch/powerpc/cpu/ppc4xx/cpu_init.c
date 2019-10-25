@@ -2,7 +2,23 @@
  * (C) Copyright 2000-2007
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -12,7 +28,9 @@
 #include <asm/ppc4xx-gpio.h>
 #include <asm/ppc4xx.h>
 
+#if defined(CONFIG_405GP)  || defined(CONFIG_405EP)
 DECLARE_GLOBAL_DATA_PTR;
+#endif
 
 #ifndef CONFIG_SYS_PLL_RECONFIG
 #define CONFIG_SYS_PLL_RECONFIG	0
@@ -284,7 +302,7 @@ cpu_init_f (void)
 	reconfigure_pll(CONFIG_SYS_PLL_RECONFIG);
 
 #if (defined(CONFIG_405EP) || defined (CONFIG_405EX)) && \
-    !defined(CONFIG_SYS_4xx_GPIO_TABLE)
+    !defined(CONFIG_APM821XX) &&!defined(CONFIG_SYS_4xx_GPIO_TABLE)
 	/*
 	 * GPIO0 setup (select GPIO or alternate function)
 	 */
@@ -324,7 +342,7 @@ cpu_init_f (void)
 	 * External Bus Controller (EBC) Setup
 	 */
 #if (defined(CONFIG_SYS_EBC_PB0AP) && defined(CONFIG_SYS_EBC_PB0CR))
-#if (defined(CONFIG_405GP) || \
+#if (defined(CONFIG_405GP) || defined(CONFIG_405CR) || \
      defined(CONFIG_405EP) || defined(CONFIG_405EZ) || \
      defined(CONFIG_405EX) || defined(CONFIG_405))
 	/*
@@ -440,7 +458,7 @@ cpu_init_f (void)
 #if defined(CONFIG_405EX) || \
     defined(CONFIG_440SP) || defined(CONFIG_440SPE) || \
     defined(CONFIG_460EX) || defined(CONFIG_460GT)  || \
-    defined(CONFIG_460SX)
+    defined(CONFIG_460SX) || defined(CONFIG_APM821XX)
 	/*
 	 * Set PLB4 arbiter (Segment 0 and 1) to 4 deep pipeline read
 	 */

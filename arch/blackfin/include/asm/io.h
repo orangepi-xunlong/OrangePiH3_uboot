@@ -1,5 +1,5 @@
 /*
- * U-Boot - io.h IO routines
+ * U-boot - io.h IO routines
  *
  * Copyright 2004-2009 Analog Devices Inc.
  *
@@ -11,8 +11,9 @@
 
 #ifdef __KERNEL__
 
-#include <linux/compiler.h>
 #include <asm/blackfin.h>
+
+#define __iomem
 
 static inline void sync(void)
 {
@@ -133,11 +134,9 @@ static inline unsigned int readl(const volatile void __iomem *addr)
 #define inb(port)    readb(__io(port))
 #define inw(port)    readw(__io(port))
 #define inl(port)    readl(__io(port))
-#define in_le32(port) inl(port)
 #define outb(x, port) writeb(x, __io(port))
 #define outw(x, port) writew(x, __io(port))
 #define outl(x, port) writel(x, __io(port))
-#define out_le32(x, port) outl(x, port)
 
 #define inb_p(port)    inb(__io(port))
 #define inw_p(port)    inw(__io(port))

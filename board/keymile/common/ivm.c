@@ -2,17 +2,31 @@
  * (C) Copyright 2011
  * Holger Brunck, Keymile GmbH Hannover, holger.brunck@keymile.com
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
-#include <cli_hush.h>
+#include <hush.h>
 #include <i2c.h>
 #include "common.h"
 
-#define MAC_STR_SZ	20
-
-static int ivm_calc_crc(unsigned char *buf, int len)
+int ivm_calc_crc(unsigned char *buf, int len)
 {
 	const unsigned short crc_tab[16] = {
 		0x0000, 0xCC01, 0xD801, 0x1400,
@@ -122,7 +136,7 @@ static int ivm_findinventorystring(int type,
 
 	/* Look for the requested number of CR. */
 	while ((cr != nr) && (addr < INVENTORYDATASIZE)) {
-		if (buf[addr] == '\r')
+		if ((buf[addr] == '\r'))
 			cr++;
 		addr++;
 	}
@@ -149,7 +163,7 @@ static int ivm_findinventorystring(int type,
 		if (addr == INVENTORYDATASIZE) {
 			xcode = -1;
 			printf("Error end of string not found\n");
-		} else if ((size > (maxlen - 1)) &&
+		} else if ((size >= (maxlen - 1)) &&
 			   (buf[addr] != '\r')) {
 			xcode = -1;
 			printf("string too long till next CR\n");
@@ -187,37 +201,28 @@ static int ivm_check_crc(unsigned char *buf, int block)
 	return 0;
 }
 
-/* take care of the possible MAC address offset and the IVM content offset */
-static int process_mac(unsigned char *valbuf, unsigned char *buf,
-				int offset)
-{
-	unsigned char mac[6];
-	unsigned long val = (buf[4] << 16) + (buf[5] << 8) + buf[6];
-
-	/* use an intermediate buffer, to not change IVM content
-	 * MAC address is at offset 1
-	 */
-	memcpy(mac, buf+1, 6);
-
-	if (offset) {
-		val += offset;
-		mac[3] = (val >> 16) & 0xff;
-		mac[4] = (val >> 8) & 0xff;
-		mac[5] = val & 0xff;
-	}
-
-	sprintf((char *)valbuf, "%pM", mac);
-	return 0;
-}
-
 static int ivm_analyze_block2(unsigned char *buf, int len)
 {
-	unsigned char	valbuf[MAC_STR_SZ];
+	unsigned char	valbuf[CONFIG_SYS_IVM_EEPROM_PAGE_LEN];
 	unsigned long	count;
 
-	/* IVM_MAC Adress begins at offset 1 */
-	sprintf((char *)valbuf, "%pM", buf + 1);
+	/* IVM_MacAddress */
+	sprintf((char *)valbuf, "%pM", buf);
 	ivm_set_value("IVM_MacAddress", (char *)valbuf);
+	/* if an offset is defined, add it */
+#if defined(CONFIG_PIGGY_MAC_ADRESS_OFFSET)
+	if (CONFIG_PIGGY_MAC_ADRESS_OFFSET > 0) {
+		unsigned long val = (buf[4] << 16) + (buf[5] << 8) + buf[6];
+
+		val += CONFIG_PIGGY_MAC_ADRESS_OFFSET;
+		buf[4] = (val >> 16) & 0xff;
+		buf[5] = (val >> 8) & 0xff;
+		buf[6] = val & 0xff;
+		sprintf((char *)valbuf, "%pM", buf);
+	}
+#endif
+	setenv((char *)"ethaddr", (char *)valbuf);
+
 	/* IVM_MacCount */
 	count = (buf[10] << 24) +
 		   (buf[11] << 16) +
@@ -290,44 +295,48 @@ int ivm_analyze_eeprom(unsigned char *buf, int len)
 	return 0;
 }
 
-static int ivm_populate_env(unsigned char *buf, int len)
+int ivm_read_eeprom(void)
 {
-	unsigned char	*page2;
-	unsigned char	valbuf[MAC_STR_SZ];
-
-	/* do we have the page 2 filled ? if not return */
-	if (ivm_check_crc(buf, 2))
-		return 0;
-	page2 = &buf[CONFIG_SYS_IVM_EEPROM_PAGE_LEN*2];
-
-	/* if an offset is defined, add it */
-	process_mac(valbuf, page2, CONFIG_PIGGY_MAC_ADRESS_OFFSET);
-	if (getenv("ethaddr") == NULL)
-		setenv((char *)"ethaddr", (char *)valbuf);
-#ifdef CONFIG_KMVECT1
-/* KMVECT1 has two ethernet interfaces */
-	if (getenv("eth1addr") == NULL) {
-		process_mac(valbuf, page2, 1);
-		setenv((char *)"eth1addr", (char *)valbuf);
-	}
+#if defined(CONFIG_I2C_MUX)
+	I2C_MUX_DEVICE *dev = NULL;
 #endif
-
-	return 0;
-}
-
-int ivm_read_eeprom(unsigned char *buf, int len)
-{
+	uchar i2c_buffer[CONFIG_SYS_IVM_EEPROM_MAX_LEN];
+	uchar	*buf;
+	unsigned long dev_addr = CONFIG_SYS_IVM_EEPROM_ADR;
 	int ret;
 
-	i2c_set_bus_num(CONFIG_KM_IVM_BUS);
+#if defined(CONFIG_I2C_MUX)
+	/* First init the Bus, select the Bus */
+#if defined(CONFIG_SYS_I2C_IVM_BUS)
+	dev = i2c_mux_ident_muxstring((uchar *)CONFIG_SYS_I2C_IVM_BUS);
+#else
+	buf = (unsigned char *) getenv("EEprom_ivm");
+	if (buf != NULL)
+		dev = i2c_mux_ident_muxstring(buf);
+#endif
+	if (dev == NULL) {
+		printf("Error couldnt add Bus for IVM\n");
+		return -1;
+	}
+	i2c_set_bus_num(dev->busid);
+#endif
+
+	buf = (unsigned char *) getenv("EEprom_ivm_addr");
+	if (buf != NULL) {
+		ret = strict_strtoul((char *)buf, 16, &dev_addr);
+		if (ret != 0)
+			return -3;
+	}
+
 	/* add deblocking here */
 	i2c_make_abort();
 
-	ret = i2c_read(CONFIG_SYS_IVM_EEPROM_ADR, 0, 1, buf, len);
+	ret = i2c_read(dev_addr, 0, 1, i2c_buffer,
+		CONFIG_SYS_IVM_EEPROM_MAX_LEN);
 	if (ret != 0) {
 		printf("Error reading EEprom\n");
 		return -2;
 	}
 
-	return ivm_populate_env(buf, len);
+	return ivm_analyze_eeprom(i2c_buffer, CONFIG_SYS_IVM_EEPROM_MAX_LEN);
 }

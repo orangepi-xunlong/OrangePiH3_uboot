@@ -1,7 +1,20 @@
 /*
  * (C) Copyright 2008 Stefan Roese <sr@denx.de>, DENX Software Engineering
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -25,15 +38,16 @@
 #ifndef __CONFIG_H
 #define __CONFIG_H
 
-#define CONFIG_DISPLAY_BOARDINFO
-
+#define CONFIG_MIPS32				/* MIPS 4Kc CPU core	*/
 #define CPU_CLOCK_RATE			324000000 /* Clock for the MIPS core */
 #define CONFIG_SYS_MIPS_TIMER_FREQ	(CPU_CLOCK_RATE / 2)
+#define CONFIG_SYS_HZ			1000
 
 #define CONFIG_SKIP_LOWLEVEL_INIT	/* SDRAM is initialized by the bootstrap code */
 
 #define CONFIG_SYS_MONITOR_BASE		CONFIG_SYS_TEXT_BASE
 #define CONFIG_SYS_MONITOR_LEN		(256 << 10)
+#define CONFIG_STACKSIZE		(256 << 10)
 #define CONFIG_SYS_MALLOC_LEN		(1 << 20)
 #define CONFIG_SYS_BOOTPARAMS_LEN	(128 << 10)
 #define CONFIG_SYS_INIT_SP_OFFSET	0x400000
@@ -54,11 +68,13 @@
 #endif
 
 #define CONFIG_SYS_NS16550_SERIAL
+#define CONFIG_SYS_NS16550
 #define CONFIG_SYS_NS16550_REG_SIZE	-4
 #define CONFIG_SYS_NS16550_COM1		UART_1_BASE
 #define CONFIG_CONS_INDEX		1
 #define CONFIG_SYS_NS16550_CLK		921600
 #define CONFIG_BAUDRATE			115200
+#define CONFIG_SYS_BAUDRATE_TABLE	{ 9600, 19200, 38400, 57600, 115200 }
 
 /*
  * SDRAM
@@ -77,18 +93,29 @@
 #define CONFIG_SMC911X_BASE	0x00000000
 #define CONFIG_SMC911X_32_BIT
 #define CONFIG_NET_RETRY_COUNT		20
+#define CONFIG_NET_MULTI
 #endif
 
 /*
  * Commands
  */
+#include <config_cmd_default.h>
+
+#define CONFIG_CMD_DHCP
+#define CONFIG_CMD_ELF
 #define CONFIG_CMD_EEPROM
+#define CONFIG_CMD_I2C
 
 /*
  * Only Premium/Platinum have ethernet support right now
  */
 #if (defined(CONFIG_VCT_PREMIUM) || defined(CONFIG_VCT_PLATINUM)) && \
 	!defined(CONFIG_VCT_SMALL_IMAGE)
+#define CONFIG_CMD_PING
+#define CONFIG_CMD_SNTP
+#else
+#undef CONFIG_CMD_NET
+#undef CONFIG_CMD_NFS
 #endif
 
 /*
@@ -96,9 +123,12 @@
  */
 #if (defined(CONFIG_VCT_PREMIUM) || defined(CONFIG_VCT_PLATINUM)) && \
 	!defined(CONFIG_VCT_SMALL_IMAGE)
+#define CONFIG_CMD_USB
+#define CONFIG_CMD_FAT
 #endif
 
 #if defined(CONFIG_CMD_USB)
+#define CONFIG_USB_STORAGE
 #define CONFIG_DOS_PARTITION
 #define CONFIG_ISO_PARTITION
 
@@ -109,11 +139,17 @@
  */
 #define CONFIG_USB_EHCI			/* Enable EHCI USB support	*/
 #define CONFIG_USB_EHCI_VCT		/* on VCT platform		*/
+#define CONFIG_EHCI_DCACHE		/* with dcache handling support	*/
 #define CONFIG_EHCI_MMIO_BIG_ENDIAN
 #define CONFIG_EHCI_DESC_BIG_ENDIAN
 #define CONFIG_EHCI_IS_TDI
 #define CONFIG_EHCI_HCD_INIT_AFTER_RESET /* re-init HCD after CMD_RESET */
 #endif /* CONFIG_CMD_USB */
+
+#if !defined(CONFIG_VCT_NOR)
+#undef CONFIG_CMD_FLASH
+#undef CONFIG_CMD_IMLS
+#endif
 
 #if defined(CONFIG_VCT_NAND)
 #define CONFIG_CMD_NAND
@@ -136,6 +172,7 @@
  * Miscellaneous configurable options
  */
 #define CONFIG_SYS_LONGHELP			/* undef to save memory		*/
+#define CONFIG_SYS_PROMPT	"VCT# "		/* Monitor Command Prompt	*/
 #define CONFIG_SYS_CBSIZE	512		/* Console I/O Buffer Size	*/
 #define CONFIG_SYS_PBSIZE	(CONFIG_SYS_CBSIZE + \
 				 sizeof(CONFIG_SYS_PROMPT) + 16)
@@ -203,12 +240,20 @@
 #endif /* CONFIG_VCT_ONENAND */
 
 /*
+ * Cache Configuration
+ */
+#define CONFIG_SYS_DCACHE_SIZE		16384
+#define CONFIG_SYS_ICACHE_SIZE		16384
+#define CONFIG_SYS_CACHELINE_SIZE	32
+
+/*
  * I2C/EEPROM
  */
-#define CONFIG_SYS_I2C
-#define CONFIG_SYS_I2C_SOFT		/* I2C bit-banged */
-#define CONFIG_SYS_I2C_SOFT_SPEED	83000	/* 83 kHz is supposed to work */
-#define CONFIG_SYS_I2C_SOFT_SLAVE	0x7f
+#undef	CONFIG_HARD_I2C			/* I2C with hardware support	*/
+#define	CONFIG_SOFT_I2C			/* I2C bit-banged		*/
+
+#define CONFIG_SYS_I2C_SPEED		83000	/* 83 kHz is supposed to work	*/
+#define CONFIG_SYS_I2C_SLAVE		0x7f
 
 /*
  * Software (bit-bang) I2C driver configuration
@@ -239,6 +284,7 @@ int vct_gpio_get(int pin);
 #define CONFIG_SYS_EEPROM_PAGE_WRITE_DELAY_MS	10   /* and takes up to 10 msec */
 
 #define CONFIG_BOOTCOMMAND	"run test3"
+#define CONFIG_BOOTDELAY	5	/* autoboot after 5 seconds	*/
 
 /*
  * UBI configuration
@@ -265,17 +311,37 @@ int vct_gpio_get(int pin);
  * (NOR/OneNAND) usage and Linux kernel booting.
  */
 #if defined(CONFIG_VCT_SMALL_IMAGE)
+#undef CONFIG_CMD_ASKENV
+#undef CONFIG_CMD_BDI
 #undef CONFIG_CMD_BEDBUG
+#undef CONFIG_CMD_CACHE
+#undef CONFIG_CMD_CONSOLE
+#undef CONFIG_CMD_CRC32
+#undef CONFIG_CMD_DHCP
 #undef CONFIG_CMD_EEPROM
 #undef CONFIG_CMD_EEPROM
+#undef CONFIG_CMD_ELF
+#undef CONFIG_CMD_FAT
+#undef CONFIG_CMD_I2C
+#undef CONFIG_CMD_I2C
 #undef CONFIG_CMD_IRQ
+#undef CONFIG_CMD_ITEST
+#undef CONFIG_CMD_LOADB
+#undef CONFIG_CMD_LOADS
 #undef CONFIG_CMD_LOADY
+#undef CONFIG_CMD_MII
+#undef CONFIG_CMD_MISC
+#undef CONFIG_CMD_NET
+#undef CONFIG_CMD_PING
 #undef CONFIG_CMD_REGINFO
+#undef CONFIG_CMD_SNTP
+#undef CONFIG_CMD_SOURCE
 #undef CONFIG_CMD_STRINGS
 #undef CONFIG_CMD_TERMINAL
+#undef CONFIG_CMD_USB
 
 #undef CONFIG_SMC911X
-#undef CONFIG_SYS_I2C_SOFT
+#undef CONFIG_SOFT_I2C
 #undef CONFIG_SOURCE
 #undef CONFIG_SYS_LONGHELP
 #undef CONFIG_TIMESTAMP

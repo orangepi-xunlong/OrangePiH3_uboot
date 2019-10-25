@@ -1,7 +1,20 @@
 /*
  * (C) Copyright 2007,2008 Nobuhiro Iwamatsu <iwamatsu@nigauri.org>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef _ASM_CPU_SH4_H_
@@ -31,14 +44,6 @@
 # include <asm/cpu_sh7722.h>
 #elif defined (CONFIG_CPU_SH7723)
 # include <asm/cpu_sh7723.h>
-#elif defined (CONFIG_CPU_SH7724)
-# include <asm/cpu_sh7724.h>
-#elif defined (CONFIG_CPU_SH7734)
-# include <asm/cpu_sh7734.h>
-#elif defined (CONFIG_CPU_SH7752)
-# include <asm/cpu_sh7752.h>
-#elif defined (CONFIG_CPU_SH7753)
-# include <asm/cpu_sh7753.h>
 #elif defined (CONFIG_CPU_SH7757)
 # include <asm/cpu_sh7757.h>
 #elif defined (CONFIG_CPU_SH7763)

@@ -1,5 +1,21 @@
 /*
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -159,7 +175,7 @@ static void  read_hw_addr(struct eth_device* dev, bd_t * bis);
 static void  send_setup_frame(struct eth_device* dev, bd_t * bis);
 
 static int   dc21x4x_init(struct eth_device* dev, bd_t* bis);
-static int   dc21x4x_send(struct eth_device *dev, void *packet, int length);
+static int   dc21x4x_send(struct eth_device* dev, volatile void *packet, int length);
 static int   dc21x4x_recv(struct eth_device* dev);
 static void  dc21x4x_halt(struct eth_device* dev);
 #ifdef CONFIG_TULIP_SELECT_MEDIA
@@ -229,17 +245,15 @@ int dc21x4x_initialize(bd_t *bis)
 		pci_write_config_word(devbusfn, PCI_COMMAND, status);
 
 		pci_read_config_word(devbusfn, PCI_COMMAND, &status);
-#ifdef CONFIG_TULIP_USE_IO
 		if (!(status & PCI_COMMAND_IO)) {
 			printf("Error: Can not enable I/O access.\n");
 			continue;
 		}
-#else
-		if (!(status & PCI_COMMAND_MEMORY)) {
-			printf("Error: Can not enable MEMORY access.\n");
+
+		if (!(status & PCI_COMMAND_IO)) {
+			printf("Error: Can not enable I/O access.\n");
 			continue;
 		}
-#endif
 
 		if (!(status & PCI_COMMAND_MASTER)) {
 			printf("Error: Can not enable Bus Mastering.\n");
@@ -333,11 +347,9 @@ static int dc21x4x_init(struct eth_device* dev, bd_t* bis)
 	for (i = 0; i < NUM_RX_DESC; i++) {
 		rx_ring[i].status = cpu_to_le32(R_OWN);
 		rx_ring[i].des1 = cpu_to_le32(RX_BUFF_SZ);
-		rx_ring[i].buf = cpu_to_le32(
-			phys_to_bus((u32)net_rx_packets[i]));
+		rx_ring[i].buf = cpu_to_le32(phys_to_bus((u32) NetRxPackets[i]));
 #ifdef CONFIG_TULIP_FIX_DAVICOM
-		rx_ring[i].next = cpu_to_le32(
-			phys_to_bus((u32)&rx_ring[(i + 1) % NUM_RX_DESC]));
+		rx_ring[i].next = cpu_to_le32(phys_to_bus((u32) &rx_ring[(i+1) % NUM_RX_DESC]));
 #else
 		rx_ring[i].next = 0;
 #endif
@@ -376,7 +388,7 @@ static int dc21x4x_init(struct eth_device* dev, bd_t* bis)
 	return 0;
 }
 
-static int dc21x4x_send(struct eth_device *dev, void *packet, int length)
+static int dc21x4x_send(struct eth_device* dev, volatile void *packet, int length)
 {
 	int		status = -1;
 	int		i;
@@ -450,8 +462,7 @@ static int dc21x4x_recv(struct eth_device* dev)
 				/* Pass the packet up to the protocol
 				 * layers.
 				 */
-				net_process_received_packet(
-					net_rx_packets[rx_new], length - 4);
+				NetReceive(NetRxPackets[rx_new], length - 4);
 			}
 
 			/* Change buffer ownership for this frame, back

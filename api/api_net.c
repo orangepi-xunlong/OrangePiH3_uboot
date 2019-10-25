@@ -3,7 +3,24 @@
  *
  * Written by: Rafal Jaworowski <raj@semihalf.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
  */
 
 #include <config.h>
@@ -17,6 +34,10 @@ DECLARE_GLOBAL_DATA_PTR;
 #define DEBUG
 #undef DEBUG
 
+#if !defined(CONFIG_NET_MULTI)
+#error "API/net is currently only available for platforms with CONFIG_NET_MULTI"
+#endif
+
 #ifdef DEBUG
 #define debugf(fmt, args...) do { printf("%s(): ", __func__); printf(fmt, ##args); } while (0)
 #else
@@ -25,7 +46,6 @@ DECLARE_GLOBAL_DATA_PTR;
 
 #define errf(fmt, args...) do { printf("ERROR @ %s(): ", __func__); printf(fmt, ##args); } while (0)
 
-#if defined(CONFIG_CMD_NET) && !defined(CONFIG_DM_ETH)
 
 static int dev_valid_net(void *cookie)
 {
@@ -37,7 +57,7 @@ int dev_open_net(void *cookie)
 	if (!dev_valid_net(cookie))
 		return API_ENODEV;
 
-	if (eth_init() < 0)
+	if (eth_init(gd->bd) < 0)
 		return API_EIO;
 
 	return 0;
@@ -86,32 +106,3 @@ int dev_read_net(void *cookie, void *buf, int len)
 
 	return eth_receive(buf, len);
 }
-
-#else
-
-int dev_open_net(void *cookie)
-{
-	return API_ENODEV;
-}
-
-int dev_close_net(void *cookie)
-{
-	return API_ENODEV;
-}
-
-int dev_enum_net(struct device_info *di)
-{
-	return 0;
-}
-
-int dev_write_net(void *cookie, void *buf, int len)
-{
-	return API_ENODEV;
-}
-
-int dev_read_net(void *cookie, void *buf, int len)
-{
-	return API_ENODEV;
-}
-
-#endif

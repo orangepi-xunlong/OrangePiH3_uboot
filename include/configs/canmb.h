@@ -2,7 +2,23 @@
  * (C) Copyright 2005
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef __CONFIG_H
@@ -13,9 +29,9 @@
  * (easy to change)
  */
 
-#define CONFIG_MPC5200		1	/* This is a MPC5200 CPU */
+#define CONFIG_MPC5xxx		1	/* This is an MPC5xxx CPU */
+#define CONFIG_MPC5200		1	/* More exactly a MPC5200 */
 #define CONFIG_CANMB		1	/* ... on canmb board - we need this for FEC.C */
-#define CONFIG_DISPLAY_BOARDINFO
 
 /*
  * allowed and functional CONFIG_SYS_TEXT_BASE values:
@@ -37,6 +53,7 @@
 #define CONFIG_BAUDRATE		115200	/* ... at 115200 bps */
 #define CONFIG_SYS_BAUDRATE_TABLE	{ 9600, 19200, 38400, 57600, 115200, 230400 }
 
+
 /*
  * BOOTP options
  */
@@ -45,12 +62,21 @@
 #define CONFIG_BOOTP_GATEWAY
 #define CONFIG_BOOTP_HOSTNAME
 
+
 /*
  * Command line configuration.
  */
+#include <config_cmd_default.h>
+
+#define CONFIG_CMD_ASKENV
 #define CONFIG_CMD_DATE
+#define CONFIG_CMD_DHCP
 #define CONFIG_CMD_IMMAP
+#define CONFIG_CMD_MII
+#define CONFIG_CMD_NFS
 #define CONFIG_CMD_REGINFO
+#define CONFIG_CMD_SNTP
+
 
 /*
  * MUST be low boot - HIGHBOOT is not supported anymore
@@ -65,6 +91,7 @@
 /*
  * Autobooting
  */
+#define CONFIG_BOOTDELAY	5	/* autoboot after 5 seconds */
 
 #define CONFIG_PREBOOT	"echo;"	\
 	"echo Type \\\"run flash_nfs\\\" to mount root filesystem over NFS;" \
@@ -132,6 +159,7 @@
 #define CONFIG_SYS_INIT_RAM_ADDR	MPC5XXX_SRAM
 #define CONFIG_SYS_INIT_RAM_SIZE	MPC5XXX_SRAM_SIZE	/* Size of used area in DPRAM */
 
+
 #define CONFIG_SYS_GBL_DATA_OFFSET	(CONFIG_SYS_INIT_RAM_SIZE - GENERATED_GBL_DATA_SIZE)
 #define CONFIG_SYS_INIT_SP_OFFSET	CONFIG_SYS_GBL_DATA_OFFSET
 
@@ -162,6 +190,7 @@
  * Miscellaneous configurable options
  */
 #define CONFIG_SYS_LONGHELP			/* undef to save memory	    */
+#define CONFIG_SYS_PROMPT		"=> "	/* Monitor Command Prompt   */
 #if defined(CONFIG_CMD_KGDB)
 #  define CONFIG_SYS_CBSIZE		1024	/* Console I/O Buffer Size  */
 #else
@@ -175,6 +204,8 @@
 #define CONFIG_SYS_MEMTEST_END		0x01f00000	/* 1 ... 31 MB in DRAM	*/
 
 #define CONFIG_SYS_LOAD_ADDR		0x200000	/* default load address */
+
+#define CONFIG_SYS_HZ			1000	/* decrementer freq: 1 ms ticks */
 
 #define CONFIG_RTC_MPC5200	1	/* use internal MPC5200 RTC */
 

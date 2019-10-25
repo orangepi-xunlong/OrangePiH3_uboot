@@ -7,7 +7,20 @@
  * Author: Martin Lundholm <martin.xa.lundholm@stericsson.com>
  * Ported to drivers/mmc/ by: Matt Waddel <matt.waddel@linaro.org>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /* #define DEBUG */
@@ -19,10 +32,14 @@
 #include "arm_pl180_mmci.h"
 #include <malloc.h>
 
+struct mmc_host {
+	struct sdi_registers *base;
+};
+
 static int wait_for_command_end(struct mmc *dev, struct mmc_cmd *cmd)
 {
 	u32 hoststatus, statusmask;
-	struct pl180_mmc_host *host = dev->priv;
+	struct mmc_host *host = dev->priv;
 
 	statusmask = SDI_STA_CTIMEOUT | SDI_STA_CCRCFAIL;
 	if ((cmd->resp_type & MMC_RSP_PRESENT))
@@ -36,10 +53,10 @@ static int wait_for_command_end(struct mmc *dev, struct mmc_cmd *cmd)
 
 	writel(statusmask, &host->base->status_clear);
 	if (hoststatus & SDI_STA_CTIMEOUT) {
-		debug("CMD%d time out\n", cmd->cmdidx);
+		printf("CMD%d time out\n", cmd->cmdidx);
 		return -ETIMEDOUT;
 	} else if ((hoststatus & SDI_STA_CCRCFAIL) &&
-		   (cmd->resp_type & MMC_RSP_CRC)) {
+		   (cmd->flags & MMC_RSP_CRC)) {
 		printf("CMD%d CRC error\n", cmd->cmdidx);
 		return -EILSEQ;
 	}
@@ -63,7 +80,7 @@ static int do_command(struct mmc *dev, struct mmc_cmd *cmd)
 {
 	int result;
 	u32 sdi_cmd = 0;
-	struct pl180_mmc_host *host = dev->priv;
+	struct mmc_host *host = dev->priv;
 
 	sdi_cmd = ((cmd->cmdidx & SDI_CMD_CMDINDEX_MASK) | SDI_CMD_CPSMEN);
 
@@ -94,8 +111,9 @@ static int do_command(struct mmc *dev, struct mmc_cmd *cmd)
 static int read_bytes(struct mmc *dev, u32 *dest, u32 blkcount, u32 blksize)
 {
 	u32 *tempbuff = dest;
+	int i;
 	u64 xfercount = blkcount * blksize;
-	struct pl180_mmc_host *host = dev->priv;
+	struct mmc_host *host = dev->priv;
 	u32 status, status_err;
 
 	debug("read_bytes: blkcount=%u blksize=%u\n", blkcount, blksize);
@@ -103,6 +121,31 @@ static int read_bytes(struct mmc *dev, u32 *dest, u32 blkcount, u32 blksize)
 	status = readl(&host->base->status);
 	status_err = status & (SDI_STA_DCRCFAIL | SDI_STA_DTIMEOUT |
 			       SDI_STA_RXOVERR);
+	while (!status_err &&
+	       (xfercount >= SDI_FIFO_BURST_SIZE * sizeof(u32))) {
+		if (status & SDI_STA_RXFIFOBR) {
+			for (i = 0; i < SDI_FIFO_BURST_SIZE; i++)
+				*(tempbuff + i) = readl(&host->base->fifo);
+			tempbuff += SDI_FIFO_BURST_SIZE;
+			xfercount -= SDI_FIFO_BURST_SIZE * sizeof(u32);
+		}
+		status = readl(&host->base->status);
+		status_err = status &
+			(SDI_STA_DCRCFAIL | SDI_STA_DTIMEOUT | SDI_STA_RXOVERR);
+	}
+
+	if (status & SDI_STA_DTIMEOUT) {
+		printf("Read data timed out, xfercount: %llu, status: 0x%08X\n",
+			xfercount, status);
+		return -ETIMEDOUT;
+	} else if (status & SDI_STA_DCRCFAIL) {
+		printf("Read data blk CRC error: 0x%x\n", status);
+		return -EILSEQ;
+	} else if (status & SDI_STA_RXOVERR) {
+		printf("Read data RX overflow error\n");
+		return -EIO;
+	}
+
 	while ((!status_err) && (xfercount >= sizeof(u32))) {
 		if (status & SDI_STA_RXDAVL) {
 			*(tempbuff) = readl(&host->base->fifo);
@@ -151,7 +194,7 @@ static int write_bytes(struct mmc *dev, u32 *src, u32 blkcount, u32 blksize)
 	u32 *tempbuff = src;
 	int i;
 	u64 xfercount = blkcount * blksize;
-	struct pl180_mmc_host *host = dev->priv;
+	struct mmc_host *host = dev->priv;
 	u32 status, status_err;
 
 	debug("write_bytes: blkcount=%u blksize=%u\n", blkcount, blksize);
@@ -210,19 +253,14 @@ static int do_data_transfer(struct mmc *dev,
 			    struct mmc_data *data)
 {
 	int error = -ETIMEDOUT;
-	struct pl180_mmc_host *host = dev->priv;
+	struct mmc_host *host = dev->priv;
 	u32 blksz = 0;
 	u32 data_ctrl = 0;
 	u32 data_len = (u32) (data->blocks * data->blocksize);
 
-	if (!host->version2) {
-		blksz = (ffs(data->blocksize) - 1);
-		data_ctrl |= ((blksz << 4) & SDI_DCTRL_DBLKSIZE_MASK);
-	} else {
-		blksz = data->blocksize;
-		data_ctrl |= (blksz << SDI_DCTRL_DBLOCKSIZE_V2_SHIFT);
-	}
-	data_ctrl |= SDI_DCTRL_DTEN | SDI_DCTRL_BUSYMODE;
+	blksz = (ffs(data->blocksize) - 1);
+	data_ctrl |= ((blksz << 4) & SDI_DCTRL_DBLKSIZE_MASK);
+	data_ctrl |= SDI_DCTRL_DTEN;
 
 	writel(SDI_DTIMER_DEFAULT, &host->base->datatimer);
 	writel(data_len, &host->base->datalength);
@@ -245,7 +283,7 @@ static int do_data_transfer(struct mmc *dev,
 
 		writel(data_ctrl, &host->base->datactrl);
 		error = write_bytes(dev, (u32 *)data->src, (u32)data->blocks,
-							(u32)data->blocksize);
+				    (u32)data->blocksize);
 	}
 
 	return error;
@@ -268,16 +306,17 @@ static int host_request(struct mmc *dev,
 /* MMC uses open drain drivers in the enumeration phase */
 static int mmc_host_reset(struct mmc *dev)
 {
-	struct pl180_mmc_host *host = dev->priv;
+	struct mmc_host *host = dev->priv;
+	u32 sdi_u32 = SDI_PWR_OPD | SDI_PWR_PWRCTRL_ON;
 
-	writel(host->pwr_init, &host->base->power);
+	writel(sdi_u32, &host->base->power);
 
 	return 0;
 }
 
 static void host_set_ios(struct mmc *dev)
 {
-	struct pl180_mmc_host *host = dev->priv;
+	struct mmc_host *host = dev->priv;
 	u32 sdi_clkcr;
 
 	sdi_clkcr = readl(&host->base->clock);
@@ -285,26 +324,15 @@ static void host_set_ios(struct mmc *dev)
 	/* Ramp up the clock rate */
 	if (dev->clock) {
 		u32 clkdiv = 0;
-		u32 tmp_clock;
 
-		if (dev->clock >= dev->cfg->f_max) {
-			clkdiv = 0;
-			dev->clock = dev->cfg->f_max;
-		} else {
-			clkdiv = (host->clock_in / dev->clock) - 2;
-		}
+		if (dev->clock >= dev->f_max)
+			dev->clock = dev->f_max;
 
-		tmp_clock = host->clock_in / (clkdiv + 2);
-		while (tmp_clock > dev->clock) {
-			clkdiv++;
-			tmp_clock = host->clock_in / (clkdiv + 2);
-		}
+		clkdiv = ((ARM_MCLK / dev->clock) / 2) - 1;
 
 		if (clkdiv > SDI_CLKCR_CLKDIV_MASK)
 			clkdiv = SDI_CLKCR_CLKDIV_MASK;
 
-		tmp_clock = host->clock_in / (clkdiv + 2);
-		dev->clock = tmp_clock;
 		sdi_clkcr &= ~(SDI_CLKCR_CLKDIV_MASK);
 		sdi_clkcr |= clkdiv;
 	}
@@ -320,11 +348,8 @@ static void host_set_ios(struct mmc *dev)
 		case 4:
 			buswidth |= SDI_CLKCR_WIDBUS_4;
 			break;
-		case 8:
-			buswidth |= SDI_CLKCR_WIDBUS_8;
-			break;
 		default:
-			printf("Invalid bus width: %d\n", dev->bus_width);
+			printf("Invalid bus width\n");
 			break;
 		}
 		sdi_clkcr &= ~(SDI_CLKCR_WIDBUS_MASK);
@@ -335,47 +360,84 @@ static void host_set_ios(struct mmc *dev)
 	udelay(CLK_CHANGE_DELAY);
 }
 
-static const struct mmc_ops arm_pl180_mmci_ops = {
-	.send_cmd = host_request,
-	.set_ios = host_set_ios,
-	.init = mmc_host_reset,
-};
+struct mmc *alloc_mmc_struct(void)
+{
+	struct mmc_host *host = NULL;
+	struct mmc *mmc_device = NULL;
+
+	host = malloc(sizeof(struct mmc_host));
+	if (!host)
+		return NULL;
+
+	mmc_device = malloc(sizeof(struct mmc));
+	if (!mmc_device)
+		goto err;
+
+	mmc_device->priv = host;
+	return mmc_device;
+
+err:
+	free(host);
+	return NULL;
+}
 
 /*
  * mmc_host_init - initialize the mmc controller.
  * Set initial clock and power for mmc slot.
  * Initialize mmc struct and register with mmc framework.
  */
-int arm_pl180_mmci_init(struct pl180_mmc_host *host)
+static int arm_pl180_mmci_host_init(struct mmc *dev)
 {
-	struct mmc *mmc;
+	struct mmc_host *host = dev->priv;
 	u32 sdi_u32;
 
-	writel(host->pwr_init, &host->base->power);
-	writel(host->clkdiv_init, &host->base->clock);
+	host->base = (struct sdi_registers *)CONFIG_ARM_PL180_MMCI_BASE;
+
+	/* Initially set power-on, full voltage & MMCI read */
+	sdi_u32 = INIT_PWR;
+	writel(sdi_u32, &host->base->power);
+
+	/* setting clk freq 505KHz */
+	sdi_u32 = SDI_CLKCR_CLKDIV_INIT | SDI_CLKCR_CLKEN;
+	writel(sdi_u32, &host->base->clock);
 	udelay(CLK_CHANGE_DELAY);
 
 	/* Disable mmc interrupts */
 	sdi_u32 = readl(&host->base->mask0) & ~SDI_MASK0_MASK;
 	writel(sdi_u32, &host->base->mask0);
 
-	host->cfg.name = host->name;
-	host->cfg.ops = &arm_pl180_mmci_ops;
-	/* TODO remove the duplicates */
-	host->cfg.host_caps = host->caps;
-	host->cfg.voltages = host->voltages;
-	host->cfg.f_min = host->clock_min;
-	host->cfg.f_max = host->clock_max;
-	if (host->b_max != 0)
-		host->cfg.b_max = host->b_max;
-	else
-		host->cfg.b_max = CONFIG_SYS_MMC_MAX_BLK_COUNT;
+	sprintf(dev->name, "MMC");
+	dev->clock = ARM_MCLK / (2 * (SDI_CLKCR_CLKDIV_INIT + 1));
+	dev->send_cmd = host_request;
+	dev->set_ios = host_set_ios;
+	dev->init = mmc_host_reset;
+	dev->host_caps = 0;
+	dev->voltages = VOLTAGE_WINDOW_MMC;
+	dev->f_min = dev->clock;
+	dev->f_max = CONFIG_ARM_PL180_MMCI_CLOCK_FREQ;
 
-	mmc = mmc_create(&host->cfg, host);
-	if (mmc == NULL)
+	return 0;
+}
+
+int arm_pl180_mmci_init(void)
+{
+	int error;
+	struct mmc *dev;
+
+	dev = alloc_mmc_struct();
+	if (!dev)
 		return -1;
 
-	debug("registered mmc interface number is:%d\n", mmc->block_dev.devnum);
+	error = arm_pl180_mmci_host_init(dev);
+	if (error) {
+		printf("mmci_host_init error - %d\n", error);
+		return -1;
+	}
+
+	dev->b_max = 0;
+
+	mmc_register(dev);
+	debug("registered mmc interface number is:%d\n", dev->block_dev.dev);
 
 	return 0;
 }

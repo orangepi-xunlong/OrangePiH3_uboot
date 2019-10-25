@@ -3,13 +3,28 @@
  * Marvell Semiconductor <www.marvell.com>
  * Written-by: Prafulla Wadaskar <prafulla@marvell.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
 #include <asm/io.h>
-#include <asm/arch/soc.h>
-#include <asm/arch/mpp.h>
+#include <asm/arch/kirkwood.h>
 #include <nand.h>
 
 /* NAND Flash Soc registers */
@@ -23,8 +38,6 @@ struct kwnandf_registers {
 static struct kwnandf_registers *nf_reg =
 	(struct kwnandf_registers *)KW_NANDF_BASE;
 
-static u32 nand_mpp_backup[9] = { 0 };
-
 /*
  * hardware specific access to control-lines/bits
  */
@@ -33,7 +46,7 @@ static u32 nand_mpp_backup[9] = { 0 };
 static void kw_nand_hwcontrol(struct mtd_info *mtd, int cmd,
 			      unsigned int ctrl)
 {
-	struct nand_chip *nc = mtd_to_nand(mtd);
+	struct nand_chip *nc = mtd->priv;
 	u32 offs;
 
 	if (cmd == NAND_CMD_NONE)
@@ -52,22 +65,6 @@ static void kw_nand_hwcontrol(struct mtd_info *mtd, int cmd,
 void kw_nand_select_chip(struct mtd_info *mtd, int chip)
 {
 	u32 data;
-	static const u32 nand_config[] = {
-		MPP0_NF_IO2,
-		MPP1_NF_IO3,
-		MPP2_NF_IO4,
-		MPP3_NF_IO5,
-		MPP4_NF_IO6,
-		MPP5_NF_IO7,
-		MPP18_NF_IO0,
-		MPP19_NF_IO1,
-		0
-	};
-
-	if (chip >= 0)
-		kirkwood_mpp_conf(nand_config, nand_mpp_backup);
-	else
-		kirkwood_mpp_conf(nand_mpp_backup, NULL);
 
 	data = readl(&nf_reg->ctrl);
 	data |= NAND_ACTCEBOOT_BIT;
@@ -77,16 +74,9 @@ void kw_nand_select_chip(struct mtd_info *mtd, int chip)
 int board_nand_init(struct nand_chip *nand)
 {
 	nand->options = NAND_COPYBACK | NAND_CACHEPRG | NAND_NO_PADDING;
-#if defined(CONFIG_SYS_NAND_NO_SUBPAGE_WRITE)
-	nand->options |= NAND_NO_SUBPAGE_WRITE;
-#endif
-#if defined(CONFIG_NAND_ECC_BCH)
-	nand->ecc.mode = NAND_ECC_SOFT_BCH;
-#else
 	nand->ecc.mode = NAND_ECC_SOFT;
-#endif
 	nand->cmd_ctrl = kw_nand_hwcontrol;
-	nand->chip_delay = 40;
+	nand->chip_delay = 30;
 	nand->select_chip = kw_nand_select_chip;
 	return 0;
 }

@@ -11,7 +11,23 @@
  * (C) Copyright 2001
  * Josh Huber <huber@mclx.com>, Mission Critical Linux, Inc.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <asm/stack.h>
@@ -118,6 +134,20 @@ int interrupt_init_cpu(void)
 
 /****************************************************************************/
 
+/* Handle Timer 0 IRQ */
+void timer_interrupt_cpu(void *arg)
+{
+	LEON2_regs *leon2 = (LEON2_regs *) LEON2_PREGS;
+
+	leon2->Timer_Control_1 =
+	    (LEON2_TIMER_CTRL_EN | LEON2_TIMER_CTRL_RS | LEON2_TIMER_CTRL_LD);
+
+	/* nothing to do here */
+	return;
+}
+
+/****************************************************************************/
+
 /*
  * Install and free a interrupt handler.
  */
@@ -177,9 +207,9 @@ void do_irqinfo(cmd_tbl_t * cmdtp, bd_t * bd, int flag, int argc, char * const a
 
 	for (irq = 0; irq < NR_IRQS; irq++) {
 		if (irq_handlers[irq].handler != NULL) {
-			printf("%02d  %p  %p  %d\n", irq,
-			       irq_handlers[irq].handler,
-			       irq_handlers[irq].arg,
+			printf("%02d  %08lx  %08lx  %ld\n", irq,
+			       (unsigned int)irq_handlers[irq].handler,
+			       (unsigned int)irq_handlers[irq].arg,
 			       irq_handlers[irq].count);
 		}
 	}

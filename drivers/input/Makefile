@@ -2,19 +2,52 @@
 # (C) Copyright 2000-2007
 # Wolfgang Denk, DENX Software Engineering, wd@denx.de.
 #
-# SPDX-License-Identifier:	GPL-2.0+
+# See file CREDITS for list of people who contributed to this
+# project.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 2 of
+# the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+# MA 02111-1307 USA
 #
 
-obj-$(CONFIG_DM_KEYBOARD) += keyboard-uclass.o
+include $(TOPDIR)/config.mk
 
-obj-$(CONFIG_I8042_KEYB) += i8042.o
-obj-$(CONFIG_TEGRA_KEYBOARD) += tegra-kbc.o
-obj-$(CONFIG_TWL4030_INPUT) += twl4030.o
-obj-$(CONFIG_TWL6030_INPUT) += twl6030.o
-obj-$(CONFIG_CROS_EC_KEYB) += cros_ec_keyb.o
+LIB	:= $(obj)libinput.o
+
+COBJS-$(CONFIG_I8042_KBD) += i8042.o
+COBJS-$(CONFIG_GT82X) += gt82x_ts.o
 ifdef CONFIG_PS2KBD
-obj-y += keyboard.o pc_keyb.o
-obj-$(CONFIG_PS2MULT) += ps2mult.o ps2ser.o
+COBJS-y += keyboard.o pc_keyb.o
+COBJS-$(CONFIG_PS2MULT) += ps2mult.o ps2ser.o
 endif
-obj-y += input.o
-obj-$(CONFIG_$(SPL_)OF_CONTROL) += key_matrix.o
+
+COBJS-$(CONFIG_USE_CIR) += sunxi_ir.o
+
+COBJS	:= $(COBJS-y)
+SRCS	:= $(COBJS:.o=.c)
+OBJS	:= $(addprefix $(obj),$(COBJS))
+
+all:	$(LIB)
+
+$(LIB):	$(obj).depend $(OBJS)
+	$(call cmd_link_o_target, $(OBJS))
+
+#########################################################################
+
+# defines $(obj).depend target
+include $(SRCTREE)/rules.mk
+
+sinclude $(obj).depend
+
+#########################################################################

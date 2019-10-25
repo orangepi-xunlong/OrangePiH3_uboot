@@ -1,15 +1,24 @@
-/* Copyright (C) 2011
- * Corscience GmbH & Co. KG - Simon Schwarz <schwarz@corscience.de>
- *  - Added prep subcommand support
- *  - Reorganized source - modeled after powerpc version
- *
+/*
  * (C) Copyright 2002
  * Sysgo Real-Time Solutions, GmbH <www.elinos.com>
  * Marius Groeger <mgroeger@sysgo.de>
  *
  * Copyright (C) 2001  Erik Mouw (J.A.K.Mouw@its.tudelft.nl)
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307	 USA
+ *
  */
 
 #include <common.h>
@@ -17,30 +26,46 @@
 #include <image.h>
 #include <u-boot/zlib.h>
 #include <asm/byteorder.h>
+#include <fdt.h>
 #include <libfdt.h>
-#include <mapmem.h>
 #include <fdt_support.h>
-#include <asm/bootm.h>
-#include <asm/secure.h>
-#include <linux/compiler.h>
-#include <bootm.h>
-#include <vxworks.h>
-
-#ifdef CONFIG_ARMV7_NONSEC
-#include <asm/armv7.h>
+#include <fastboot.h>
+#include <asm/arch/clock.h>
+#include <asm/arch/drv_display.h>
+#ifdef CONFIG_ALLWINNER
+#include <boot_type.h>
+#include <axp_power.h>
+#include <sunxi_board.h>
+#include <pmu.h>
 #endif
-
+#include <sys_config.h>
 DECLARE_GLOBAL_DATA_PTR;
 
+#if defined (CONFIG_SETUP_MEMORY_TAGS) || \
+    defined (CONFIG_CMDLINE_TAG) || \
+    defined (CONFIG_INITRD_TAG) || \
+    defined (CONFIG_SERIAL_TAG) || \
+    defined (CONFIG_REVISION_TAG)
+static void setup_start_tag (bd_t *bd);
+
+# ifdef CONFIG_SETUP_MEMORY_TAGS
+static void setup_memory_tags (bd_t *bd);
+# endif
+static void setup_commandline_tag (bd_t *bd, char *commandline);
+
+# ifdef CONFIG_INITRD_TAG
+static void setup_initrd_tag (bd_t *bd, ulong initrd_start,
+			      ulong initrd_end);
+# endif
+static void setup_end_tag (bd_t *bd);
+
 static struct tag *params;
+#endif /* CONFIG_SETUP_MEMORY_TAGS || CONFIG_CMDLINE_TAG || CONFIG_INITRD_TAG */
 
-static ulong get_sp(void)
-{
-	ulong ret;
-
-	asm("mov %0, sp" : "=r"(ret) : );
-	return ret;
-}
+static ulong get_sp(void);
+#if defined(CONFIG_OF_LIBFDT)
+static int bootm_linux_fdt(int machid, bootm_headers_t *images);
+#endif
 
 void arch_lmb_reserve(struct lmb *lmb)
 {
@@ -58,38 +83,316 @@ void arch_lmb_reserve(struct lmb *lmb)
 	sp = get_sp();
 	debug("## Current stack ends at 0x%08lx ", sp);
 
-	/* adjust sp by 4K to be safe */
-	sp -= 4096;
+	/* adjust sp by 1K to be safe */
+	sp -= 1024;
 	lmb_reserve(lmb, sp,
 		    gd->bd->bi_dram[0].start + gd->bd->bi_dram[0].size - sp);
 }
-
-/**
- * announce_and_cleanup() - Print message and prepare for kernel boot
- *
- * @fake: non-zero to do everything except actually boot
- */
-static void announce_and_cleanup(int fake)
+static void announce_and_cleanup(void)
 {
-	printf("\nStarting kernel ...%s\n\n", fake ?
-		"(fake run for tracing)" : "");
-	bootstage_mark_name(BOOTSTAGE_ID_BOOTM_HANDOFF, "start_kernel");
-#ifdef CONFIG_BOOTSTAGE_FDT
-	bootstage_fdt_add_report();
+	axp_set_next_poweron_status(0x0e);
+	board_display_wait_lcd_open();		//add by jerry
+	board_display_set_exit_mode(1);
+	sunxi_board_close_source();
+#ifdef CONFIG_SMALL_MEMSIZE
+        reload_config();
 #endif
-#ifdef CONFIG_BOOTSTAGE_REPORT
-	bootstage_report();
-#endif
+        tick_printf("\nStarting kernel ...\n\n");
 
 #ifdef CONFIG_USB_DEVICE
-	udc_disconnect();
+	{
+		extern void udc_disconnect(void);
+		udc_disconnect();
+	}
 #endif
 	cleanup_before_linux();
 }
 
+int do_bootm_linux(int flag, int argc, char *argv[], bootm_headers_t *images)
+{
+	bd_t	*bd = gd->bd;
+	char	*s;
+	int	machid = bd->bi_arch_number;
+	void	(*kernel_entry)(int zero, int arch, uint params);
+
+#ifdef CONFIG_CMDLINE_TAG
+	char *commandline = getenv ("bootargs");
+#endif
+
+	if ((flag != 0) && (flag != BOOTM_STATE_OS_GO))
+		return 1;
+
+	s = getenv ("machid");
+	if (s) {
+		machid = simple_strtoul (s, NULL, 16);
+		printf ("Using machid 0x%x from environment\n", machid);
+	}
+
+	show_boot_progress (15);
+
+#ifdef CONFIG_OF_LIBFDT
+	if (images->ft_len)
+		return bootm_linux_fdt(machid, images);
+#endif
+
+	kernel_entry = (void (*)(int, int, uint))images->ep;
+
+	debug ("## Transferring control to Linux (at address %08lx) ...\n",
+	       (ulong) kernel_entry);
+
+#if defined (CONFIG_SETUP_MEMORY_TAGS) || \
+    defined (CONFIG_CMDLINE_TAG) || \
+    defined (CONFIG_INITRD_TAG) || \
+    defined (CONFIG_SERIAL_TAG) || \
+    defined (CONFIG_REVISION_TAG)
+	setup_start_tag (bd);
+#ifdef CONFIG_SERIAL_TAG
+	setup_serial_tag (&params);
+#endif
+#ifdef CONFIG_REVISION_TAG
+	setup_revision_tag (&params);
+#endif
+#ifdef CONFIG_SETUP_MEMORY_TAGS
+	setup_memory_tags (bd);
+#endif
+#ifdef CONFIG_CMDLINE_TAG
+/*
+#ifdef CONFIG_READ_LOGO_FOR_KERNEL
+	if(gd->fb_base != 0)
+	{
+            sprintf(commandline ,"%s%s%x",commandline," fb_base=0x",(uint)gd->fb_base);
+        }
+#endif
+*/
+	setup_commandline_tag (bd, commandline);
+#endif
+#ifdef CONFIG_INITRD_TAG
+	if (images->rd_start && images->rd_end)
+		setup_initrd_tag (bd, images->rd_start, images->rd_end);
+#endif
+	setup_end_tag(bd);
+#endif
+
+	announce_and_cleanup();
+
+	kernel_entry(0, machid, bd->bi_boot_params);
+	/* does not return */
+
+	return 1;
+}
+
+
+extern int plat_get_chip_id(void);
+
+/* Boot android style linux kernel and ramdisk */
+int do_boota_linux (struct fastboot_boot_img_hdr *hdr)
+{
+	ulong initrd_start, initrd_end;
+	void (*kernel_entry)(int zero, int arch, uint params);
+	bd_t *bd = gd->bd;
+
+	debug("do_boota_linux storage_type = %d\n", uboot_spare_head.boot_data.storage_type);
+
+	kernel_entry = (void (*)(int, int, uint))(hdr->kernel_addr);
+
+#ifdef CONFIG_CMDLINE_TAG
+	char *commandline = getenv ("bootargs");
+#endif
+
+	initrd_start = hdr->ramdisk_addr;
+	initrd_end = initrd_start + hdr->ramdisk_size;
+#if defined (CONFIG_SETUP_MEMORY_TAGS) || \
+    defined (CONFIG_CMDLINE_TAG) || \
+    defined (CONFIG_INITRD_TAG) || \
+    defined (CONFIG_SERIAL_TAG) || \
+    defined (CONFIG_REVISION_TAG)
+	setup_start_tag (bd);
+#ifdef CONFIG_SERIAL_TAG
+	setup_serial_tag (&params);
+#endif
+#ifdef CONFIG_REVISION_TAG
+	setup_revision_tag (&params);
+#endif
+#ifdef CONFIG_SETUP_MEMORY_TAGS
+	setup_memory_tags (bd);
+#endif
+#ifdef CONFIG_CMDLINE_TAG
+
+	if(strlen((const char *)hdr->cmdline)) {
+		char *s = getenv("partitions");
+		char *sig = getenv("signature");
+		char data[24] = {0};
+
+		memset(data, 0, sizeof(data));
+
+        strcat((char *)hdr->cmdline, " boot_type=");
+        sprintf(data, "%d", uboot_spare_head.boot_data.storage_type);
+        strcat((char *)hdr->cmdline, data);
+
+		if(!board_display_setenv(data))
+		{
+			strcat((char *)hdr->cmdline, data);
+		}
+
+        strcat((char *)hdr->cmdline, " fb_base=");
+        sprintf(data , "0x%x", (uint)gd->fb_base);
+        strcat((char *)hdr->cmdline, data);
+
+		if(sig != NULL)
+		{
+			strcat((char *)hdr->cmdline, " signature=");
+			strcat((char *)hdr->cmdline, sig);
+        }
+		if(gd->chargemode == 1)
+		{
+			strcat((char *)hdr->cmdline, " androidboot.mode=");
+			strcat((char *)hdr->cmdline, "charger");
+		}
+
+        strcat((char *)hdr->cmdline, " config_size=");
+        sprintf(data, "%d", script_get_length());
+        strcat((char *)hdr->cmdline, data);
+
+		strcat((char *)hdr->cmdline, " partitions=");
+        strcat((char *)hdr->cmdline, s);
+#if defined(CONFIG_SUN8IW6P1)
+		strcat((char *)hdr->cmdline, " axp_chipid=");
+		sprintf(data, "%d", plat_get_chip_id());
+		strcat((char *)hdr->cmdline, data);
+#endif
+		setup_commandline_tag (bd, (char *)hdr->cmdline);
+	} else {
+
+	//	char *s = getenv("partitions");
+		char *sig = getenv("signature");
+		char cmdline[FASTBOOT_BOOT_ARGS_SIZE];
+		char data[24] = {0};
+
+		memset(cmdline, 0, FASTBOOT_BOOT_ARGS_SIZE);
+		memset(data, 0, sizeof(data));
+
+		strcpy(cmdline, commandline);
+
+		strcat(cmdline, " boot_type=");
+        sprintf(data, "%d", uboot_spare_head.boot_data.storage_type);
+        strcat(cmdline, data);
+
+		if(!board_display_setenv(data))
+		{
+			strcat(cmdline, data);
+		}
+
+        strcat((char *)cmdline, " fb_base=");
+        sprintf(data , "0x%x", (uint)gd->fb_base);
+        strcat((char *)cmdline, data);
+
+		if(gd->chargemode == 1)
+		{
+		    strcat(cmdline," androidboot.mode=");
+		    strcat(cmdline,"charger");
+		}
+
+        strcat((char *)cmdline, " config_size=");
+        sprintf(data, "%d", script_get_length());
+        strcat((char *)cmdline, data);
+
+		if(sig != NULL)
+		{	strcat(cmdline, " signature=");
+			strcat(cmdline, sig);
+        }
+#if defined(CONFIG_SUN8IW6P1)
+		strcat((char *)cmdline, " axp_chipid=");
+		sprintf(data, "%d", plat_get_chip_id());
+		strcat(cmdline, data);
+#endif
+		setup_commandline_tag (bd, cmdline);
+	}
+#endif
+#ifdef CONFIG_INITRD_TAG
+	if (hdr->ramdisk_size)
+		setup_initrd_tag (bd, initrd_start, initrd_end);
+#endif
+#if defined (CONFIG_VFD) || defined (CONFIG_LCD)
+	setup_videolfb_tag ((gd_t *) gd);
+#endif
+	setup_end_tag (bd);
+#endif
+	/* we assume that the kernel is in place */
+	announce_and_cleanup();
+
+	kernel_entry(0, bd->bi_arch_number, bd->bi_boot_params);
+	/* does not return */
+
+	return 1;
+}
+
+#if defined(CONFIG_OF_LIBFDT)
+static int fixup_memory_node(void *blob)
+{
+	bd_t	*bd = gd->bd;
+	int bank;
+	u64 start[CONFIG_NR_DRAM_BANKS];
+	u64 size[CONFIG_NR_DRAM_BANKS];
+
+	for (bank = 0; bank < CONFIG_NR_DRAM_BANKS; bank++) {
+		start[bank] = bd->bi_dram[bank].start;
+		size[bank] = bd->bi_dram[bank].size;
+	}
+
+	return fdt_fixup_memory_banks(blob, start, size, CONFIG_NR_DRAM_BANKS);
+}
+
+static int bootm_linux_fdt(int machid, bootm_headers_t *images)
+{
+	ulong rd_len;
+	void (*kernel_entry)(int zero, int dt_machid, void *dtblob);
+	ulong of_size = images->ft_len;
+	char **of_flat_tree = &images->ft_addr;
+	ulong *initrd_start = &images->initrd_start;
+	ulong *initrd_end = &images->initrd_end;
+	struct lmb *lmb = &images->lmb;
+	int ret;
+
+	kernel_entry = (void (*)(int, int, void *))images->ep;
+
+	boot_fdt_add_mem_rsv_regions(lmb, *of_flat_tree);
+
+	rd_len = images->rd_end - images->rd_start;
+	ret = boot_ramdisk_high(lmb, images->rd_start, rd_len,
+				initrd_start, initrd_end);
+	if (ret)
+		return ret;
+
+	ret = boot_relocate_fdt(lmb, of_flat_tree, &of_size);
+	if (ret)
+		return ret;
+
+	debug("## Transferring control to Linux (at address %08lx) ...\n",
+	       (ulong) kernel_entry);
+
+	fdt_chosen(*of_flat_tree, 1);
+
+	fixup_memory_node(*of_flat_tree);
+
+	fdt_initrd(*of_flat_tree, *initrd_start, *initrd_end, 1);
+
+	announce_and_cleanup();
+
+	kernel_entry(0, machid, *of_flat_tree);
+	/* does not return */
+
+	return 1;
+}
+#endif
+
+#if defined (CONFIG_SETUP_MEMORY_TAGS) || \
+    defined (CONFIG_CMDLINE_TAG) || \
+    defined (CONFIG_INITRD_TAG) || \
+    defined (CONFIG_SERIAL_TAG) || \
+    defined (CONFIG_REVISION_TAG)
 static void setup_start_tag (bd_t *bd)
 {
-	params = (struct tag *)bd->bi_boot_params;
+	params = (struct tag *) bd->bi_boot_params;
 
 	params->hdr.tag = ATAG_CORE;
 	params->hdr.size = tag_size (tag_core);
@@ -101,7 +404,9 @@ static void setup_start_tag (bd_t *bd)
 	params = tag_next (params);
 }
 
-static void setup_memory_tags(bd_t *bd)
+
+#ifdef CONFIG_SETUP_MEMORY_TAGS
+static void setup_memory_tags (bd_t *bd)
 {
 	int i;
 
@@ -111,12 +416,15 @@ static void setup_memory_tags(bd_t *bd)
 
 		params->u.mem.start = bd->bi_dram[i].start;
 		params->u.mem.size = bd->bi_dram[i].size;
-
+                if(gd->ram_size_mb && (!bd->bi_dram[i].size))
+			params->u.mem.size = gd->ram_size_mb;
 		params = tag_next (params);
 	}
 }
+#endif /* CONFIG_SETUP_MEMORY_TAGS */
 
-static void setup_commandline_tag(bd_t *bd, char *commandline)
+
+static void setup_commandline_tag (bd_t *bd, char *commandline)
 {
 	char *p;
 
@@ -141,7 +449,9 @@ static void setup_commandline_tag(bd_t *bd, char *commandline)
 	params = tag_next (params);
 }
 
-static void setup_initrd_tag(bd_t *bd, ulong initrd_start, ulong initrd_end)
+
+#ifdef CONFIG_INITRD_TAG
+static void setup_initrd_tag (bd_t *bd, ulong initrd_start, ulong initrd_end)
 {
 	/* an ATAG_INITRD node tells the kernel where the compressed
 	 * ramdisk can be found. ATAG_RDIMG is a better name, actually.
@@ -154,11 +464,14 @@ static void setup_initrd_tag(bd_t *bd, ulong initrd_start, ulong initrd_end)
 
 	params = tag_next (params);
 }
+#endif /* CONFIG_INITRD_TAG */
 
-static void setup_serial_tag(struct tag **tmp)
+#ifdef CONFIG_SERIAL_TAG
+void setup_serial_tag (struct tag **tmp)
 {
 	struct tag *params = *tmp;
 	struct tag_serialnr serialnr;
+	void get_board_serial(struct tag_serialnr *serialnr);
 
 	get_board_serial(&serialnr);
 	params->hdr.tag = ATAG_SERIAL;
@@ -168,10 +481,13 @@ static void setup_serial_tag(struct tag **tmp)
 	params = tag_next (params);
 	*tmp = params;
 }
+#endif
 
-static void setup_revision_tag(struct tag **in_params)
+#ifdef CONFIG_REVISION_TAG
+void setup_revision_tag(struct tag **in_params)
 {
 	u32 rev = 0;
+	u32 get_board_rev(void);
 
 	rev = get_board_rev();
 	params->hdr.tag = ATAG_REVISION;
@@ -179,211 +495,19 @@ static void setup_revision_tag(struct tag **in_params)
 	params->u.revision.rev = rev;
 	params = tag_next (params);
 }
+#endif  /* CONFIG_REVISION_TAG */
 
-static void setup_end_tag(bd_t *bd)
+static void setup_end_tag (bd_t *bd)
 {
 	params->hdr.tag = ATAG_NONE;
 	params->hdr.size = 0;
 }
+#endif /* CONFIG_SETUP_MEMORY_TAGS || CONFIG_CMDLINE_TAG || CONFIG_INITRD_TAG */
 
-__weak void setup_board_tags(struct tag **in_params) {}
-
-#ifdef CONFIG_ARM64
-static void do_nonsec_virt_switch(void)
+static ulong get_sp(void)
 {
-	smp_kick_all_cpus();
-	dcache_disable();	/* flush cache before swtiching to EL2 */
-	armv8_switch_to_el2();
-#ifdef CONFIG_ARMV8_SWITCH_TO_EL1
-	armv8_switch_to_el1();
-#endif
+	ulong ret;
+
+	asm("mov %0, sp" : "=r"(ret) : );
+	return ret;
 }
-#endif
-
-/* Subcommand: PREP */
-static void boot_prep_linux(bootm_headers_t *images)
-{
-	char *commandline = getenv("bootargs");
-
-	if (IMAGE_ENABLE_OF_LIBFDT && images->ft_len) {
-#ifdef CONFIG_OF_LIBFDT
-		debug("using: FDT\n");
-		if (image_setup_linux(images)) {
-			printf("FDT creation failed! hanging...");
-			hang();
-		}
-#endif
-	} else if (BOOTM_ENABLE_TAGS) {
-		debug("using: ATAGS\n");
-		setup_start_tag(gd->bd);
-		if (BOOTM_ENABLE_SERIAL_TAG)
-			setup_serial_tag(&params);
-		if (BOOTM_ENABLE_CMDLINE_TAG)
-			setup_commandline_tag(gd->bd, commandline);
-		if (BOOTM_ENABLE_REVISION_TAG)
-			setup_revision_tag(&params);
-		if (BOOTM_ENABLE_MEMORY_TAGS)
-			setup_memory_tags(gd->bd);
-		if (BOOTM_ENABLE_INITRD_TAG) {
-			/*
-			 * In boot_ramdisk_high(), it may relocate ramdisk to
-			 * a specified location. And set images->initrd_start &
-			 * images->initrd_end to relocated ramdisk's start/end
-			 * addresses. So use them instead of images->rd_start &
-			 * images->rd_end when possible.
-			 */
-			if (images->initrd_start && images->initrd_end) {
-				setup_initrd_tag(gd->bd, images->initrd_start,
-						 images->initrd_end);
-			} else if (images->rd_start && images->rd_end) {
-				setup_initrd_tag(gd->bd, images->rd_start,
-						 images->rd_end);
-			}
-		}
-		setup_board_tags(&params);
-		setup_end_tag(gd->bd);
-	} else {
-		printf("FDT and ATAGS support not compiled in - hanging\n");
-		hang();
-	}
-}
-
-__weak bool armv7_boot_nonsec_default(void)
-{
-#ifdef CONFIG_ARMV7_BOOT_SEC_DEFAULT
-	return false;
-#else
-	return true;
-#endif
-}
-
-#ifdef CONFIG_ARMV7_NONSEC
-bool armv7_boot_nonsec(void)
-{
-	char *s = getenv("bootm_boot_mode");
-	bool nonsec = armv7_boot_nonsec_default();
-
-	if (s && !strcmp(s, "sec"))
-		nonsec = false;
-
-	if (s && !strcmp(s, "nonsec"))
-		nonsec = true;
-
-	return nonsec;
-}
-#endif
-
-/* Subcommand: GO */
-static void boot_jump_linux(bootm_headers_t *images, int flag)
-{
-#ifdef CONFIG_ARM64
-	void (*kernel_entry)(void *fdt_addr, void *res0, void *res1,
-			void *res2);
-	int fake = (flag & BOOTM_STATE_OS_FAKE_GO);
-
-	kernel_entry = (void (*)(void *fdt_addr, void *res0, void *res1,
-				void *res2))images->ep;
-
-	debug("## Transferring control to Linux (at address %lx)...\n",
-		(ulong) kernel_entry);
-	bootstage_mark(BOOTSTAGE_ID_RUN_OS);
-
-	announce_and_cleanup(fake);
-
-	if (!fake) {
-		do_nonsec_virt_switch();
-		kernel_entry(images->ft_addr, NULL, NULL, NULL);
-	}
-#else
-	unsigned long machid = gd->bd->bi_arch_number;
-	char *s;
-	void (*kernel_entry)(int zero, int arch, uint params);
-	unsigned long r2;
-	int fake = (flag & BOOTM_STATE_OS_FAKE_GO);
-
-	kernel_entry = (void (*)(int, int, uint))images->ep;
-
-	s = getenv("machid");
-	if (s) {
-		if (strict_strtoul(s, 16, &machid) < 0) {
-			debug("strict_strtoul failed!\n");
-			return;
-		}
-		printf("Using machid 0x%lx from environment\n", machid);
-	}
-
-	debug("## Transferring control to Linux (at address %08lx)" \
-		"...\n", (ulong) kernel_entry);
-	bootstage_mark(BOOTSTAGE_ID_RUN_OS);
-	announce_and_cleanup(fake);
-
-	if (IMAGE_ENABLE_OF_LIBFDT && images->ft_len)
-		r2 = (unsigned long)images->ft_addr;
-	else
-		r2 = gd->bd->bi_boot_params;
-
-	if (!fake) {
-#ifdef CONFIG_ARMV7_NONSEC
-		if (armv7_boot_nonsec()) {
-			armv7_init_nonsec();
-			secure_ram_addr(_do_nonsec_entry)(kernel_entry,
-							  0, machid, r2);
-		} else
-#endif
-			kernel_entry(0, machid, r2);
-	}
-#endif
-}
-
-/* Main Entry point for arm bootm implementation
- *
- * Modeled after the powerpc implementation
- * DIFFERENCE: Instead of calling prep and go at the end
- * they are called if subcommand is equal 0.
- */
-int do_bootm_linux(int flag, int argc, char * const argv[],
-		   bootm_headers_t *images)
-{
-	/* No need for those on ARM */
-	if (flag & BOOTM_STATE_OS_BD_T || flag & BOOTM_STATE_OS_CMDLINE)
-		return -1;
-
-	if (flag & BOOTM_STATE_OS_PREP) {
-		boot_prep_linux(images);
-		return 0;
-	}
-
-	if (flag & (BOOTM_STATE_OS_GO | BOOTM_STATE_OS_FAKE_GO)) {
-		boot_jump_linux(images, flag);
-		return 0;
-	}
-
-	boot_prep_linux(images);
-	boot_jump_linux(images, flag);
-	return 0;
-}
-
-#if defined(CONFIG_BOOTM_VXWORKS)
-void boot_prep_vxworks(bootm_headers_t *images)
-{
-#if defined(CONFIG_OF_LIBFDT)
-	int off;
-
-	if (images->ft_addr) {
-		off = fdt_path_offset(images->ft_addr, "/memory");
-		if (off < 0) {
-#ifdef CONFIG_ARCH_FIXUP_FDT
-			if (arch_fixup_fdt(images->ft_addr))
-				puts("## WARNING: fixup memory failed!\n");
-#endif
-		}
-	}
-#endif
-	cleanup_before_linux();
-}
-void boot_jump_vxworks(bootm_headers_t *images)
-{
-	/* ARM VxWorks requires device tree physical address to be passed */
-	((void (*)(void *))images->ep)(images->ft_addr);
-}
-#endif

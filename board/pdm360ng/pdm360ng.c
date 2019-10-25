@@ -4,7 +4,24 @@
  * (C) Copyright 2009-2010
  * Michael Weiß, ifm ecomatic gmbh, michael.weiss@ifm.com
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
  */
 
 #include <common.h>
@@ -26,6 +43,63 @@ DECLARE_GLOBAL_DATA_PTR;
 
 extern flash_info_t flash_info[];
 ulong flash_get_size (phys_addr_t base, int banknum);
+
+/* Clocks in use */
+#define SCCR1_CLOCKS_EN	(CLOCK_SCCR1_CFG_EN |				\
+			 CLOCK_SCCR1_LPC_EN |				\
+			 CLOCK_SCCR1_NFC_EN |				\
+			 CLOCK_SCCR1_PSC_EN(CONFIG_PSC_CONSOLE) |	\
+			 CLOCK_SCCR1_PSCFIFO_EN |			\
+			 CLOCK_SCCR1_DDR_EN |				\
+			 CLOCK_SCCR1_FEC_EN |				\
+			 CLOCK_SCCR1_TPR_EN)
+
+#define SCCR2_CLOCKS_EN	(CLOCK_SCCR2_MEM_EN |		\
+			 CLOCK_SCCR2_SPDIF_EN |		\
+			 CLOCK_SCCR2_DIU_EN |		\
+			 CLOCK_SCCR2_I2C_EN)
+
+int board_early_init_f(void)
+{
+	volatile immap_t *im = (immap_t *)CONFIG_SYS_IMMR;
+
+	/*
+	 * Initialize Local Window for FLASH-Bank1 access (CS1)
+	 */
+	out_be32(&im->sysconf.lpcs1aw,
+		CSAW_START(CONFIG_SYS_FLASH1_BASE) |
+		CSAW_STOP(CONFIG_SYS_FLASH1_BASE, CONFIG_SYS_FLASH_SIZE)
+	);
+	out_be32(&im->lpc.cs_cfg[1], CONFIG_SYS_CS1_CFG);
+
+	/*
+	 * Local Window for MRAM access (CS2)
+	 */
+	out_be32(&im->sysconf.lpcs2aw,
+		CSAW_START(CONFIG_SYS_MRAM_BASE) |
+		CSAW_STOP(CONFIG_SYS_MRAM_BASE, CONFIG_SYS_MRAM_SIZE)
+	);
+	out_be32(&im->lpc.cs_cfg[2], CONFIG_SYS_CS2_CFG);
+
+	sync_law(&im->sysconf.lpcs2aw);
+
+	/*
+	 * Configure Flash Speed
+	 */
+	out_be32(&im->lpc.cs_cfg[0], CONFIG_SYS_CS0_CFG);
+	out_be32(&im->lpc.altr, CONFIG_SYS_CS_ALETIMING);
+
+	/*
+	 * Enable clocks
+	 */
+	out_be32(&im->clk.sccr[0], SCCR1_CLOCKS_EN);
+	out_be32(&im->clk.sccr[1], SCCR2_CLOCKS_EN);
+#if defined(CONFIG_IIM) || defined(CONFIG_CMD_FUSE)
+	setbits_be32(&im->clk.sccr[1], CLOCK_SCCR2_IIM_EN);
+#endif
+
+	return 0;
+}
 
 sdram_conf_t mddrc_config[] = {
 	{
@@ -98,7 +172,9 @@ phys_size_t initdram (int board_type)
 	return msize;
 }
 
+#if defined(CONFIG_SERIAL_MULTI)
 static int set_lcd_brightness(char *);
+#endif
 
 int misc_init_r(void)
 {
@@ -161,7 +237,9 @@ int misc_init_r(void)
 #endif
 
 #ifdef CONFIG_FSL_DIU_FB
+#if defined(CONFIG_SERIAL_MULTI)
 	set_lcd_brightness(0);
+#endif
 	/* Switch LCD-Backlight and LVDS-Interface on */
 	setbits_be32(&im->gpio.gpdir, 0x01040000);
 	clrsetbits_be32(&im->gpio.gpdat, 0x01000000, 0x00040000);
@@ -429,7 +507,7 @@ int checkboard (void)
 	return 0;
 }
 
-#ifdef CONFIG_OF_BOARD_SETUP
+#if defined(CONFIG_OF_LIBFDT) && defined(CONFIG_OF_BOARD_SETUP)
 #ifdef CONFIG_FDT_FIXUP_PARTITIONS
 struct node_info nodes[] = {
 	{ "fsl,mpc5121-nfc",	MTD_DEV_TYPE_NAND, },
@@ -477,12 +555,13 @@ static unsigned char edid_buf[128] = {
 };
 #endif
 
-int ft_board_setup(void *blob, bd_t *bd)
+void ft_board_setup(void *blob, bd_t *bd)
 {
 	u32 val[8];
 	int rc, i = 0;
 
 	ft_cpu_setup(blob, bd);
+	fdt_fixup_memory(blob, (u64)bd->bi_memstart, (u64)bd->bi_memsize);
 #ifdef CONFIG_FDT_FIXUP_PARTITIONS
 	fdt_fixup_mtdparts(blob, nodes, ARRAY_SIZE(nodes));
 #endif
@@ -526,11 +605,10 @@ int ft_board_setup(void *blob, bd_t *bd)
 	if (rc)
 		printf("Unable to update flash reg property, err=%s\n",
 		       fdt_strerror(rc));
-
-	return 0;
 }
-#endif /* CONFIG_OF_BOARD_SETUP */
+#endif /* defined(CONFIG_OF_LIBFDT) && defined(CONFIG_OF_BOARD_SETUP) */
 
+#if defined(CONFIG_SERIAL_MULTI)
 /*
  * If argument is NULL, set the LCD brightness to the
  * value from "brightness" environment variable. Set
@@ -607,3 +685,4 @@ U_BOOT_CMD(lcdbr, 2, 1, cmd_lcd_brightness,
 	"set LCD brightness",
 	"<brightness> - set LCD backlight level to <brightness>.\n"
 );
+#endif /* CONFIG_SERIAL_MULTI */

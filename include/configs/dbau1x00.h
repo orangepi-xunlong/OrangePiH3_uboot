@@ -2,7 +2,23 @@
  * (C) Copyright 2003
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -12,10 +28,9 @@
 #ifndef __CONFIG_H
 #define __CONFIG_H
 
+#define CONFIG_MIPS32		1  /* MIPS32 CPU core	*/
 #define CONFIG_DBAU1X00		1
 #define CONFIG_SOC_AU1X00	1  /* alchemy series cpu */
-
-#define CONFIG_DISPLAY_BOARDINFO
 
 #ifdef CONFIG_DBAU1000
 /* Also known as Merlot */
@@ -37,10 +52,14 @@
 #endif
 #endif
 
+#define CONFIG_ETHADDR		DE:AD:BE:EF:01:01    /* Ethernet address */
+
+#define CONFIG_BOOTDELAY	2	/* autoboot after 2 seconds	*/
 
 #define CONFIG_BAUDRATE		115200
 
 /* valid baudrates */
+#define CONFIG_SYS_BAUDRATE_TABLE	{ 9600, 19200, 38400, 57600, 115200 }
 
 #define	CONFIG_TIMESTAMP		/* Print image info with timestamp */
 #undef	CONFIG_BOOTARGS
@@ -60,6 +79,7 @@
 #define CONFIG_BOOTCOMMAND	"bootp;bootm"
 #endif /* CONFIG_DBAU1550 */
 
+
 /*
  * BOOTP options
  */
@@ -68,26 +88,51 @@
 #define CONFIG_BOOTP_GATEWAY
 #define CONFIG_BOOTP_HOSTNAME
 
+
 /*
  * Command line configuration.
  */
+#include <config_cmd_default.h>
+
+#undef CONFIG_CMD_BDI
 #undef CONFIG_CMD_BEDBUG
+#undef CONFIG_CMD_ELF
+#undef CONFIG_CMD_SAVEENV
+#undef CONFIG_CMD_FAT
+#undef CONFIG_CMD_FPGA
+#undef CONFIG_CMD_MII
+#undef CONFIG_CMD_RUN
+
 
 #ifdef CONFIG_DBAU1550
 
+#define CONFIG_CMD_FLASH
+#define CONFIG_CMD_LOADB
+#define CONFIG_CMD_NET
+
+#undef CONFIG_CMD_I2C
 #undef CONFIG_CMD_IDE
+#undef CONFIG_CMD_NFS
 #undef CONFIG_CMD_PCMCIA
 
 #else
 
 #define CONFIG_CMD_IDE
+#define CONFIG_CMD_DHCP
+
+#undef CONFIG_CMD_FLASH
+#undef CONFIG_CMD_LOADB
+#undef CONFIG_CMD_LOADS
 
 #endif
+
 
 /*
  * Miscellaneous configurable options
  */
 #define	CONFIG_SYS_LONGHELP				/* undef to save memory      */
+
+#define	CONFIG_SYS_PROMPT		"DbAu1xx0 # "	/* Monitor Command Prompt    */
 
 #define	CONFIG_SYS_CBSIZE		256		/* Console I/O Buffer Size   */
 #define	CONFIG_SYS_PBSIZE (CONFIG_SYS_CBSIZE+sizeof(CONFIG_SYS_PROMPT)+16)  /* Print Buffer Size */
@@ -104,6 +149,8 @@
 #endif
 
 #define CONFIG_SYS_MIPS_TIMER_FREQ	(CONFIG_SYS_MHZ * 1000000)
+
+#define CONFIG_SYS_HZ			1000
 
 #define CONFIG_SYS_SDRAM_BASE		0x80000000     /* Cached addr */
 
@@ -138,6 +185,7 @@
 #define CONFIG_SYS_FLASH_CFI           1
 #define CONFIG_FLASH_CFI_DRIVER    1
 
+/* The following #defines are needed to get flash environment right */
 #define	CONFIG_SYS_MONITOR_BASE	CONFIG_SYS_TEXT_BASE
 #define	CONFIG_SYS_MONITOR_LEN		(192 << 10)
 
@@ -159,6 +207,8 @@
 #define CONFIG_FLASH_16BIT
 
 #define CONFIG_NR_DRAM_BANKS	2
+
+#define CONFIG_NET_MULTI
 
 #ifdef CONFIG_DBAU1550
 #define MEM_SIZE 192
@@ -200,5 +250,12 @@
 /* Offset for alternate registers       */
 #define CONFIG_SYS_ATA_ALT_OFFSET      0x0100
 #endif /* CONFIG_DBAU1550 */
+
+/*-----------------------------------------------------------------------
+ * Cache Configuration
+ */
+#define CONFIG_SYS_DCACHE_SIZE		16384
+#define CONFIG_SYS_ICACHE_SIZE		16384
+#define CONFIG_SYS_CACHELINE_SIZE	32
 
 #endif	/* __CONFIG_H */

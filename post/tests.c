@@ -2,7 +2,23 @@
  * (C) Copyright 2002
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  *
  * Be sure to mark tests to be run before relocation as such with the
  * CONFIG_SYS_POST_PREREL flag so that logging is done correctly if the
@@ -39,9 +55,6 @@ extern int fpga_post_test (int flags);
 extern int lwmon5_watchdog_post_test(int flags);
 extern int sysmon1_post_test(int flags);
 extern int coprocessor_post_test(int flags);
-extern int led_post_test(int flags);
-extern int button_post_test(int flags);
-extern int memory_regions_post_test(int flags);
 
 extern int sysmon_init_f (void);
 
@@ -173,7 +186,7 @@ struct post_test post_list[] =
 	"ETHERNET test",
 	"ethernet",
 	"This test verifies the ETHERNET operation.",
-	POST_RAM | POST_ALWAYS,
+	POST_RAM | POST_ALWAYS | POST_MANUAL,
 	&ether_post_test,
 	NULL,
 	NULL,
@@ -185,7 +198,7 @@ struct post_test post_list[] =
 	"SPI test",
 	"spi",
 	"This test verifies the SPI operation.",
-	POST_RAM | POST_ALWAYS,
+	POST_RAM | POST_ALWAYS | POST_MANUAL,
 	&spi_post_test,
 	NULL,
 	NULL,
@@ -197,7 +210,7 @@ struct post_test post_list[] =
 	"USB test",
 	"usb",
 	"This test verifies the USB operation.",
-	POST_RAM | POST_ALWAYS,
+	POST_RAM | POST_ALWAYS | POST_MANUAL,
 	&usb_post_test,
 	NULL,
 	NULL,
@@ -233,7 +246,7 @@ struct post_test post_list[] =
 	"DSP test",
 	"dsp",
 	"This test checks any connected DSP(s).",
-	POST_RAM | POST_ALWAYS,
+	POST_RAM | POST_ALWAYS | POST_MANUAL,
 	&dsp_post_test,
 	NULL,
 	NULL,
@@ -301,18 +314,6 @@ struct post_test post_list[] =
 	NULL,
 	NULL,
 	CONFIG_SYS_POST_FLASH
-    },
-#endif
-#if CONFIG_POST & CONFIG_SYS_POST_MEM_REGIONS
-    {
-	"Memory regions test",
-	"mem_regions",
-	"This test checks regularly placed regions of the RAM.",
-	POST_ROM | POST_SLOWTEST | POST_PREREL,
-	&memory_regions_post_test,
-	NULL,
-	NULL,
-	CONFIG_SYS_POST_MEM_REGIONS
     },
 #endif
 };

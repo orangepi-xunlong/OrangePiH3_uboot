@@ -2,7 +2,23 @@
  * (C) Copyright 2005
  * Martin Krause, TQ-Systems GmbH, martin.krause@tqs.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -12,7 +28,6 @@
 
 #include <common.h>
 #include <command.h>
-#include <console.h>
 
 #if defined(CONFIG_CMD_BSP)
 
@@ -67,17 +82,18 @@ static void spi_init(void)
 
 static int spi_transmit(unsigned char data)
 {
+	int dummy;
 	struct mpc5xxx_spi *spi = (struct mpc5xxx_spi*)MPC5XXX_SPI;
 
 	spi->dr = data;
 	/* wait for SPI transmission completed */
-	while (!(spi->sr & 0x80)) {
-		if (spi->sr & 0x40) {	/* if write collision occurred */
-			int dummy;
-
+	while(!(spi->sr & 0x80))
+	{
+		if (spi->sr & 0x40)	/* if write collision occured */
+		{
 			/* do dummy read to clear status register */
 			dummy = spi->dr;
-			printf("SPI write collision: dr=0x%x\n", dummy);
+			printf ("SPI write collision\n");
 			return -1;
 		}
 	}
@@ -156,8 +172,10 @@ static void i2s_init(void)
 	psc->ccr = 0x1F03;	/* 16 bit data width; 5.617MHz MCLK */
 	psc->ctur = 0x0F;	/* 16 bit frame width */
 
-	for (i = 0; i < 128; i++)
+	for(i=0;i<128;i++)
+	{
 		psc->psc_buffer_32 = 0; /* clear tx fifo */
+	}
 }
 
 static int i2s_play_wave(unsigned long addr, unsigned long len)
@@ -165,6 +183,7 @@ static int i2s_play_wave(unsigned long addr, unsigned long len)
 	unsigned long i;
 	unsigned char *wave_file = (uchar *)addr + 44;	/* quick'n dirty: skip
 							 * wav header*/
+	unsigned char swapped[4];
 	struct mpc5xxx_psc *psc = (struct mpc5xxx_psc*)MPC5XXX_PSC2;
 
 	/*
@@ -173,16 +192,11 @@ static int i2s_play_wave(unsigned long addr, unsigned long len)
 	psc->command = (PSC_RX_ENABLE | PSC_TX_ENABLE);
 
 	for(i = 0;i < (len / 4); i++) {
-		unsigned char swapped[4];
-		unsigned long *p = (unsigned long*)swapped;
-
 		swapped[3] = *wave_file++;
 		swapped[2] = *wave_file++;
 		swapped[1] = *wave_file++;
 		swapped[0] = *wave_file++;
-
-		psc->psc_buffer_32 =  *p;
-
+		psc->psc_buffer_32 =  *((unsigned long*)swapped);
 		while (psc->tfnum > 400) {
 			if(ctrlc())
 				return 0;

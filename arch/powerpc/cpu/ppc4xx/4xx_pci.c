@@ -1,5 +1,26 @@
-/*
- * SPDX-License-Identifier:	GPL-2.0	IBM-pibs
+/*-----------------------------------------------------------------------------+
+ *       This source code is dual-licensed.  You may use it under the terms of
+ *       the GNU General Public license version 2, or under the license below.
+ *
+ *       This source code has been made available to you by IBM on an AS-IS
+ *       basis.  Anyone receiving this source is licensed under IBM
+ *       copyrights to use it in any way he or she deems fit, including
+ *       copying it, modifying it, compiling it, and redistributing it either
+ *       with or without modifications.  No license under IBM patents or
+ *       patent applications is to be implied by the copyright license.
+ *
+ *       Any user of this software should understand that IBM cannot provide
+ *       technical support for this software and will not be responsible for
+ *       any consequences resulting from the use of this software.
+ *
+ *       Any person who transfers this source code or any derivative work
+ *       must include the IBM copyright notice, this paragraph, and the
+ *       preceding two paragraphs in the transferred software.
+ *
+ *       COPYRIGHT   I B M   CORPORATION 1995
+ *       LICENSED MATERIAL  -  PROGRAM PROPERTY OF I B M
+ *-----------------------------------------------------------------------------*/
+/*----------------------------------------------------------------------------+
  *
  *  File Name:   405gp_pci.c
  *
@@ -62,6 +83,10 @@
 DECLARE_GLOBAL_DATA_PTR;
 
 #if defined(CONFIG_405GP) || defined(CONFIG_405EP)
+
+#if defined(CONFIG_PMC405)
+ushort pmc405_pci_subsys_deviceid(void);
+#endif
 
 /*#define DEBUG*/
 
@@ -139,14 +164,14 @@ void pci_405gp_init(struct pci_controller *hose)
 	ptmla_str = getenv("ptm1la");
 	ptmms_str = getenv("ptm1ms");
 	if(NULL != ptmla_str && NULL != ptmms_str ) {
-		ptmla[0] = simple_strtoul (ptmla_str, NULL, 16);
+	        ptmla[0] = simple_strtoul (ptmla_str, NULL, 16);
 		ptmms[0] = simple_strtoul (ptmms_str, NULL, 16);
 	}
 
 	ptmla_str = getenv("ptm2la");
 	ptmms_str = getenv("ptm2ms");
 	if(NULL != ptmla_str && NULL != ptmms_str ) {
-		ptmla[1] = simple_strtoul (ptmla_str, NULL, 16);
+	        ptmla[1] = simple_strtoul (ptmla_str, NULL, 16);
 		ptmms[1] = simple_strtoul (ptmms_str, NULL, 16);
 	}
 #endif
@@ -408,7 +433,7 @@ void pci_405gp_setup_vga(struct pci_controller *hose, pci_dev_t dev,
 	pci_hose_write_config_dword(hose, dev, PCI_COMMAND, cmdstat);
 }
 
-#if !(defined(CONFIG_PIP405) || defined (CONFIG_MIP405))
+#if !(defined(CONFIG_PIP405) || defined (CONFIG_MIP405)) && !(defined (CONFIG_SC3))
 
 /*
  *As is these functs get called out of flash Not a horrible
@@ -682,7 +707,7 @@ void pci_master_init(struct pci_controller *hose)
 #endif /* CONFIG_SYS_PCI_MASTER_INIT */
 
 #if defined(CONFIG_SYS_PCI_MASTER_INIT) || defined(CONFIG_SYS_PCI_TARGET_INIT)
-static int pci_440_init (struct pci_controller *hose)
+int pci_440_init (struct pci_controller *hose)
 {
 	int reg_num = 0;
 
@@ -834,9 +859,7 @@ void pci_init_board(void)
 	 * is selected.
 	 */
 #if defined(CONFIG_SYS_PCI_MASTER_INIT) || defined(CONFIG_SYS_PCI_TARGET_INIT)
-	busno = pci_440_init(&ppc440_hose);
-	if (busno < 0)
-		return;
+	busno = pci_440_init (&ppc440_hose);
 #endif
 #if (defined(CONFIG_440SPE) || \
     defined(CONFIG_460EX) || defined(CONFIG_460GT)) && \

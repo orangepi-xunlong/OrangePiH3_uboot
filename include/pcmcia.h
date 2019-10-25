@@ -2,7 +2,23 @@
  * (C) Copyright 2000-2004
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef _PCMCIA_H
@@ -21,8 +37,37 @@
 
 #if !defined(CONFIG_PCMCIA_SLOT_A) && !defined(CONFIG_PCMCIA_SLOT_B)
 
-#if defined(CONFIG_TQM8xxL)
+					/* The RPX series use SLOT_B	*/
+#if defined(CONFIG_RPXCLASSIC) || defined(CONFIG_RPXLITE)
+# define CONFIG_PCMCIA_SLOT_B
+#elif defined(CONFIG_ADS)		/* The ADS  board uses SLOT_A	*/
+# define CONFIG_PCMCIA_SLOT_A
+#elif defined(CONFIG_FADS)		/* The FADS series are a mess	*/
+# if defined(CONFIG_MPC86x) || defined(CONFIG_MPC821)
+#  define CONFIG_PCMCIA_SLOT_A
+# else
+#  define CONFIG_PCMCIA_SLOT_B
+# endif
+#elif defined(CONFIG_TQM8xxL) || defined(CONFIG_SVM_SC8xx)
 # define	CONFIG_PCMCIA_SLOT_B	/* The TQM8xxL use SLOT_B	*/
+#elif defined(CONFIG_SPD823TS)		/* The SPD8xx  use SLOT_B	*/
+# define CONFIG_PCMCIA_SLOT_B
+#elif defined(CONFIG_IVMS8) || defined(CONFIG_IVML24)	/* The IVM* use SLOT_A	*/
+# define CONFIG_PCMCIA_SLOT_A
+#elif defined(CONFIG_LWMON)		/* The LWMON  use SLOT_B	*/
+# define CONFIG_PCMCIA_SLOT_B
+#elif defined(CONFIG_ICU862)		/* The ICU862 use SLOT_B	*/
+# define CONFIG_PCMCIA_SLOT_B
+#elif defined(CONFIG_C2MON)		/* The C2MON  use SLOT_B	*/
+# define CONFIG_PCMCIA_SLOT_B
+#elif defined(CONFIG_R360MPI)		/* The R360MPI use SLOT_B	*/
+# define CONFIG_PCMCIA_SLOT_B
+#elif defined(CONFIG_ATC)		/* The ATC use SLOT_A	*/
+# define CONFIG_PCMCIA_SLOT_A
+#elif defined(CONFIG_NETTA)
+# define CONFIG_PCMCIA_SLOT_A
+#elif defined(CONFIG_UC100)		/* The UC100 use SLOT_B	        */
+# define CONFIG_PCMCIA_SLOT_B
 #else
 # error "PCMCIA Slot not configured"
 #endif
@@ -268,7 +313,8 @@ extern u_int *pcmcia_pgcrx[];
 #define	PCMCIA_PGCRX(slot)	(*pcmcia_pgcrx[slot])
 #endif
 
-#if defined(CONFIG_CMD_IDE) && defined(CONFIG_IDE_8xx_PCCARD)
+#if defined(CONFIG_CMD_IDE) && defined(CONFIG_IDE_8xx_PCCARD) \
+	|| defined(CONFIG_PXA_PCMCIA)
 extern int check_ide_device(int slot);
 #endif
 

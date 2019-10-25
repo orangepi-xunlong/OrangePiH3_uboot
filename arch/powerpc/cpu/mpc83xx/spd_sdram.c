@@ -8,7 +8,23 @@
  * (C) Copyright 2003 Motorola Inc.
  * Xianghua Xiao (X.Xiao@motorola.com)
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -30,19 +46,10 @@ void board_add_ram_info(int use_default)
 	printf(" (DDR%d", ((ddr->sdram_cfg & SDRAM_CFG_SDRAM_TYPE_MASK)
 			   >> SDRAM_CFG_SDRAM_TYPE_SHIFT) - 1);
 
-#if defined(CONFIG_MPC8308) || defined(CONFIG_MPC831x)
-	if ((ddr->sdram_cfg & SDRAM_CFG_DBW_MASK) == SDRAM_CFG_DBW_16)
-		puts(", 16-bit");
-	else if ((ddr->sdram_cfg & SDRAM_CFG_DBW_MASK) == SDRAM_CFG_DBW_32)
-		puts(", 32-bit");
-	else
-		puts(", unknown width");
-#else
 	if (ddr->sdram_cfg & SDRAM_CFG_32_BE)
 		puts(", 32-bit");
 	else
 		puts(", 64-bit");
-#endif
 
 	if (ddr->sdram_cfg & SDRAM_CFG_ECC_EN)
 		puts(", ECC on");
@@ -133,7 +140,7 @@ long int spd_sdram()
 	unsigned int memsize;
 	unsigned int law_size;
 	unsigned char caslat, caslat_ctrl;
-	unsigned int trfc, trfc_clk, trfc_low;
+	unsigned int trfc, trfc_clk, trfc_low, trfc_high;
 	unsigned int trcd_clk, trtp_clk;
 	unsigned char cke_min_clk;
 	unsigned char add_lat, wr_lat;
@@ -526,6 +533,7 @@ long int spd_sdram()
 	 * so preadjust it down 8 first before splitting it up.
 	 */
 	trfc_low = (trfc_clk - 8) & 0xf;
+	trfc_high = ((trfc_clk - 8) >> 4) & 0x3;
 
 	ddr->timing_cfg_1 =
 	    (((picos_to_clk(spd.trp * 250) & 0x07) << 28 ) |	/* PRETOACT */
@@ -599,7 +607,7 @@ long int spd_sdram()
 
 	/*
 	 * Empirically set ~MCAS-to-preamble override for DDR 2.
-	 * Your mileage will vary.
+	 * Your milage will vary.
 	 */
 	cpo = 0;
 	if (spd.mem_type == SPD_MEMTYPE_DDR2) {
@@ -843,7 +851,7 @@ long int spd_sdram()
 
 #if defined(CONFIG_DDR_ECC) && !defined(CONFIG_ECC_INIT_VIA_DDRCONTROLLER)
 /*
- * Use timebase counter, get_timer() is not available
+ * Use timebase counter, get_timer() is not availabe
  * at this point of initialization yet.
  */
 static __inline__ unsigned long get_tbms (void)

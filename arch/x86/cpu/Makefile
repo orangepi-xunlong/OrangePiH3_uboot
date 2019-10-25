@@ -5,31 +5,46 @@
 # (C) Copyright 2002
 # Daniel Engström, Omicron Ceti AB, daniel@omicron.se.
 #
-# SPDX-License-Identifier:	GPL-2.0+
+# See file CREDITS for list of people who contributed to this
+# project.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 2 of
+# the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+# MA 02111-1307 USA
 #
 
-extra-y	= start.o
-obj-$(CONFIG_X86_RESET_VECTOR) += resetvec.o start16.o
-obj-y	+= interrupts.o cpu.o cpu_x86.o call64.o
+include $(TOPDIR)/config.mk
 
-AFLAGS_REMOVE_call32.o := -mregparm=3 \
-	$(if $(CONFIG_EFI_STUB_64BIT),-march=i386 -m32)
-AFLAGS_call32.o := -fpic -fshort-wchar
+LIB	= $(obj)lib$(CPU).o
 
-extra-y += call32.o
+START	= start.o start16.o resetvec.o
+COBJS	= interrupts.o cpu.o
 
-obj-y += intel_common/
-obj-$(CONFIG_INTEL_BAYTRAIL) += baytrail/
-obj-$(CONFIG_INTEL_BROADWELL) += broadwell/
-obj-$(CONFIG_SYS_COREBOOT) += coreboot/
-obj-$(CONFIG_EFI_APP) += efi/
-obj-$(CONFIG_QEMU) += qemu/
-obj-$(CONFIG_NORTHBRIDGE_INTEL_IVYBRIDGE) += ivybridge/
-obj-$(CONFIG_INTEL_QUARK) += quark/
-obj-$(CONFIG_INTEL_QUEENSBAY) += queensbay/
-obj-y += irq.o lapic.o ioapic.o
-obj-$(CONFIG_SMP) += mp_init.o
-obj-y += mtrr.o
-obj-$(CONFIG_PCI) += pci.o
-obj-$(CONFIG_SMP) += sipi_vector.o
-obj-y += turbo.o
+SRCS	:= $(START:.o=.S) $(SOBJS:.o=.S) $(COBJS:.o=.c)
+OBJS	:= $(addprefix $(obj),$(SOBJS) $(COBJS))
+START	:= $(addprefix $(obj),$(START))
+
+all:	$(obj).depend $(START) $(LIB)
+
+$(LIB):	$(OBJS)
+	$(call cmd_link_o_target, $(OBJS))
+
+#########################################################################
+
+# defines $(obj).depend target
+include $(SRCTREE)/rules.mk
+
+sinclude $(obj).depend
+
+#########################################################################

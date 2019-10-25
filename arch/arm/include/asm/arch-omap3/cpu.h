@@ -2,7 +2,24 @@
  * (C) Copyright 2006-2008
  * Texas Instruments, <www.ti.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
  */
 
 #ifndef _CPU_H
@@ -59,8 +76,13 @@ struct ctrl_id {
 #endif /* __ASSEMBLY__ */
 #endif /* __KERNEL_STRICT_NAMES */
 
-/* boot pin mask */
+/* device type */
+#define DEVICE_MASK		(0x7 << 8)
 #define SYSBOOT_MASK		0x1F
+#define TST_DEVICE		0x0
+#define EMU_DEVICE		0x1
+#define HS_DEVICE		0x2
+#define GP_DEVICE		0x3
 
 /* device speed */
 #define SKUID_CLK_MASK		0xf
@@ -72,7 +94,53 @@ struct ctrl_id {
 #define GPMC_CONFIG_CS0_BASE	(GPMC_BASE + GPMC_CONFIG_CS0)
 
 #ifndef __KERNEL_STRICT_NAMES
-#ifdef __ASSEMBLY__
+#ifndef __ASSEMBLY__
+struct gpmc_cs {
+	u32 config1;		/* 0x00 */
+	u32 config2;		/* 0x04 */
+	u32 config3;		/* 0x08 */
+	u32 config4;		/* 0x0C */
+	u32 config5;		/* 0x10 */
+	u32 config6;		/* 0x14 */
+	u32 config7;		/* 0x18 */
+	u32 nand_cmd;		/* 0x1C */
+	u32 nand_adr;		/* 0x20 */
+	u32 nand_dat;		/* 0x24 */
+	u8 res[8];		/* blow up to 0x30 byte */
+};
+
+struct gpmc {
+	u8 res1[0x10];
+	u32 sysconfig;		/* 0x10 */
+	u8 res2[0x4];
+	u32 irqstatus;		/* 0x18 */
+	u32 irqenable;		/* 0x1C */
+	u8 res3[0x20];
+	u32 timeout_control; 	/* 0x40 */
+	u8 res4[0xC];
+	u32 config;		/* 0x50 */
+	u32 status;		/* 0x54 */
+	u8 res5[0x8];	/* 0x58 */
+	struct gpmc_cs cs[8];	/* 0x60, 0x90, .. */
+	u8 res6[0x14];		/* 0x1E0 */
+	u32 ecc_config;		/* 0x1F4 */
+	u32 ecc_control;	/* 0x1F8 */
+	u32 ecc_size_config;	/* 0x1FC */
+	u32 ecc1_result;	/* 0x200 */
+	u32 ecc2_result;	/* 0x204 */
+	u32 ecc3_result;	/* 0x208 */
+	u32 ecc4_result;	/* 0x20C */
+	u32 ecc5_result;	/* 0x210 */
+	u32 ecc6_result;	/* 0x214 */
+	u32 ecc7_result;	/* 0x218 */
+	u32 ecc8_result;	/* 0x21C */
+	u32 ecc9_result;	/* 0x220 */
+};
+
+/* Used for board specific gpmc initialization */
+extern struct gpmc *gpmc_cfg;
+
+#else /* __ASSEMBLY__ */
 #define GPMC_CONFIG1		0x00
 #define GPMC_CONFIG2		0x04
 #define GPMC_CONFIG3		0x08
@@ -93,6 +161,7 @@ struct ctrl_id {
 #define DEBUG_BASE		0x08000000	/* debug board */
 #define NAND_BASE		0x30000000	/* NAND addr */
 						/* (actual size small port) */
+#define PISMO2_BASE		0x18000000	/* PISMO2 CS1/2 */
 #define ONENAND_MAP		0x20000000	/* OneNand addr */
 						/* (actual size small port) */
 /* SMS */
@@ -149,7 +218,6 @@ struct sdrc {
 
 /* EMIF4 */
 typedef struct emif4 {
-	unsigned int emif_mod_id_rev;
 	unsigned int sdram_sts;
 	unsigned int sdram_config;
 	unsigned int res1;
@@ -213,51 +281,6 @@ typedef struct emif4 {
 #define SOFTRESET		(0x1 << 1)
 #define SMART_IDLE		(0x2 << 3)
 #define REF_ON_IDLE		(0x1 << 6)
-
-/* DMA */
-#ifndef __KERNEL_STRICT_NAMES
-#ifndef __ASSEMBLY__
-struct dma4_chan {
-	u32 ccr;
-	u32 clnk_ctrl;
-	u32 cicr;
-	u32 csr;
-	u32 csdp;
-	u32 cen;
-	u32 cfn;
-	u32 cssa;
-	u32 cdsa;
-	u32 csel;
-	u32 csfl;
-	u32 cdel;
-	u32 cdfl;
-	u32 csac;
-	u32 cdac;
-	u32 ccen;
-	u32 ccfn;
-	u32 color;
-};
-
-struct dma4 {
-	u32 revision;
-	u8 res1[0x4];
-	u32 irqstatus_l[0x4];
-	u32 irqenable_l[0x4];
-	u32 sysstatus;
-	u32 ocp_sysconfig;
-	u8 res2[0x34];
-	u32 caps_0;
-	u8 res3[0x4];
-	u32 caps_2;
-	u32 caps_3;
-	u32 caps_4;
-	u32 gcr;
-	u8 res4[0x4];
-	struct dma4_chan chan[32];
-};
-
-#endif /*__ASSEMBLY__ */
-#endif /* __KERNEL_STRICT_NAMES */
 
 /* timer regs offsets (32 bit regs) */
 
@@ -405,13 +428,12 @@ struct prm {
 	u8 res3[0x1c];
 	u32 clksrc_ctrl;	/* 0x1270 */
 };
+#else /* __ASSEMBLY__ */
+#define PRM_RSTCTRL		0x48307250
+#define PRM_RSTCTRL_RESET	0x04
 #endif /* __ASSEMBLY__ */
 #endif /* __KERNEL_STRICT_NAMES */
 
-#define PRM_RSTCTRL		0x48307250
-#define PRM_RSTCTRL_RESET	0x04
-#define PRM_RSTST			0x48307258
-#define PRM_RSTST_WARM_RESET_MASK	0x7D2
 #define SYSCLKDIV_1		(0x1 << 6)
 #define SYSCLKDIV_2		(0x1 << 7)
 

@@ -2,7 +2,10 @@
  * Copyright (c) 2005 Cisco Systems.  All rights reserved.
  * Roland Dreier <rolandd@cisco.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute  it and/or modify it
+ * under  the terms of  the GNU General  Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
  */
 
 #ifndef __4XX_PCIE_H
@@ -384,6 +387,14 @@ static inline int is_end_point(int port)
 	}
 
 	return 0;
+}
+
+static inline void mdelay(int n)
+{
+	u32 ms = n;
+
+	while (ms--)
+		udelay(1000);
 }
 
 #if defined(PCIE0_SDR)

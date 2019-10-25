@@ -1,5 +1,5 @@
 /*
- * U-Boot - Configuration file for BF536 brettl2 board
+ * U-boot - Configuration file for BF536 brettl2 board
  */
 
 #ifndef __CONFIG_BCT_BRETTL2_H__
@@ -7,11 +7,13 @@
 
 #include <asm/config-pre.h>
 
+
 /*
  * Processor Settings
  */
 #define CONFIG_BFIN_CPU             bf536-0.3
 #define CONFIG_BFIN_BOOT_MODE       BFIN_BOOT_BYPASS
+
 
 /*
  * Clock Settings
@@ -37,11 +39,13 @@
 #define CONFIG_SCLK_DIV			3
 #define CONFIG_VR_CTL_VAL	(VLEV_110 | GAIN_20 | FREQ_1000)
 
+
 /*
  * Memory Settings
  */
 #define CONFIG_MEM_ADD_WDTH	9
 #define CONFIG_MEM_SIZE		32
+
 
 /*
  * SDRAM Settings
@@ -56,6 +60,7 @@
 #define CONFIG_SYS_MONITOR_LEN		(256 * 1024)
 #define CONFIG_SYS_MALLOC_LEN		(128 * 1024)
 
+
 /*
  * Network Settings
  */
@@ -63,12 +68,16 @@
 #define ADI_CMDS_NETWORK	1
 #define CONFIG_BFIN_MAC		1
 #define CONFIG_NETCONSOLE	1
+#define CONFIG_NET_MULTI	1
 #define CONFIG_HOSTNAME		brettl2
 #define CONFIG_IPADDR		192.168.233.224
 #define CONFIG_GATEWAYIP	192.168.233.1
 #define CONFIG_SERVERIP		192.168.233.53
-#define CONFIG_ROOTPATH		"/romfs/brettl2"
+#define CONFIG_ROOTPATH		/romfs/brettl2
+/* Uncomment next line to use fixed MAC address */
+/* #define CONFIG_ETHADDR	02:80:ad:20:31:e8 */
 #endif
+
 
 /*
  * Flash Settings
@@ -81,13 +90,14 @@
 #define CONFIG_SYS_MAX_FLASH_BANKS		1
 #define CONFIG_SYS_MAX_FLASH_SECT		135
 
+
 /*
  * Env Storage Settings
  */
 #define CONFIG_ENV_IS_IN_FLASH 1
 #define CONFIG_ENV_OFFSET	0x4000
 #define CONFIG_ENV_SIZE		0x2000
-#define CONFIG_ENV_SECT_SIZE	0x12000
+#define CONFIG_ENV_SECT_SIZE	0x10000
 
 #if (CONFIG_BFIN_BOOT_MODE == BFIN_BOOT_BYPASS)
 #define ENV_IS_EMBEDDED
@@ -102,27 +112,33 @@
  * it linked after the configuration sector.
  */
 # define LDS_BOARD_TEXT \
-	arch/blackfin/lib/built-in.o (.text*); \
-	arch/blackfin/cpu/built-in.o (.text*); \
+	arch/blackfin/lib/libblackfin.o (.text*); \
+	arch/blackfin/cpu/libblackfin.o (.text*); \
 	. = DEFINED(env_offset) ? env_offset : .; \
 	common/env_embedded.o (.text*);
 #endif
 
+
 /*
  * I2C Settings
  */
-#define CONFIG_SYS_I2C
-#define CONFIG_SYS_I2C_ADI
+#define CONFIG_BFIN_TWI_I2C	1
+#define CONFIG_HARD_I2C		1
+
 
 /*
  * Misc Settings
  */
+#define CONFIG_BOOTDELAY	1
 #define CONFIG_LOADADDR		0x800000
 #define CONFIG_MISC_INIT_R
 #define CONFIG_UART_CONSOLE	0
 #define CONFIG_BAUDRATE		115200
 #define CONFIG_MTD_DEVICE
 #define CONFIG_MTD_PARTITIONS
+#define CONFIG_SYS_HUSH_PARSER
+#define CONFIG_SYS_PROMPT_HUSH_PS2 "> "
+
 
 /*
  * Pull in common ADI header for remaining command/environment setup

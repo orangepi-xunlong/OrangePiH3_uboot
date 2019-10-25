@@ -2,7 +2,23 @@
  * (C) Copyright 2003
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -84,11 +100,14 @@ static int wait_for_bb(void)
 	status = mpc_reg_in(&regs->msr);
 
 	while (timeout-- && (status & I2C_BB)) {
+#if 1
+		volatile int temp;
 		mpc_reg_out(&regs->mcr, I2C_STA, I2C_STA);
-		(void)mpc_reg_in(&regs->mdr);
+		temp = mpc_reg_in(&regs->mdr);
 		mpc_reg_out(&regs->mcr, 0, I2C_STA);
 		mpc_reg_out(&regs->mcr, 0, 0);
 		mpc_reg_out(&regs->mcr, I2C_EN, 0);
+#endif
 		udelay(15);
 		status = mpc_reg_in(&regs->msr);
 	}
@@ -294,7 +313,7 @@ static int mpc_get_fdr(int speed)
 			{126, 128}
 		};
 
-		ipb = gd->arch.ipb_clk;
+		ipb = gd->ipb_clk;
 		for (i = 7; i >= 0; i--) {
 			for (j = 7; j >= 0; j--) {
 				scl = 2 * (scltap[j].scl2tap +
@@ -313,7 +332,8 @@ static int mpc_get_fdr(int speed)
 		if (gd->flags & GD_FLG_RELOC) {
 			fdr = divider;
 		} else {
-			printf("%ld kHz, ", best_speed / 1000);
+			if (gd->have_console)
+				printf("%ld kHz, ", best_speed / 1000);
 			return divider;
 		}
 	}
@@ -354,29 +374,34 @@ int i2c_read(uchar chip, uint addr, int alen, uchar *buf, int len)
 	xaddr[3] =  addr	& 0xFF;
 
 	if (wait_for_bb()) {
-		printf("i2c_read: bus is busy\n");
+		if (gd->have_console)
+			printf("i2c_read: bus is busy\n");
 		goto Done;
 	}
 
 	mpc_reg_out(&regs->mcr, I2C_STA, I2C_STA);
 	if (do_address(chip, 0)) {
-		printf("i2c_read: failed to address chip\n");
+		if (gd->have_console)
+			printf("i2c_read: failed to address chip\n");
 		goto Done;
 	}
 
 	if (send_bytes(chip, &xaddr[4-alen], alen)) {
-		printf("i2c_read: send_bytes failed\n");
+		if (gd->have_console)
+			printf("i2c_read: send_bytes failed\n");
 		goto Done;
 	}
 
 	mpc_reg_out(&regs->mcr, I2C_RSTA, I2C_RSTA);
 	if (do_address(chip, 1)) {
-		printf("i2c_read: failed to address chip\n");
+		if (gd->have_console)
+			printf("i2c_read: failed to address chip\n");
 		goto Done;
 	}
 
 	if (receive_bytes(chip, (char *)buf, len)) {
-		printf("i2c_read: receive_bytes failed\n");
+		if (gd->have_console)
+			printf("i2c_read: receive_bytes failed\n");
 		goto Done;
 	}
 
@@ -398,23 +423,27 @@ int i2c_write(uchar chip, uint addr, int alen, uchar *buf, int len)
 	xaddr[3] =  addr	& 0xFF;
 
 	if (wait_for_bb()) {
-		printf("i2c_write: bus is busy\n");
+		if (gd->have_console)
+			printf("i2c_write: bus is busy\n");
 		goto Done;
 	}
 
 	mpc_reg_out(&regs->mcr, I2C_STA, I2C_STA);
 	if (do_address(chip, 0)) {
-		printf("i2c_write: failed to address chip\n");
+		if (gd->have_console)
+			printf("i2c_write: failed to address chip\n");
 		goto Done;
 	}
 
 	if (send_bytes(chip, &xaddr[4-alen], alen)) {
-		printf("i2c_write: send_bytes failed\n");
+		if (gd->have_console)
+			printf("i2c_write: send_bytes failed\n");
 		goto Done;
 	}
 
 	if (send_bytes(chip, (char *)buf, len)) {
-		printf("i2c_write: send_bytes failed\n");
+		if (gd->have_console)
+			printf("i2c_write: send_bytes failed\n");
 		goto Done;
 	}
 

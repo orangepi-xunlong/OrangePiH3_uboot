@@ -2,7 +2,23 @@
  * (C) Copyright 2001
  * Gerald Van Baren, Custom IDEAS, vanbaren@cideas.com.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -11,7 +27,6 @@
  */
 
 #include <common.h>
-#include <dm.h>
 #include <miiphy.h>
 #include <phy.h>
 
@@ -65,6 +80,76 @@ void miiphy_init(void)
 	current_mii = NULL;
 }
 
+static int legacy_miiphy_read(struct mii_dev *bus, int addr, int devad, int reg)
+{
+	unsigned short val;
+	int ret;
+	struct legacy_mii_dev *ldev = bus->priv;
+
+	ret = ldev->read(bus->name, addr, reg, &val);
+
+	return ret ? -1 : (int)val;
+}
+
+static int legacy_miiphy_write(struct mii_dev *bus, int addr, int devad,
+				int reg, u16 val)
+{
+	struct legacy_mii_dev *ldev = bus->priv;
+
+	return ldev->write(bus->name, addr, reg, val);
+}
+
+/*****************************************************************************
+ *
+ * Register read and write MII access routines for the device <name>.
+ */
+void miiphy_register(const char *name,
+		      int (*read)(const char *devname, unsigned char addr,
+				   unsigned char reg, unsigned short *value),
+		      int (*write)(const char *devname, unsigned char addr,
+				    unsigned char reg, unsigned short value))
+{
+	struct mii_dev *new_dev;
+	struct legacy_mii_dev *ldev;
+
+	BUG_ON(strlen(name) >= MDIO_NAME_LEN);
+
+	/* check if we have unique name */
+	new_dev = miiphy_get_dev_by_name(name);
+	if (new_dev) {
+		printf("miiphy_register: non unique device name '%s'\n", name);
+		return;
+	}
+
+	/* allocate memory */
+	new_dev = mdio_alloc();
+	ldev = malloc(sizeof(*ldev));
+
+	if (new_dev == NULL || ldev == NULL) {
+		printf("miiphy_register: cannot allocate memory for '%s'\n",
+			name);
+		return;
+	}
+
+	/* initalize mii_dev struct fields */
+	new_dev->read = legacy_miiphy_read;
+	new_dev->write = legacy_miiphy_write;
+	strncpy(new_dev->name, name, MDIO_NAME_LEN);
+	new_dev->name[MDIO_NAME_LEN - 1] = 0;
+	ldev->read = read;
+	ldev->write = write;
+	new_dev->priv = ldev;
+
+	debug("miiphy_register: added '%s', read=0x%08lx, write=0x%08lx\n",
+	       new_dev->name, ldev->read, ldev->write);
+
+	/* add it to the list */
+	list_add_tail(&new_dev->link, &mii_devs);
+
+	if (!current_mii)
+		current_mii = new_dev;
+}
+
 struct mii_dev *mdio_alloc(void)
 {
 	struct mii_dev *bus;
@@ -81,14 +166,9 @@ struct mii_dev *mdio_alloc(void)
 	return bus;
 }
 
-void mdio_free(struct mii_dev *bus)
-{
-	free(bus);
-}
-
 int mdio_register(struct mii_dev *bus)
 {
-	if (!bus || !bus->read || !bus->write)
+	if (!bus || !bus->name || !bus->read || !bus->write)
 		return -1;
 
 	/* check if we have unique name */
@@ -103,20 +183,6 @@ int mdio_register(struct mii_dev *bus)
 
 	if (!current_mii)
 		current_mii = bus;
-
-	return 0;
-}
-
-int mdio_unregister(struct mii_dev *bus)
-{
-	if (!bus)
-		return 0;
-
-	/* delete it from the list */
-	list_del(&bus->link);
-
-	if (current_mii == bus)
-		current_mii = NULL;
 
 	return 0;
 }
@@ -215,8 +281,6 @@ static struct mii_dev *miiphy_get_active_dev(const char *devname)
  * Read to variable <value> from the PHY attached to device <devname>,
  * use PHY address <addr> and register <reg>.
  *
- * This API is deprecated. Use phy_read on a phy_device found via phy_connect
- *
  * Returns:
  *   0 on success
  */
@@ -242,8 +306,6 @@ int miiphy_read(const char *devname, unsigned char addr, unsigned char reg,
  *
  * Write <value> to the PHY attached to device <devname>,
  * use PHY address <addr> and register <reg>.
- *
- * This API is deprecated. Use phy_write on a phy_device found by phy_connect
  *
  * Returns:
  *   0 on success
@@ -288,8 +350,6 @@ void miiphy_listdev(void)
  * Model:    6 bits (unsigned char)
  * Revision: 4 bits (unsigned char)
  *
- * This API is deprecated.
- *
  * Returns:
  *   0 on success
  */
@@ -329,9 +389,6 @@ int miiphy_info(const char *devname, unsigned char addr, unsigned int *oui,
 /*****************************************************************************
  *
  * Reset the PHY.
- *
- * This API is deprecated. Use PHYLIB.
- *
  * Returns:
  *   0 on success
  */
@@ -380,7 +437,7 @@ int miiphy_reset(const char *devname, unsigned char addr)
  */
 int miiphy_speed(const char *devname, unsigned char addr)
 {
-	u16 bmcr, anlpar, adv;
+	u16 bmcr, anlpar;
 
 #if defined(CONFIG_PHY_GIGE)
 	u16 btsr;
@@ -417,12 +474,7 @@ int miiphy_speed(const char *devname, unsigned char addr)
 			printf("PHY AN speed");
 			goto miiphy_read_failed;
 		}
-
-		if (miiphy_read(devname, addr, MII_ADVERTISE, &adv)) {
-			puts("PHY AN adv speed");
-			goto miiphy_read_failed;
-		}
-		return ((anlpar & adv) & LPA_100) ? _100BASET : _10BASET;
+		return (anlpar & LPA_100) ? _100BASET : _10BASET;
 	}
 	/* Get speed from basic control settings. */
 	return (bmcr & BMCR_SPEED100) ? _100BASET : _10BASET;
@@ -438,7 +490,7 @@ miiphy_read_failed:
  */
 int miiphy_duplex(const char *devname, unsigned char addr)
 {
-	u16 bmcr, anlpar, adv;
+	u16 bmcr, anlpar;
 
 #if defined(CONFIG_PHY_GIGE)
 	u16 btsr;
@@ -480,12 +532,7 @@ int miiphy_duplex(const char *devname, unsigned char addr)
 			puts("PHY AN duplex");
 			goto miiphy_read_failed;
 		}
-
-		if (miiphy_read(devname, addr, MII_ADVERTISE, &adv)) {
-			puts("PHY AN adv duplex");
-			goto miiphy_read_failed;
-		}
-		return ((anlpar & adv) & (LPA_10FULL | LPA_100FULL)) ?
+		return (anlpar & (LPA_10FULL | LPA_100FULL)) ?
 		    FULL : HALF;
 	}
 	/* Get speed from basic control settings. */

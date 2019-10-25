@@ -4,7 +4,23 @@
  * Copyright (C) 2004-2008 Freescale Semiconductor, Inc.
  * TsiChung Liew (Tsi-Chung.Liew@freescale.com)
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -18,22 +34,37 @@
  * High Level Configuration Options
  * (easy to change)
  */
+#define CONFIG_MCF5301x		/* define processor family */
+#define CONFIG_M53015		/* define processor type */
 
 #define CONFIG_MCFUART
 #define CONFIG_SYS_UART_PORT		(0)
 #define CONFIG_BAUDRATE			115200
+#define CONFIG_SYS_BAUDRATE_TABLE	{ 9600 , 19200 , 38400 , 57600, 115200 }
 
 #undef CONFIG_WATCHDOG
 #define CONFIG_WATCHDOG_TIMEOUT		5000
 
 /* Command line configuration */
+#include <config_cmd_default.h>
+
+#define CONFIG_CMD_CACHE
 #define CONFIG_CMD_DATE
+#define CONFIG_CMD_ELF
+#define CONFIG_CMD_FLASH
+#undef CONFIG_CMD_I2C
+#define CONFIG_CMD_MEMORY
+#define CONFIG_CMD_MISC
+#define CONFIG_CMD_MII
+#define CONFIG_CMD_NET
+#define CONFIG_CMD_PING
 #define CONFIG_CMD_REGINFO
 
 #define CONFIG_SYS_UNIFY_CACHE
 
 #define CONFIG_MCFFEC
 #ifdef CONFIG_MCFFEC
+#	define CONFIG_NET_MULTI		1
 #	define CONFIG_MII		1
 #	define CONFIG_MII_INIT		1
 #	define CONFIG_SYS_DISCOVER_PHY
@@ -72,20 +103,25 @@
 #undef CONFIG_MCFPIT
 
 /* I2C */
-#define CONFIG_SYS_I2C
-#define CONFIG_SYS_I2C_FSL
-#define CONFIG_SYS_FSL_I2C_SPEED	80000
-#define CONFIG_SYS_FSL_I2C_SLAVE	0x7F
-#define CONFIG_SYS_FSL_I2C_OFFSET	0x58000
+#define CONFIG_FSL_I2C
+#define CONFIG_HARD_I2C			/* I2C with hw support */
+#undef CONFIG_SOFT_I2C			/* I2C bit-banged */
+#define CONFIG_SYS_I2C_SPEED		80000
+#define CONFIG_SYS_I2C_SLAVE		0x7F
+#define CONFIG_SYS_I2C_OFFSET		0x58000
 #define CONFIG_SYS_IMMR			CONFIG_SYS_MBAR
 
+#define CONFIG_BOOTDELAY		1	/* autoboot after 5 seconds */
 #define CONFIG_UDP_CHECKSUM
 
 #ifdef CONFIG_MCFFEC
+#	define CONFIG_ETHADDR	00:e0:0c:bc:e5:60
+#	define CONFIG_ETH1ADDR	00:e0:0c:bc:e5:61
 #	define CONFIG_IPADDR	192.162.1.2
 #	define CONFIG_NETMASK	255.255.255.0
 #	define CONFIG_SERVERIP	192.162.1.1
 #	define CONFIG_GATEWAYIP	192.162.1.1
+#	define CONFIG_OVERWRITE_ETHADDR_ONCE
 #endif				/* FEC_ENET */
 
 #define CONFIG_HOSTNAME		M53017
@@ -102,6 +138,7 @@
 	""
 
 #define CONFIG_PRAM		512	/* 512 KB */
+#define CONFIG_SYS_PROMPT	"-> "
 #define CONFIG_SYS_LONGHELP	/* undef to save memory */
 
 #ifdef CONFIG_CMD_KGDB
@@ -115,6 +152,7 @@
 #define CONFIG_SYS_BARGSIZE	CONFIG_SYS_CBSIZE	/* Boot Arg Buf Sz */
 #define CONFIG_SYS_LOAD_ADDR	0x40010000
 
+#define CONFIG_SYS_HZ		1000
 #define CONFIG_SYS_CLK		80000000
 #define CONFIG_SYS_CPU_CLK	CONFIG_SYS_CLK * 3
 
@@ -184,14 +222,10 @@
 /* Configuration for environment
  * Environment is embedded in u-boot in the second sector of the flash
  */
-#define CONFIG_ENV_OFFSET		(CONFIG_SYS_FLASH_BASE + 0x40000)
+#define CONFIG_ENV_OFFSET		0x8000
 #define CONFIG_ENV_SIZE			0x1000
 #define CONFIG_ENV_SECT_SIZE		0x8000
 #define CONFIG_ENV_IS_IN_FLASH		1
-
-#define LDS_BOARD_TEXT \
-	. = DEFINED(env_offset) ? env_offset : .; \
-	common/env_embedded.o       (.text*)
 
 /*-----------------------------------------------------------------------
  * Cache Configuration

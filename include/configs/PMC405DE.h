@@ -2,17 +2,33 @@
  * (C) Copyright 2009
  * Matthias Fuchs, esd gmbh germany, matthias.fuchs@esd.eu
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef __CONFIG_H
 #define __CONFIG_H
 
 #define CONFIG_405EP		1	/* This is a PPC405 CPU		*/
+#define CONFIG_4xx		1	/* ...member of PPC4xx family	*/
 #define CONFIG_PMC405DE		1	/* ...on a PMC405DE board	*/
 
 #define	CONFIG_SYS_TEXT_BASE	0xFFFC0000
-#define CONFIG_DISPLAY_BOARDINFO
 
 #define CONFIG_BOARD_EARLY_INIT_F 1	/* call board_early_init_f()	*/
 #define CONFIG_MISC_INIT_R	1	/* call misc_init_r()		*/
@@ -21,6 +37,7 @@
 #define CONFIG_SYS_CLK_FREQ	33330000 /* external frequency to pll	*/
 
 #define CONFIG_BAUDRATE		115200
+#define CONFIG_BOOTDELAY	3	/* autoboot after 3 seconds	*/
 
 #undef  CONFIG_BOOTARGS
 #undef  CONFIG_BOOTCOMMAND
@@ -29,6 +46,7 @@
 
 #define CONFIG_SYS_LOADS_BAUD_CHANGE	1	/* allow baudrate change*/
 
+#define CONFIG_NET_MULTI	1
 #define CONFIG_HAS_ETH1
 
 #define CONFIG_PPC4xx_EMAC
@@ -52,12 +70,23 @@
 /*
  * Command line configuration.
  */
+#include <config_cmd_default.h>
+
 #define CONFIG_CMD_BSP
 #define CONFIG_CMD_CHIP_CONFIG
 #define CONFIG_CMD_DATE
+#define CONFIG_CMD_DHCP
 #define CONFIG_CMD_EEPROM
+#define CONFIG_CMD_ELF
+#define CONFIG_CMD_I2C
 #define CONFIG_CMD_IRQ
+#define CONFIG_CMD_MII
+#define CONFIG_CMD_NFS
 #define CONFIG_CMD_PCI
+#define CONFIG_CMD_PING
+
+#define CONFIG_OF_LIBFDT
+#define CONFIG_OF_BOARD_SETUP
 
 #undef  CONFIG_WATCHDOG			/* watchdog disabled */
 #define CONFIG_SDRAM_BANK0	1	/* init onboard SDRAM bank 0 */
@@ -67,6 +96,7 @@
  * Miscellaneous configurable options
  */
 #define CONFIG_SYS_LONGHELP
+#define CONFIG_SYS_PROMPT	"=> "	/* Monitor Command Prompt */
 
 #define CONFIG_SYS_CBSIZE	256	/* Console I/O Buffer Size */
 #define CONFIG_SYS_PBSIZE (CONFIG_SYS_CBSIZE + sizeof(CONFIG_SYS_PROMPT) + 16)
@@ -80,6 +110,7 @@
 #define CONFIG_SYS_MEMTEST_END		0x3000000 /* 1 ... 48 MB in DRAM */
 
 #define CONFIG_CONS_INDEX	2	/* Use UART1			*/
+#define CONFIG_SYS_NS16550
 #define CONFIG_SYS_NS16550_SERIAL
 #define CONFIG_SYS_NS16550_REG_SIZE	1
 #define CONFIG_SYS_NS16550_CLK		get_serial_clock()
@@ -87,11 +118,26 @@
 #undef  CONFIG_SYS_EXT_SERIAL_CLOCK
 #define CONFIG_SYS_BASE_BAUD		691200
 
+/* The following table includes the supported baudrates */
+#define CONFIG_SYS_BAUDRATE_TABLE	\
+	{ 9600, 19200, 38400, 57600, 115200 }
+
 #define CONFIG_SYS_LOAD_ADDR	0x100000	/* default load address */
 #define CONFIG_SYS_EXTBDINFO	1	/* To use extended board_into (bd_t) */
 
+#define CONFIG_SYS_HZ		1000	/* decrementer freq: 1 ms ticks */
+
 #define CONFIG_CMDLINE_EDITING	1	/* add command line history     */
+#define CONFIG_LOOPW		1	/* enable loopw command         */
 #define CONFIG_MX_CYCLIC	1	/* enable mdc/mwc commands      */
+#define CONFIG_ZERO_BOOTDELAY_CHECK	/* check for keypress on bootdelay==0 */
+#define CONFIG_VERSION_VARIABLE 1	/* include version env variable */
+
+#define CONFIG_AUTOBOOT_KEYED	1
+#define CONFIG_AUTOBOOT_PROMPT	\
+	"Press SPACE to abort autoboot in %d seconds\n", bootdelay
+#undef CONFIG_AUTOBOOT_DELAY_STR
+#define CONFIG_AUTOBOOT_STOP_STR " "
 
 /*
  * PCI stuff
@@ -101,7 +147,6 @@
 #define PCI_HOST_AUTO		2	/* detected via arbiter enable	*/
 
 #define CONFIG_PCI		/* include pci support			*/
-#define CONFIG_PCI_INDIRECT_BRIDGE	/* indirect PCI bridge support */
 #define CONFIG_PCI_HOST	PCI_HOST_AUTO  /* select pci host function	*/
 #define CONFIG_PCI_PNP		/* do (not) pci plug-and-play		*/
 
@@ -154,6 +199,7 @@
 #define CONFIG_SYS_FLASH_EMPTY_INFO	1 /* 'E' for empty sector (flinfo) */
 #define CONFIG_SYS_FLASH_QUIET_TEST	1 /* don't warn upon unknown flash */
 
+
 /*
  * Start addresses for the final memory configuration
  * (Set up by the startup code)
@@ -175,11 +221,10 @@
 /*
  * I2C EEPROM (24W16) for environment
  */
-#define CONFIG_SYS_I2C
-#define CONFIG_SYS_I2C_PPC4XX
-#define CONFIG_SYS_I2C_PPC4XX_CH0
-#define CONFIG_SYS_I2C_PPC4XX_SPEED_0		400000
-#define CONFIG_SYS_I2C_PPC4XX_SLAVE_0		0x7F
+#define CONFIG_HARD_I2C			/* I2c with hardware support */
+#define CONFIG_PPC4XX_I2C		/* use PPC4xx driver		*/
+#define CONFIG_SYS_I2C_SPEED		400000 /* I2C speed and slave address */
+#define CONFIG_SYS_I2C_SLAVE		0x7F
 
 #define CONFIG_SYS_I2C_EEPROM_ADDR	0x50	/* EEPROM 24W16	*/
 #define CONFIG_SYS_I2C_EEPROM_ADDR_LEN 1	/* Bytes of address */

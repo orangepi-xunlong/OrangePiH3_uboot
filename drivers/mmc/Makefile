@@ -2,66 +2,62 @@
 # (C) Copyright 2006
 # Wolfgang Denk, DENX Software Engineering, wd@denx.de.
 #
-# SPDX-License-Identifier:	GPL-2.0+
+# See file CREDITS for list of people who contributed to this
+# project.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 2 of
+# the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+# MA 02111-1307 USA
 #
 
-ifdef CONFIG_DM_MMC
-obj-$(CONFIG_GENERIC_MMC) += mmc-uclass.o
-endif
+include $(TOPDIR)/config.mk
 
-ifndef CONFIG_BLK
-obj-$(CONFIG_GENERIC_MMC) += mmc_legacy.o
-endif
+LIB	:= $(obj)libmmc.o
 
-obj-$(CONFIG_ARM_PL180_MMCI) += arm_pl180_mmci.o
-obj-$(CONFIG_ATMEL_SDHCI) += atmel_sdhci.o
-obj-$(CONFIG_BCM2835_SDHCI) += bcm2835_sdhci.o
-obj-$(CONFIG_BFIN_SDH) += bfin_sdh.o
-obj-$(CONFIG_DAVINCI_MMC) += davinci_mmc.o
-obj-$(CONFIG_DWMMC) += dw_mmc.o
-obj-$(CONFIG_EXYNOS_DWMMC) += exynos_dw_mmc.o
-obj-$(CONFIG_HIKEY_DWMMC) += hi6220_dw_mmc.o
-obj-$(CONFIG_FSL_ESDHC) += fsl_esdhc.o
-obj-$(CONFIG_FTSDC010) += ftsdc010_mci.o
-obj-$(CONFIG_FTSDC021) += ftsdc021_sdhci.o
-obj-$(CONFIG_GENERIC_MMC) += mmc.o
-ifdef CONFIG_SUPPORT_EMMC_BOOT
-obj-$(CONFIG_GENERIC_MMC) += mmc_boot.o
-endif
-obj-$(CONFIG_GENERIC_ATMEL_MCI) += gen_atmel_mci.o
-obj-$(CONFIG_KONA_SDHCI) += kona_sdhci.o
-obj-$(CONFIG_MMC_SPI) += mmc_spi.o
-obj-$(CONFIG_MMC_SUNXI) += sunxi_mmc.o
-obj-$(CONFIG_MV_SDHCI) += mv_sdhci.o
-obj-$(CONFIG_MVEBU_MMC) += mvebu_mmc.o
-obj-$(CONFIG_MXC_MMC) += mxcmmc.o
-obj-$(CONFIG_MXS_MMC) += mxsmmc.o
-obj-$(CONFIG_OMAP_HSMMC) += omap_hsmmc.o
-obj-$(CONFIG_X86) += pci_mmc.o
-obj-$(CONFIG_PXA_MMC_GENERIC) += pxa_mmc_gen.o
-obj-$(CONFIG_ROCKCHIP_DWMMC) += rockchip_dw_mmc.o
-obj-$(CONFIG_SUPPORT_EMMC_RPMB) += rpmb.o
-obj-$(CONFIG_S3C_SDI) += s3c_sdi.o
-obj-$(CONFIG_S5P_SDHCI) += s5p_sdhci.o
-ifdef CONFIG_BLK
-ifdef CONFIG_GENERIC_MMC
-obj-$(CONFIG_SANDBOX) += sandbox_mmc.o
-endif
-endif
-obj-$(CONFIG_SDHCI) += sdhci.o
-obj-$(CONFIG_SH_MMCIF) += sh_mmcif.o
-obj-$(CONFIG_SH_SDHI) += sh_sdhi.o
-obj-$(CONFIG_SOCFPGA_DWMMC) += socfpga_dw_mmc.o
-obj-$(CONFIG_SPEAR_SDHCI) += spear_sdhci.o
-obj-$(CONFIG_TEGRA_MMC) += tegra_mmc.o
-obj-$(CONFIG_MMC_UNIPHIER) += uniphier-sd.o
-obj-$(CONFIG_ZYNQ_SDHCI) += zynq_sdhci.o
-obj-$(CONFIG_ROCKCHIP_SDHCI) += rockchip_sdhci.o
+COBJS-$(CONFIG_ATMEL_MCI) += atmel_mci.o
+COBJS-$(CONFIG_BFIN_SDH) += bfin_sdh.o
+COBJS-$(CONFIG_DAVINCI_MMC) += davinci_mmc.o
+COBJS-$(CONFIG_FSL_ESDHC) += fsl_esdhc.o
+COBJS-$(CONFIG_FTSDC010) += ftsdc010_esdhc.o
+COBJS-$(CONFIG_GENERIC_MMC) += mmc.o
+COBJS-$(CONFIG_GENERIC_ATMEL_MCI) += gen_atmel_mci.o
+COBJS-$(CONFIG_MMC_SPI) += mmc_spi.o
+COBJS-$(CONFIG_ARM_PL180_MMCI) += arm_pl180_mmci.o
+COBJS-$(CONFIG_MV_SDHCI) += mv_sdhci.o
+COBJS-$(CONFIG_MXC_MMC) += mxcmmc.o
+COBJS-$(CONFIG_OMAP_HSMMC) += omap_hsmmc.o
+COBJS-$(CONFIG_PXA_MMC) += pxa_mmc.o
+COBJS-$(CONFIG_S5P_MMC) += s5p_mmc.o
+COBJS-$(CONFIG_SDHCI) += sdhci.o
+COBJS-$(CONFIG_SH_MMCIF) += sh_mmcif.o
+COBJS-$(CONFIG_TEGRA2_MMC) += tegra2_mmc.o
+COBJS-$(CONFIG_MMC_SUNXI) += sunxi_mmc.o
 
-ifdef CONFIG_SPL_BUILD
-obj-$(CONFIG_SPL_MMC_BOOT) += fsl_esdhc_spl.o
-else
-obj-$(CONFIG_GENERIC_MMC) += mmc_write.o
-endif
-obj-$(CONFIG_PIC32_SDHCI) += pic32_sdhci.o
-obj-$(CONFIG_MSM_SDHCI) += msm_sdhci.o
+COBJS	:= $(COBJS-y)
+SRCS	:= $(COBJS:.o=.c)
+OBJS	:= $(addprefix $(obj),$(COBJS))
+
+all:	$(LIB)
+
+$(LIB): $(obj).depend $(OBJS)
+	$(call cmd_link_o_target, $(OBJS))
+
+#########################################################################
+
+# defines $(obj).depend target
+include $(SRCTREE)/rules.mk
+
+sinclude $(obj).depend
+
+#########################################################################

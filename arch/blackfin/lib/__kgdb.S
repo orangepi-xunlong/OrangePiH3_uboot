@@ -1,4 +1,5 @@
-#include <linux/linkage.h>
+
+#include <asm/linkage.h>
 
 /* save stack context for non-local goto
  * int kgdb_setjmp(long *buf)

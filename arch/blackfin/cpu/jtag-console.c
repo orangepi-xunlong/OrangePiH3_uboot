@@ -112,11 +112,11 @@ static void jtag_send(const char *raw_str, uint32_t len)
 	if (cooked_str != raw_str)
 		free((char *)cooked_str);
 }
-static void jtag_putc(struct stdio_dev *dev, const char c)
+static void jtag_putc(const char c)
 {
 	jtag_send(&c, 1);
 }
-static void jtag_puts(struct stdio_dev *dev, const char *s)
+static void jtag_puts(const char *s)
 {
 	jtag_send(s, strlen(s));
 }
@@ -133,7 +133,7 @@ static int jtag_tstc_dbg(void)
 }
 
 /* Higher layers want to know when any data is available */
-static int jtag_tstc(struct stdio_dev *dev)
+static int jtag_tstc(void)
 {
 	return jtag_tstc_dbg() || leftovers_len;
 }
@@ -142,7 +142,7 @@ static int jtag_tstc(struct stdio_dev *dev)
  * [32bit length][actual data]
  */
 static uint32_t leftovers;
-static int jtag_getc(struct stdio_dev *dev)
+static int jtag_getc(void)
 {
 	int ret;
 	uint32_t emudat;
@@ -168,12 +168,12 @@ static int jtag_getc(struct stdio_dev *dev)
 		inbound_len = emudat;
 	} else {
 		/* store the bytes */
-		leftovers_len = min((size_t)4, inbound_len);
+		leftovers_len = min(4, inbound_len);
 		inbound_len -= leftovers_len;
 		leftovers = emudat;
 	}
 
-	return jtag_getc(dev);
+	return jtag_getc();
 }
 
 int drv_jtag_console_init(void)
@@ -183,7 +183,7 @@ int drv_jtag_console_init(void)
 
 	memset(&dev, 0x00, sizeof(dev));
 	strcpy(dev.name, "jtag");
-	dev.flags = DEV_FLAGS_OUTPUT | DEV_FLAGS_INPUT;
+	dev.flags = DEV_FLAGS_OUTPUT | DEV_FLAGS_INPUT | DEV_FLAGS_SYSTEM;
 	dev.putc = jtag_putc;
 	dev.puts = jtag_puts;
 	dev.tstc = jtag_tstc;
@@ -194,35 +194,12 @@ int drv_jtag_console_init(void)
 }
 
 #ifdef CONFIG_UART_CONSOLE_IS_JTAG
-#include <serial.h>
 /* Since the JTAG is always available (at power on), allow it to fake a UART */
-void jtag_serial_setbrg(void)
-{
-}
-
-int jtag_serial_init(void)
-{
-	return 0;
-}
-
-static struct serial_device serial_jtag_drv = {
-	.name	= "jtag",
-	.start	= jtag_serial_init,
-	.stop	= NULL,
-	.setbrg	= jtag_serial_setbrg,
-	.putc	= jtag_putc,
-	.puts	= jtag_puts,
-	.tstc	= jtag_tstc,
-	.getc	= jtag_getc,
-};
-
-void bfin_jtag_initialize(void)
-{
-	serial_register(&serial_jtag_drv);
-}
-
-struct serial_device *default_serial_console(void)
-{
-	return &serial_jtag_drv;
-}
+void serial_set_baud(uint32_t baud) {}
+void serial_setbrg(void)            {}
+int serial_init(void)               { return 0; }
+void serial_putc(const char c)      __attribute__((alias("jtag_putc")));
+void serial_puts(const char *s)     __attribute__((alias("jtag_puts")));
+int serial_tstc(void)               __attribute__((alias("jtag_tstc")));
+int serial_getc(void)               __attribute__((alias("jtag_getc")));
 #endif

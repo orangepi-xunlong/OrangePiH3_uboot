@@ -2,7 +2,24 @@
  * (C) Copyright 2009
  * Stefan Roese, DENX Software Engineering, sr@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
  */
 
 #ifndef __CFI_FLASH_H__
@@ -43,13 +60,6 @@
 #define AMD_CMD_UNLOCK_ACK		0x55
 #define AMD_CMD_WRITE_TO_BUFFER		0x25
 #define AMD_CMD_WRITE_BUFFER_CONFIRM	0x29
-#define AMD_CMD_SET_PPB_ENTRY		0xC0
-#define AMD_CMD_SET_PPB_EXIT_BC1	0x90
-#define AMD_CMD_SET_PPB_EXIT_BC2	0x00
-#define AMD_CMD_PPB_UNLOCK_BC1		0x80
-#define AMD_CMD_PPB_UNLOCK_BC2		0x30
-#define AMD_CMD_PPB_LOCK_BC1		0xA0
-#define AMD_CMD_PPB_LOCK_BC2		0x00
 
 #define AMD_STATUS_TOGGLE		0x40
 #define AMD_STATUS_ERROR		0x20
@@ -105,23 +115,19 @@
 #define NUM_ERASE_REGIONS	4 /* max. number of erase regions */
 
 typedef union {
-	u8 w8;
-	u16 w16;
-	u32 w32;
-	u64 w64;
+	unsigned char c;
+	unsigned short w;
+	unsigned long l;
+	unsigned long long ll;
 } cfiword_t;
 
 /* CFI standard query structure */
-/* The offsets and sizes of this packed structure members correspond
- * to the actual layout in CFI Flash chips. Some 16- and 32-bit members
- * are unaligned and must be accessed with explicit unaligned access macros.
- */
 struct cfi_qry {
 	u8	qry[3];
-	u16	p_id;			/* unaligned */
-	u16	p_adr;			/* unaligned */
-	u16	a_id;			/* unaligned */
-	u16	a_adr;			/* unaligned */
+	u16	p_id;
+	u16	p_adr;
+	u16	a_id;
+	u16	a_adr;
 	u8	vcc_min;
 	u8	vcc_max;
 	u8	vpp_min;
@@ -135,10 +141,10 @@ struct cfi_qry {
 	u8	block_erase_timeout_max;
 	u8	chip_erase_timeout_max;
 	u8	dev_size;
-	u16	interface_desc;		/* aligned */
-	u16	max_buf_write_size;	/* aligned */
+	u16	interface_desc;
+	u16	max_buf_write_size;
 	u8	num_erase_regions;
-	u32	erase_region_info[NUM_ERASE_REGIONS];	/* unaligned */
+	u32	erase_region_info[NUM_ERASE_REGIONS];
 } __attribute__((packed));
 
 struct cfi_pri_hdr {
@@ -167,19 +173,5 @@ extern int cfi_flash_num_flash_banks;
 
 void flash_write_cmd(flash_info_t * info, flash_sect_t sect,
 		     uint offset, u32 cmd);
-phys_addr_t cfi_flash_bank_addr(int i);
-unsigned long cfi_flash_bank_size(int i);
-void flash_cmd_reset(flash_info_t *info);
-
-#ifdef CONFIG_CFI_FLASH_USE_WEAK_ACCESSORS
-void flash_write8(u8 value, void *addr);
-void flash_write16(u16 value, void *addr);
-void flash_write32(u32 value, void *addr);
-void flash_write64(u64 value, void *addr);
-u8 flash_read8(void *addr);
-u16 flash_read16(void *addr);
-u32 flash_read32(void *addr);
-u64 flash_read64(void *addr);
-#endif
 
 #endif /* __CFI_FLASH_H__ */

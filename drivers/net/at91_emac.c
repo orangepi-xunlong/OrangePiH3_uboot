@@ -5,15 +5,40 @@
  * (C) Copyright 2003
  * Author : Hamid Ikdoumi (Atmel)
 
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
 #include <asm/io.h>
+#ifndef CONFIG_AT91_LEGACY
 #include <asm/arch/hardware.h>
 #include <asm/arch/at91_emac.h>
-#include <asm/arch/clk.h>
+#include <asm/arch/at91_pmc.h>
 #include <asm/arch/at91_pio.h>
+#else
+/* remove next 5 lines, if all RM9200 boards convert to at91 arch */
+#include <asm/arch-at91/at91rm9200.h>
+#include <asm/arch-at91/hardware.h>
+#include <asm/arch-at91/at91_emac.h>
+#include <asm/arch-at91/at91_pmc.h>
+#include <asm/arch-at91/at91_pio.h>
+#endif
 #include <net.h>
 #include <netdev.h>
 #include <malloc.h>
@@ -44,21 +69,21 @@
 #endif
 
 #ifdef ET_DEBUG
-#define DEBUG_AT91EMAC	1
+#define DEBUG_AT91EMAC(...)	printf(__VA_ARGS__);
 #else
-#define DEBUG_AT91EMAC	0
+#define DEBUG_AT91EMAC(...)
 #endif
 
 #ifdef MII_DEBUG
-#define DEBUG_AT91PHY	1
+#define DEBUG_AT91PHY(...)	printf(__VA_ARGS__);
 #else
-#define DEBUG_AT91PHY	0
+#define DEBUG_AT91PHY(...)
 #endif
 
 #ifndef CONFIG_DRIVER_AT91EMAC_QUIET
-#define VERBOSEP	1
+#define VERBOSEP(...)	printf(__VA_ARGS__);
 #else
-#define VERBOSEP	0
+#define VERBOSEP(...)
 #endif
 
 #define RBF_ADDR      0xfffffffc
@@ -112,15 +137,14 @@ int  at91emac_read(at91_emac_t *at91mac, unsigned char addr,
 
 	do {
 		netstat = readl(&at91mac->sr);
-		debug_cond(DEBUG_AT91PHY, "poll SR %08lx\n", netstat);
+		DEBUG_AT91PHY("poll SR %08lx\n", netstat);
 	} while (!(netstat & AT91_EMAC_SR_IDLE));
 
 	*value = readl(&at91mac->man) & AT91_EMAC_MAN_DATA_MASK;
 
 	at91emac_DisableMDIO(at91mac);
 
-	debug_cond(DEBUG_AT91PHY,
-		"AT91PHY read %p REG(%d)=%x\n", at91mac, reg, *value);
+	DEBUG_AT91PHY("AT91PHY read %x REG(%d)=%x\n", at91mac, reg, *value)
 
 	return 0;
 }
@@ -129,8 +153,7 @@ int  at91emac_write(at91_emac_t *at91mac, unsigned char addr,
 		unsigned char reg, unsigned short value)
 {
 	unsigned long netstat;
-	debug_cond(DEBUG_AT91PHY,
-		"AT91PHY write %p REG(%d)=%p\n", at91mac, reg, &value);
+	DEBUG_AT91PHY("AT91PHY write %x REG(%d)=%x\n", at91mac, reg, &value)
 
 	at91emac_EnableMDIO(at91mac);
 
@@ -141,7 +164,7 @@ int  at91emac_write(at91_emac_t *at91mac, unsigned char addr,
 
 	do {
 		netstat = readl(&at91mac->sr);
-		debug_cond(DEBUG_AT91PHY, "poll SR %08lx\n", netstat);
+		DEBUG_AT91PHY("poll SR %08lx\n", netstat);
 	} while (!(netstat & AT91_EMAC_SR_IDLE));
 
 	at91emac_DisableMDIO(at91mac);
@@ -159,23 +182,23 @@ at91_emac_t *get_emacbase_by_name(const char *devname)
 	return (at91_emac_t *) netdev->iobase;
 }
 
-int at91emac_mii_read(struct mii_dev *bus, int addr, int devad, int reg)
+int  at91emac_mii_read(const char *devname, unsigned char addr,
+		unsigned char reg, unsigned short *value)
 {
-	unsigned short value = 0;
 	at91_emac_t *emac;
 
-	emac = get_emacbase_by_name(bus->name);
-	at91emac_read(emac , addr, reg, &value);
-	return value;
+	emac = get_emacbase_by_name(devname);
+	at91emac_read(emac , addr, reg, value);
+	return 0;
 }
 
 
-int at91emac_mii_write(struct mii_dev *bus, int addr, int devad, int reg,
-		       u16 value)
+int  at91emac_mii_write(const char *devname, unsigned char addr,
+		unsigned char reg, unsigned short value)
 {
 	at91_emac_t *emac;
 
-	emac = get_emacbase_by_name(bus->name);
+	emac = get_emacbase_by_name(devname);
 	at91emac_write(emac, addr, reg, value);
 	return 0;
 }
@@ -193,7 +216,7 @@ static int at91emac_phy_reset(struct eth_device *netdev)
 	adv = ADVERTISE_CSMA | ADVERTISE_ALL;
 	at91emac_write(emac, CONFIG_DRIVER_AT91EMAC_PHYADDR,
 		MII_ADVERTISE, adv);
-	debug_cond(VERBOSEP, "%s: Starting autonegotiation...\n", netdev->name);
+	VERBOSEP("%s: Starting autonegotiation...\n", netdev->name);
 	at91emac_write(emac, CONFIG_DRIVER_AT91EMAC_PHYADDR, MII_BMCR,
 		(BMCR_ANENABLE | BMCR_ANRESTART));
 
@@ -206,8 +229,7 @@ static int at91emac_phy_reset(struct eth_device *netdev)
 	}
 
 	if (status & BMSR_ANEGCOMPLETE) {
-		debug_cond(VERBOSEP,
-			"%s: Autonegotiation complete\n", netdev->name);
+		VERBOSEP("%s: Autonegotiation complete\n", netdev->name);
 	} else {
 		printf("%s: Autonegotiation timed out (status=0x%04x)\n",
 		       netdev->name, status);
@@ -250,7 +272,7 @@ static int at91emac_phy_init(struct eth_device *netdev)
 		}
 	}
 	if (!(status & BMSR_LSTATUS)) {
-		debug_cond(VERBOSEP, "%s: link down\n", netdev->name);
+		VERBOSEP("%s: link down\n", netdev->name);
 		return -3;
 	} else {
 		at91emac_read(emac, CONFIG_DRIVER_AT91EMAC_PHYADDR,
@@ -261,7 +283,7 @@ static int at91emac_phy_init(struct eth_device *netdev)
 		speed = (media & (ADVERTISE_100FULL | ADVERTISE_100HALF)
 			 ? 1 : 0);
 		duplex = (media & ADVERTISE_FULL) ? 1 : 0;
-		debug_cond(VERBOSEP, "%s: link up, %sMbps %s-duplex\n",
+		VERBOSEP("%s: link up, %sMbps %s-duplex\n",
 		       netdev->name,
 		       speed ? "100" : "10",
 		       duplex ? "full" : "half");
@@ -321,6 +343,7 @@ static int at91emac_init(struct eth_device *netdev, bd_t *bd)
 	emac_device *dev;
 	at91_emac_t *emac;
 	at91_pio_t *pio = (at91_pio_t *) ATMEL_BASE_PIO;
+	at91_pmc_t *pmc = (at91_pmc_t *) ATMEL_BASE_PMC;
 
 	emac = (at91_emac_t *) netdev->iobase;
 	dev = (emac_device *) netdev->priv;
@@ -346,13 +369,12 @@ static int at91emac_init(struct eth_device *netdev, bd_t *bd)
 	writel(value, &pio->piob.pdr);
 	writel(value, &pio->piob.bsr);
 
-	at91_periph_clk_enable(ATMEL_ID_EMAC);
-
+	writel(1 << ATMEL_ID_EMAC, &pmc->pcer);
 	writel(readl(&emac->ctl) | AT91_EMAC_CTL_CSR, &emac->ctl);
 
 	/* Init Ethernet buffers */
 	for (i = 0; i < RBF_FRAMEMAX; i++) {
-		dev->rbfdt[i].addr = (unsigned long) net_rx_packets[i];
+		dev->rbfdt[i].addr = (unsigned long) NetRxPackets[i];
 		dev->rbfdt[i].size = 0;
 	}
 	dev->rbfdt[RBF_FRAMEMAX - 1].addr |= RBF_WRAP;
@@ -387,10 +409,11 @@ static void at91emac_halt(struct eth_device *netdev)
 	emac = (at91_emac_t *) netdev->iobase;
 	writel(readl(&emac->ctl) & ~(AT91_EMAC_CTL_TE | AT91_EMAC_CTL_RE),
 		&emac->ctl);
-	debug_cond(DEBUG_AT91EMAC, "halt MAC\n");
+	DEBUG_AT91EMAC("halt MAC\n");
 }
 
-static int at91emac_send(struct eth_device *netdev, void *packet, int length)
+static int at91emac_send(struct eth_device *netdev, volatile void *packet,
+		     int length)
 {
 	at91_emac_t *emac;
 
@@ -402,7 +425,7 @@ static int at91emac_send(struct eth_device *netdev, void *packet, int length)
 	writel(AT91_EMAC_TCR_LEN(length), &emac->tcr);
 	while (AT91_EMAC_TCR_LEN(readl(&emac->tcr)))
 		;
-	debug_cond(DEBUG_AT91EMAC, "Send %d\n", length);
+	DEBUG_AT91EMAC("Send %d \n", length);
 	writel(readl(&emac->tsr) | AT91_EMAC_TSR_COMP, &emac->tsr);
 	return 0;
 }
@@ -420,9 +443,9 @@ static int at91emac_recv(struct eth_device *netdev)
 	rbfp = &dev->rbfdt[dev->rbindex];
 	while (rbfp->addr & RBF_OWNER)	{
 		size = rbfp->size & RBF_SIZE;
-		net_process_received_packet(net_rx_packets[dev->rbindex], size);
+		NetReceive(NetRxPackets[dev->rbindex], size);
 
-		debug_cond(DEBUG_AT91EMAC, "Recv[%ld]: %d bytes @ %lx\n",
+		DEBUG_AT91EMAC("Recv[%d]: %d bytes @ %x \n",
 			dev->rbindex, size, rbfp->addr);
 
 		rbfp->addr &= ~RBF_OWNER;
@@ -451,20 +474,21 @@ static int at91emac_recv(struct eth_device *netdev)
 
 static int at91emac_write_hwaddr(struct eth_device *netdev)
 {
+	emac_device *dev;
 	at91_emac_t *emac;
+	at91_pmc_t *pmc = (at91_pmc_t *) ATMEL_BASE_PMC;
 	emac = (at91_emac_t *) netdev->iobase;
+	dev = (emac_device *) netdev->priv;
 
-	at91_periph_clk_enable(ATMEL_ID_EMAC);
-
-	debug_cond(DEBUG_AT91EMAC,
-		"init MAC-ADDR %02x:%02x:%02x:%02x:%02x:%02x\n",
+	writel(1 << ATMEL_ID_EMAC, &pmc->pcer);
+	DEBUG_AT91EMAC("init MAC-ADDR %02x:%02x:%02x:%02x:%02x:%02x\n",
 		netdev->enetaddr[5], netdev->enetaddr[4], netdev->enetaddr[3],
 		netdev->enetaddr[2], netdev->enetaddr[1], netdev->enetaddr[0]);
 	writel( (netdev->enetaddr[0] | netdev->enetaddr[1] << 8 |
 			netdev->enetaddr[2] << 16 | netdev->enetaddr[3] << 24),
 			&emac->sa2l);
 	writel((netdev->enetaddr[4] | netdev->enetaddr[5] << 8), &emac->sa2h);
-	debug_cond(DEBUG_AT91EMAC, "init MAC-ADDR %x%x\n",
+	DEBUG_AT91EMAC("init MAC-ADDR %x%x \n",
 		readl(&emac->sa2h), readl(&emac->sa2l));
 	return 0;
 }
@@ -490,7 +514,7 @@ int at91emac_register(bd_t *bis, unsigned long iobase)
 	memset(emacfix, 0, sizeof(emac_device));
 
 	memset(dev, 0, sizeof(*dev));
-	strcpy(dev->name, "emac");
+	sprintf(dev->name, "emac");
 	dev->iobase = iobase;
 	dev->priv = emacfix;
 	dev->init = at91emac_init;
@@ -502,17 +526,7 @@ int at91emac_register(bd_t *bis, unsigned long iobase)
 	eth_register(dev);
 
 #if defined(CONFIG_MII) || defined(CONFIG_CMD_MII)
-	int retval;
-	struct mii_dev *mdiodev = mdio_alloc();
-	if (!mdiodev)
-		return -ENOMEM;
-	strncpy(mdiodev->name, dev->name, MDIO_NAME_LEN);
-	mdiodev->read = at91emac_mii_read;
-	mdiodev->write = at91emac_mii_write;
-
-	retval = mdio_register(mdiodev);
-	if (retval < 0)
-		return retval;
+	miiphy_register(dev->name, at91emac_mii_read, at91emac_mii_write);
 #endif
 	return 1;
 }

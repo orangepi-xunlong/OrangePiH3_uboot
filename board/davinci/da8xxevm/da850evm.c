@@ -6,68 +6,165 @@
  * Copyright (C) 2009 Nick Thompson, GE Fanuc, Ltd. <nick.thompson@gefanuc.com>
  * Copyright (C) 2007 Sergey Kubushyn <ksi@koi8.net>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
 #include <common.h>
 #include <i2c.h>
 #include <net.h>
 #include <netdev.h>
-#include <spi.h>
-#include <spi_flash.h>
 #include <asm/arch/hardware.h>
-#include <asm/ti-common/davinci_nand.h>
+#include <asm/arch/emif_defs.h>
 #include <asm/arch/emac_defs.h>
-#include <asm/arch/pinmux_defs.h>
 #include <asm/io.h>
 #include <asm/arch/davinci_misc.h>
-#include <asm/errno.h>
 #include <hwconfig.h>
-
-#ifdef CONFIG_DAVINCI_MMC
-#include <mmc.h>
-#include <asm/arch/sdmmc_defs.h>
-#endif
 
 DECLARE_GLOBAL_DATA_PTR;
 
+#define pinmux(x)	(&davinci_syscfg_regs->pinmux[x])
+
+/* SPI0 pin muxer settings */
+static const struct pinmux_config spi1_pins[] = {
+	{ pinmux(5), 1, 1 },
+	{ pinmux(5), 1, 2 },
+	{ pinmux(5), 1, 4 },
+	{ pinmux(5), 1, 5 }
+};
+
+/* UART pin muxer settings */
+static const struct pinmux_config uart_pins[] = {
+	{ pinmux(0), 4, 6 },
+	{ pinmux(0), 4, 7 },
+	{ pinmux(4), 2, 4 },
+	{ pinmux(4), 2, 5 }
+};
+
 #ifdef CONFIG_DRIVER_TI_EMAC
+static const struct pinmux_config emac_pins[] = {
+#ifdef CONFIG_DRIVER_TI_EMAC_USE_RMII
+	{ pinmux(14), 8, 2 },
+	{ pinmux(14), 8, 3 },
+	{ pinmux(14), 8, 4 },
+	{ pinmux(14), 8, 5 },
+	{ pinmux(14), 8, 6 },
+	{ pinmux(14), 8, 7 },
+	{ pinmux(15), 8, 1 },
+#else /* ! CONFIG_DRIVER_TI_EMAC_USE_RMII */
+	{ pinmux(2), 8, 1 },
+	{ pinmux(2), 8, 2 },
+	{ pinmux(2), 8, 3 },
+	{ pinmux(2), 8, 4 },
+	{ pinmux(2), 8, 5 },
+	{ pinmux(2), 8, 6 },
+	{ pinmux(2), 8, 7 },
+	{ pinmux(3), 8, 0 },
+	{ pinmux(3), 8, 1 },
+	{ pinmux(3), 8, 2 },
+	{ pinmux(3), 8, 3 },
+	{ pinmux(3), 8, 4 },
+	{ pinmux(3), 8, 5 },
+	{ pinmux(3), 8, 6 },
+	{ pinmux(3), 8, 7 },
+#endif /* CONFIG_DRIVER_TI_EMAC_USE_RMII */
+	{ pinmux(4), 8, 0 },
+	{ pinmux(4), 8, 1 }
+};
+
+/* I2C pin muxer settings */
+static const struct pinmux_config i2c_pins[] = {
+	{ pinmux(4), 2, 2 },
+	{ pinmux(4), 2, 3 }
+};
+
+#ifdef CONFIG_NAND_DAVINCI
+const struct pinmux_config nand_pins[] = {
+	{ pinmux(7), 1, 1 },
+	{ pinmux(7), 1, 2 },
+	{ pinmux(7), 1, 4 },
+	{ pinmux(7), 1, 5 },
+	{ pinmux(9), 1, 0 },
+	{ pinmux(9), 1, 1 },
+	{ pinmux(9), 1, 2 },
+	{ pinmux(9), 1, 3 },
+	{ pinmux(9), 1, 4 },
+	{ pinmux(9), 1, 5 },
+	{ pinmux(9), 1, 6 },
+	{ pinmux(9), 1, 7 },
+	{ pinmux(12), 1, 5 },
+	{ pinmux(12), 1, 6 }
+};
+#elif defined(CONFIG_USE_NOR)
+/* NOR pin muxer settings */
+const struct pinmux_config nor_pins[] = {
+	/* GP0[11] is required for NOR to work on Rev 3 EVMs */
+	{ pinmux(0), 8, 4 },	/* GP0[11] */
+	{ pinmux(5), 1, 6 },
+	{ pinmux(6), 1, 6 },
+	{ pinmux(7), 1, 0 },
+	{ pinmux(7), 1, 4 },
+	{ pinmux(7), 1, 5 },
+	{ pinmux(8), 1, 0 },
+	{ pinmux(8), 1, 1 },
+	{ pinmux(8), 1, 2 },
+	{ pinmux(8), 1, 3 },
+	{ pinmux(8), 1, 4 },
+	{ pinmux(8), 1, 5 },
+	{ pinmux(8), 1, 6 },
+	{ pinmux(8), 1, 7 },
+	{ pinmux(9), 1, 0 },
+	{ pinmux(9), 1, 1 },
+	{ pinmux(9), 1, 2 },
+	{ pinmux(9), 1, 3 },
+	{ pinmux(9), 1, 4 },
+	{ pinmux(9), 1, 5 },
+	{ pinmux(9), 1, 6 },
+	{ pinmux(9), 1, 7 },
+	{ pinmux(10), 1, 0 },
+	{ pinmux(10), 1, 1 },
+	{ pinmux(10), 1, 2 },
+	{ pinmux(10), 1, 3 },
+	{ pinmux(10), 1, 4 },
+	{ pinmux(10), 1, 5 },
+	{ pinmux(10), 1, 6 },
+	{ pinmux(10), 1, 7 },
+	{ pinmux(11), 1, 0 },
+	{ pinmux(11), 1, 1 },
+	{ pinmux(11), 1, 2 },
+	{ pinmux(11), 1, 3 },
+	{ pinmux(11), 1, 4 },
+	{ pinmux(11), 1, 5 },
+	{ pinmux(11), 1, 6 },
+	{ pinmux(11), 1, 7 },
+	{ pinmux(12), 1, 0 },
+	{ pinmux(12), 1, 1 },
+	{ pinmux(12), 1, 2 },
+	{ pinmux(12), 1, 3 },
+	{ pinmux(12), 1, 4 },
+	{ pinmux(12), 1, 5 },
+	{ pinmux(12), 1, 6 },
+	{ pinmux(12), 1, 7 }
+};
+#endif
+
 #ifdef CONFIG_DRIVER_TI_EMAC_USE_RMII
 #define HAS_RMII 1
 #else
 #define HAS_RMII 0
 #endif
 #endif /* CONFIG_DRIVER_TI_EMAC */
-
-#define CFG_MAC_ADDR_SPI_BUS	0
-#define CFG_MAC_ADDR_SPI_CS	0
-#define CFG_MAC_ADDR_SPI_MAX_HZ	CONFIG_SF_DEFAULT_SPEED
-#define CFG_MAC_ADDR_SPI_MODE	SPI_MODE_3
-
-#define CFG_MAC_ADDR_OFFSET	(flash->size - SZ_64K)
-
-#ifdef CONFIG_MAC_ADDR_IN_SPIFLASH
-static int get_mac_addr(u8 *addr)
-{
-	struct spi_flash *flash;
-	int ret;
-
-	flash = spi_flash_probe(CFG_MAC_ADDR_SPI_BUS, CFG_MAC_ADDR_SPI_CS,
-			CFG_MAC_ADDR_SPI_MAX_HZ, CFG_MAC_ADDR_SPI_MODE);
-	if (!flash) {
-		printf("Error - unable to probe SPI flash.\n");
-		return -1;
-	}
-
-	ret = spi_flash_read(flash, CFG_MAC_ADDR_OFFSET, 6, addr);
-	if (ret) {
-		printf("Error - unable to read MAC address from SPI flash.\n");
-		return -1;
-	}
-
-	return ret;
-}
-#endif
 
 void dsp_lpsc_on(unsigned domain, unsigned int id)
 {
@@ -124,157 +221,33 @@ static void dspwake(void)
 int misc_init_r(void)
 {
 	dspwake();
-
-#if defined(CONFIG_MAC_ADDR_IN_SPIFLASH) || defined(CONFIG_MAC_ADDR_IN_EEPROM)
-
-	uchar env_enetaddr[6];
-	int enetaddr_found;
-
-	enetaddr_found = eth_getenv_enetaddr("ethaddr", env_enetaddr);
-
-#ifdef CONFIG_MAC_ADDR_IN_SPIFLASH
-	int spi_mac_read;
-	uchar buff[6];
-
-	spi_mac_read = get_mac_addr(buff);
-
-	/*
-	 * MAC address not present in the environment
-	 * try and read the MAC address from SPI flash
-	 * and set it.
-	 */
-	if (!enetaddr_found) {
-		if (!spi_mac_read) {
-			if (is_valid_ethaddr(buff)) {
-				if (eth_setenv_enetaddr("ethaddr", buff)) {
-					printf("Warning: Failed to "
-					"set MAC address from SPI flash\n");
-				}
-			} else {
-					printf("Warning: Invalid "
-					"MAC address read from SPI flash\n");
-			}
-		}
-	} else {
-		/*
-		 * MAC address present in environment compare it with
-		 * the MAC address in SPI flash and warn on mismatch
-		 */
-		if (!spi_mac_read && is_valid_ethaddr(buff) &&
-		    memcmp(env_enetaddr, buff, 6))
-			printf("Warning: MAC address in SPI flash don't match "
-					"with the MAC address in the environment\n");
-			printf("Default using MAC address from environment\n");
-	}
-#endif
-	uint8_t enetaddr[8];
-	int eeprom_mac_read;
-
-	/* Read Ethernet MAC address from EEPROM */
-	eeprom_mac_read = dvevm_read_mac_address(enetaddr);
-
-	/*
-	 * MAC address not present in the environment
-	 * try and read the MAC address from EEPROM flash
-	 * and set it.
-	 */
-	if (!enetaddr_found) {
-		if (eeprom_mac_read)
-			/* Set Ethernet MAC address from EEPROM */
-			davinci_sync_env_enetaddr(enetaddr);
-	} else {
-		/*
-		 * MAC address present in environment compare it with
-		 * the MAC address in EEPROM and warn on mismatch
-		 */
-		if (eeprom_mac_read && memcmp(enetaddr, env_enetaddr, 6))
-			printf("Warning: MAC address in EEPROM don't match "
-					"with the MAC address in the environment\n");
-			printf("Default using MAC address from environment\n");
-	}
-
-#endif
 	return 0;
 }
 
-#ifdef CONFIG_DAVINCI_MMC
-static struct davinci_mmc mmc_sd0 = {
-	.reg_base = (struct davinci_mmc_regs *)DAVINCI_MMC_SD0_BASE,
-	.host_caps = MMC_MODE_4BIT,     /* DA850 supports only 4-bit SD/MMC */
-	.voltages = MMC_VDD_32_33 | MMC_VDD_33_34,
-	.version = MMC_CTLR_VERSION_2,
-};
-
-int board_mmc_init(bd_t *bis)
-{
-	mmc_sd0.input_clk = clk_get(DAVINCI_MMCSD_CLKID);
-
-	/* Add slot-0 to mmc subsystem */
-	return davinci_mmc_init(bis, &mmc_sd0);
-}
-#endif
-
-static const struct pinmux_config gpio_pins[] = {
-#ifdef CONFIG_USE_NOR
-	/* GP0[11] is required for NOR to work on Rev 3 EVMs */
-	{ pinmux(0), 8, 4 },	/* GP0[11] */
-#endif
-#ifdef CONFIG_DAVINCI_MMC
-	/* GP0[11] is required for SD to work on Rev 3 EVMs */
-	{ pinmux(0),  8, 4 },	/* GP0[11] */
-#endif
-};
-
-const struct pinmux_resource pinmuxes[] = {
-#ifdef CONFIG_DRIVER_TI_EMAC
-	PINMUX_ITEM(emac_pins_mdio),
-#ifdef CONFIG_DRIVER_TI_EMAC_USE_RMII
-	PINMUX_ITEM(emac_pins_rmii),
-#else
-	PINMUX_ITEM(emac_pins_mii),
-#endif
-#endif
+static const struct pinmux_resource pinmuxes[] = {
 #ifdef CONFIG_SPI_FLASH
-	PINMUX_ITEM(spi1_pins_base),
-	PINMUX_ITEM(spi1_pins_scs0),
+	PINMUX_ITEM(spi1_pins),
 #endif
-	PINMUX_ITEM(uart2_pins_txrx),
-	PINMUX_ITEM(uart2_pins_rtscts),
-	PINMUX_ITEM(i2c0_pins),
+	PINMUX_ITEM(uart_pins),
+	PINMUX_ITEM(i2c_pins),
 #ifdef CONFIG_NAND_DAVINCI
-	PINMUX_ITEM(emifa_pins_cs3),
-	PINMUX_ITEM(emifa_pins_cs4),
-	PINMUX_ITEM(emifa_pins_nand),
+	PINMUX_ITEM(nand_pins),
 #elif defined(CONFIG_USE_NOR)
-	PINMUX_ITEM(emifa_pins_cs2),
-	PINMUX_ITEM(emifa_pins_nor),
-#endif
-	PINMUX_ITEM(gpio_pins),
-#ifdef CONFIG_DAVINCI_MMC
-	PINMUX_ITEM(mmc0_pins),
+	PINMUX_ITEM(nor_pins),
 #endif
 };
 
-const int pinmuxes_size = ARRAY_SIZE(pinmuxes);
-
-const struct lpsc_resource lpsc[] = {
+static const struct lpsc_resource lpsc[] = {
 	{ DAVINCI_LPSC_AEMIF },	/* NAND, NOR */
 	{ DAVINCI_LPSC_SPI1 },	/* Serial Flash */
 	{ DAVINCI_LPSC_EMAC },	/* image download */
 	{ DAVINCI_LPSC_UART2 },	/* console */
 	{ DAVINCI_LPSC_GPIO },
-#ifdef CONFIG_DAVINCI_MMC
-	{ DAVINCI_LPSC_MMC_SD },
-#endif
 };
-
-const int lpsc_size = ARRAY_SIZE(lpsc);
 
 #ifndef CONFIG_DA850_EVM_MAX_CPU_CLK
 #define CONFIG_DA850_EVM_MAX_CPU_CLK	300000000
 #endif
-
-#define REV_AM18X_EVM		0x100
 
 /*
  * get_board_rev() - setup to pass kernel board revision information
@@ -301,28 +274,16 @@ u32 get_board_rev(void)
 		rev = 2;
 	else if (maxcpuclk >= 372000000)
 		rev = 1;
-#ifdef CONFIG_DA850_AM18X_EVM
-	rev |= REV_AM18X_EVM;
-#endif
+
 	return rev;
-}
-
-int board_early_init_f(void)
-{
-	/*
-	 * Power on required peripherals
-	 * ARM does not have access by default to PSC0 and PSC1
-	 * assuming here that the DSP bootloader has set the IOPU
-	 * such that PSC access is available to ARM
-	 */
-	if (da8xx_configure_lpsc_items(lpsc, ARRAY_SIZE(lpsc)))
-		return 1;
-
-	return 0;
 }
 
 int board_init(void)
 {
+#ifdef CONFIG_USE_NOR
+	u32 val;
+#endif
+
 #ifndef CONFIG_USE_IRQ
 	irq_init();
 #endif
@@ -332,11 +293,11 @@ int board_init(void)
 	 * NAND CS setup - cycle counts based on da850evm NAND timings in the
 	 * Linux kernel @ 25MHz EMIFA
 	 */
-	writel((DAVINCI_ABCR_WSETUP(2) |
-		DAVINCI_ABCR_WSTROBE(2) |
-		DAVINCI_ABCR_WHOLD(1) |
-		DAVINCI_ABCR_RSETUP(1) |
-		DAVINCI_ABCR_RSTROBE(4) |
+	writel((DAVINCI_ABCR_WSETUP(0) |
+		DAVINCI_ABCR_WSTROBE(1) |
+		DAVINCI_ABCR_WHOLD(0) |
+		DAVINCI_ABCR_RSETUP(0) |
+		DAVINCI_ABCR_RSTROBE(1) |
 		DAVINCI_ABCR_RHOLD(0) |
 		DAVINCI_ABCR_TA(1) |
 		DAVINCI_ABCR_ASIZE_8BIT),
@@ -348,6 +309,15 @@ int board_init(void)
 
 	/* address of boot parameters */
 	gd->bd->bi_boot_params = LINUX_BOOT_PARAM_ADDR;
+
+	/*
+	 * Power on required peripherals
+	 * ARM does not have access by default to PSC0 and PSC1
+	 * assuming here that the DSP bootloader has set the IOPU
+	 * such that PSC access is available to ARM
+	 */
+	if (da8xx_configure_lpsc_items(lpsc, ARRAY_SIZE(lpsc)))
+		return 1;
 
 	/* setup the SUSPSRC for ARM to control emulation suspend */
 	writel(readl(&davinci_syscfg_regs->suspsrc) &
@@ -362,21 +332,18 @@ int board_init(void)
 
 #ifdef CONFIG_USE_NOR
 	/* Set the GPIO direction as output */
-	clrbits_le32((u32 *)GPIO_BANK0_REG_DIR_ADDR, (0x01 << 11));
+	clrbits_be32((u32 *)GPIO_BANK0_REG_DIR_ADDR, (0x01 << 11));
 
 	/* Set the output as low */
-	writel(0x01 << 11, GPIO_BANK0_REG_CLR_ADDR);
-#endif
-
-#ifdef CONFIG_DAVINCI_MMC
-	/* Set the GPIO direction as output */
-	clrbits_le32((u32 *)GPIO_BANK0_REG_DIR_ADDR, (0x01 << 11));
-
-	/* Set the output as high */
-	writel(0x01 << 11, GPIO_BANK0_REG_SET_ADDR);
+	val = readl(GPIO_BANK0_REG_SET_ADDR);
+	val |= (0x01 << 11);
+	writel(val, GPIO_BANK0_REG_CLR_ADDR);
 #endif
 
 #ifdef CONFIG_DRIVER_TI_EMAC
+	if (davinci_configure_pin_mux(emac_pins, ARRAY_SIZE(emac_pins)) != 0)
+		return 1;
+
 	davinci_emac_mii_mode_sel(HAS_RMII);
 #endif /* CONFIG_DRIVER_TI_EMAC */
 

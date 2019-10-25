@@ -8,7 +8,23 @@
  *
  * Configuration settings for the Freescale i.MX31 PDK board.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef __CONFIG_H
@@ -17,7 +33,10 @@
 #include <asm/arch/imx-regs.h>
 
 /* High Level Configuration Options */
-#define CONFIG_MX31			/* This is a mx31 */
+#define CONFIG_ARM1136			/* This is an arm1136 CPU core */
+#define CONFIG_MX31			/* in a mx31 */
+#define CONFIG_MX31_HCLK_FREQ	26000000
+#define CONFIG_MX31_CLK32	32768
 
 #define CONFIG_DISPLAY_CPUINFO
 #define CONFIG_DISPLAY_BOARDINFO
@@ -26,19 +45,7 @@
 #define CONFIG_SETUP_MEMORY_TAGS
 #define CONFIG_INITRD_TAG
 
-#define CONFIG_MACH_TYPE	MACH_TYPE_MX31_3DS
-
-#define CONFIG_SPL_TARGET	"u-boot-with-spl.bin"
-#define CONFIG_SPL_LDSCRIPT	"arch/$(ARCH)/cpu/u-boot-spl.lds"
-#define CONFIG_SPL_MAX_SIZE	2048
-#define CONFIG_SPL_NAND_SUPPORT
-#define CONFIG_SPL_LIBGENERIC_SUPPORT
-#define CONFIG_SPL_SERIAL_SUPPORT
-
-#define CONFIG_SPL_TEXT_BASE	0x87dc0000
-#define CONFIG_SYS_TEXT_BASE	0x87e00000
-
-#ifndef CONFIG_SPL_BUILD
+#if defined(CONFIG_NAND_U_BOOT) && !defined(CONFIG_NAND_SPL)
 #define CONFIG_SKIP_LOWLEVEL_INIT
 #endif
 
@@ -52,7 +59,8 @@
  */
 
 #define CONFIG_MXC_UART
-#define CONFIG_MXC_UART_BASE	UART1_BASE
+#define CONFIG_SYS_MX31_UART1
+#define CONFIG_HW_WATCHDOG
 #define CONFIG_MXC_GPIO
 
 #define CONFIG_HARD_SPI
@@ -60,30 +68,41 @@
 #define CONFIG_DEFAULT_SPI_BUS	1
 #define CONFIG_DEFAULT_SPI_MODE	(SPI_MODE_0 | SPI_CS_HIGH)
 
-/* PMIC Controller */
-#define CONFIG_POWER
-#define CONFIG_POWER_SPI
-#define CONFIG_POWER_FSL
+#define CONFIG_FSL_PMIC
 #define CONFIG_FSL_PMIC_BUS	1
 #define CONFIG_FSL_PMIC_CS	2
 #define CONFIG_FSL_PMIC_CLK	1000000
 #define CONFIG_FSL_PMIC_MODE	(SPI_MODE_0 | SPI_CS_HIGH)
-#define CONFIG_FSL_PMIC_BITLEN	32
-#define CONFIG_RTC_MC13XXX
+#define CONFIG_RTC_MC13783
 
 /* allow to overwrite serial and ethaddr */
 #define CONFIG_ENV_OVERWRITE
 #define CONFIG_CONS_INDEX		1
 #define CONFIG_BAUDRATE			115200
+#define CONFIG_SYS_BAUDRATE_TABLE	{9600, 19200, 38400, 57600, 115200}
 
 /***********************************************************
  * Command definition
  ***********************************************************/
+
+#include <config_cmd_default.h>
+
+#define CONFIG_CMD_MII
+#define CONFIG_CMD_PING
+#define CONFIG_CMD_DHCP
+#define CONFIG_CMD_SPI
 #define CONFIG_CMD_DATE
 #define CONFIG_CMD_NAND
 
-#define CONFIG_BOARD_LATE_INIT
+/*
+ * Disabled due to compilation errors in cmd_bootm.c (IMLS seems to require
+ * that CFG_NO_FLASH is undefined).
+ */
+#undef CONFIG_CMD_IMLS
 
+#define BOARD_LATE_INIT
+
+#define CONFIG_BOOTDELAY	3
 
 #define	CONFIG_EXTRA_ENV_SETTINGS					\
 	"bootargs_base=setenv bootargs console=ttymxc0,115200\0"	\
@@ -92,10 +111,11 @@
 	"bootcmd=run bootcmd_net\0"					\
 	"bootcmd_net=run bootargs_base bootargs_mtd bootargs_nfs; "	\
 		"tftpboot 0x81000000 uImage-mx31; bootm\0"		\
-	"prg_uboot=tftpboot 0x81000000 u-boot-with-spl.bin; "		\
+	"prg_uboot=tftpboot 0x81000000 u-boot-nand.bin; "		\
 		"nand erase 0x0 0x40000; "				\
 		"nand write 0x81000000 0x0 0x40000\0"
 
+#define CONFIG_NET_MULTI
 #define CONFIG_SMC911X
 #define CONFIG_SMC911X_BASE	0xB6000000
 #define CONFIG_SMC911X_32_BIT
@@ -104,7 +124,11 @@
  * Miscellaneous configurable options
  */
 #define CONFIG_SYS_LONGHELP	/* undef to save memory */
+#define CONFIG_SYS_PROMPT	"uboot> "
 #define CONFIG_SYS_CBSIZE	256	/* Console I/O Buffer Size */
+/* Print Buffer Size */
+#define CONFIG_SYS_PBSIZE	(CONFIG_SYS_CBSIZE + \
+				sizeof(CONFIG_SYS_PROMPT)+16)
 /* max number of command args */
 #define CONFIG_SYS_MAXARGS	16
 /* Boot Argument Buffer Size */
@@ -112,12 +136,21 @@
 
 /* memtest works on */
 #define CONFIG_SYS_MEMTEST_START	0x80000000
-#define CONFIG_SYS_MEMTEST_END		0x80010000
+#define CONFIG_SYS_MEMTEST_END		0x10000
 
 /* default load address */
 #define CONFIG_SYS_LOAD_ADDR		0x81000000
 
+#define CONFIG_SYS_HZ			1000
+
 #define CONFIG_CMDLINE_EDITING
+
+/*-----------------------------------------------------------------------
+ * Stack sizes
+ *
+ * The stack sizes are set up in start.S using the settings below
+ */
+#define CONFIG_STACKSIZE	(128 * 1024) /* regular stack */
 
 /*-----------------------------------------------------------------------
  * Physical Memory Map
@@ -133,7 +166,7 @@
 #define CONFIG_SYS_GBL_DATA_OFFSET	(CONFIG_SYS_INIT_RAM_SIZE - \
 						GENERATED_GBL_DATA_SIZE)
 #define CONFIG_SYS_INIT_SP_ADDR	(CONFIG_SYS_INIT_RAM_ADDR + \
-						CONFIG_SYS_INIT_RAM_SIZE)
+						CONFIG_SYS_GBL_DATA_OFFSET)
 
 /*-----------------------------------------------------------------------
  * FLASH and environment organization
@@ -158,11 +191,11 @@
 
 /* NAND configuration for the NAND_SPL */
 
-/* Start copying real U-Boot from the second page */
-#define CONFIG_SYS_NAND_U_BOOT_OFFS	CONFIG_SPL_PAD_TO
-#define CONFIG_SYS_NAND_U_BOOT_SIZE	0x3f800
+/* Start copying real U-boot from the second page */
+#define CONFIG_SYS_NAND_U_BOOT_OFFS	0x800
+#define CONFIG_SYS_NAND_U_BOOT_SIZE	0x30000
 /* Load U-Boot to this address */
-#define CONFIG_SYS_NAND_U_BOOT_DST	CONFIG_SYS_TEXT_BASE
+#define CONFIG_SYS_NAND_U_BOOT_DST	0x87f00000
 #define CONFIG_SYS_NAND_U_BOOT_START	CONFIG_SYS_NAND_U_BOOT_DST
 
 #define CONFIG_SYS_NAND_PAGE_SIZE	0x800
@@ -171,13 +204,14 @@
 #define CONFIG_SYS_NAND_SIZE		(256 * 1024 * 1024)
 #define CONFIG_SYS_NAND_BAD_BLOCK_POS	0
 
+
 /* Configuration of lowlevel_init.S (clocks and SDRAM) */
 #define CCM_CCMR_SETUP		0x074B0BF5
-#define CCM_PDR0_SETUP_532MHZ	(PDR0_CSI_PODF(0x3f) | PDR0_CSI_PRDF(7) | \
-				 PDR0_PER_PODF(7) | PDR0_HSP_PODF(3) |    \
-				 PDR0_NFC_PODF(5) | PDR0_IPG_PODF(1) |    \
-				 PDR0_MAX_PODF(3) | PDR0_MCU_PODF(0))
-#define CCM_MPCTL_SETUP_532MHZ	(PLL_PD(0) | PLL_MFD(51) | PLL_MFI(10) |  \
+#define CCM_PDR0_SETUP_532MHZ	(PDR0_CSI_PODF(0x1ff) | PDR0_PER_PODF(7) | \
+				 PDR0_HSP_PODF(3) | PDR0_NFC_PODF(5) |     \
+				 PDR0_IPG_PODF(1) | PDR0_MAX_PODF(3) |     \
+				 PDR0_MCU_PODF(0))
+#define CCM_MPCTL_SETUP_532MHZ	(PLL_PD(0) | PLL_MFD(51) | PLL_MFI(10) |   \
 				 PLL_MFN(12))
 
 #define ESDMISC_MDDR_SETUP	0x00000004

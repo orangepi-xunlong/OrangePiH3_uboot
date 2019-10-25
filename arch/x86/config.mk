@@ -2,66 +2,40 @@
 # (C) Copyright 2000-2002
 # Wolfgang Denk, DENX Software Engineering, wd@denx.de.
 #
-# SPDX-License-Identifier:	GPL-2.0+
+# See file CREDITS for list of people who contributed to this
+# project.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 2 of
+# the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+# MA 02111-1307 USA
 #
 
 CONFIG_STANDALONE_LOAD_ADDR ?= 0x40000
 
 PLATFORM_CPPFLAGS += -fno-strict-aliasing
+PLATFORM_CPPFLAGS += -Wstrict-prototypes
+PLATFORM_CPPFLAGS += -mregparm=3
 PLATFORM_CPPFLAGS += -fomit-frame-pointer
-PF_CPPFLAGS_X86   := $(call cc-option, -fno-toplevel-reorder, \
-		       $(call cc-option, -fno-unit-at-a-time)) \
-		     $(call cc-option, -mpreferred-stack-boundary=2)
-
-PLATFORM_CPPFLAGS += $(PF_CPPFLAGS_X86)
+PLATFORM_CPPFLAGS += $(call cc-option, -ffreestanding)
+PLATFORM_CPPFLAGS += $(call cc-option, -fno-toplevel-reorder,  $(call cc-option, -fno-unit-at-a-time))
+PLATFORM_CPPFLAGS += $(call cc-option, -fno-stack-protector)
+PLATFORM_CPPFLAGS += $(call cc-option, -mpreferred-stack-boundary=2)
 PLATFORM_CPPFLAGS += -fno-dwarf2-cfi-asm
-PLATFORM_CPPFLAGS += -march=i386 -m32
+PLATFORM_CPPFLAGS += -DREALMODE_BASE=0x7c0
 
 PLATFORM_RELFLAGS += -ffunction-sections -fvisibility=hidden
 
-PLATFORM_LDFLAGS += -Bsymbolic -Bsymbolic-functions -m elf_i386
+PLATFORM_LDFLAGS += --emit-relocs -Bsymbolic -Bsymbolic-functions
 
-LDFLAGS_FINAL += --wrap=__divdi3 --wrap=__udivdi3
-LDFLAGS_FINAL += --wrap=__moddi3 --wrap=__umoddi3
-
-# This is used in the top-level Makefile which does not include
-# PLATFORM_LDFLAGS
-LDFLAGS_EFI_PAYLOAD := -Bsymbolic -Bsymbolic-functions -shared --no-undefined
-
-OBJCOPYFLAGS_EFI := -j .text -j .sdata -j .data -j .dynamic -j .dynsym \
-	-j .rel -j .rela -j .reloc
-
-CFLAGS_NON_EFI := -mregparm=3
-CFLAGS_EFI := -fpic -fshort-wchar
-
-ifeq ($(CONFIG_EFI_STUB_64BIT),)
-CFLAGS_EFI += $(call cc-option, -mno-red-zone)
-EFIARCH = ia32
-EFIPAYLOAD_BFDTARGET = elf32-i386
-else
-EFIARCH = x86_64
-EFIPAYLOAD_BFDTARGET = elf64-x86-64
-endif
-
-EFIPAYLOAD_BFDARCH = i386
-
-LDSCRIPT_EFI := $(srctree)/$(CPUDIR)/efi/elf_$(EFIARCH)_efi.lds
-EFISTUB := crt0-efi-$(EFIARCH).o reloc_$(EFIARCH).o
-OBJCOPYFLAGS_EFI += --target=efi-app-$(EFIARCH)
-
-CPPFLAGS_REMOVE_crt0-efi-$(EFIARCH).o += $(CFLAGS_NON_EFI)
-CPPFLAGS_crt0-efi-$(EFIARCH).o += $(CFLAGS_EFI)
-
-ifeq ($(CONFIG_EFI_APP),y)
-
-PLATFORM_CPPFLAGS += $(CFLAGS_EFI)
-LDFLAGS_FINAL += -znocombreloc -shared
-LDSCRIPT := $(LDSCRIPT_EFI)
-
-else
-
-PLATFORM_CPPFLAGS += $(CFLAGS_NON_EFI)
-PLATFORM_LDFLAGS += --emit-relocs
 LDFLAGS_FINAL += --gc-sections -pie
-
-endif

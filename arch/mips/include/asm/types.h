@@ -1,8 +1,10 @@
 /*
+ * This file is subject to the terms and conditions of the GNU General Public
+ * License.  See the file "COPYING" in the main directory of this archive
+ * for more details.
+ *
  * Copyright (C) 1994, 1995, 1996, 1999 by Ralf Baechle
  * Copyright (C) 1999 Silicon Graphics, Inc.
- *
- * SPDX-License-Identifier:	GPL-2.0
  */
 #ifndef _ASM_TYPES_H
 #define _ASM_TYPES_H
@@ -25,12 +27,18 @@ typedef unsigned short __u16;
 typedef __signed__ int __s32;
 typedef unsigned int __u32;
 
+#if (_MIPS_SZLONG == 64)
+
+typedef __signed__ long __s64;
+typedef unsigned long __u64;
+
+#else
+
 #if defined(__GNUC__)
 __extension__ typedef __signed__ long long __s64;
 __extension__ typedef unsigned long long __u64;
-#else
-typedef __signed__ long long __s64;
-typedef unsigned long long __u64;
+#endif
+
 #endif
 
 #endif /* __ASSEMBLY__ */
@@ -53,8 +61,19 @@ typedef unsigned short u16;
 typedef __signed int s32;
 typedef unsigned int u32;
 
+#if (_MIPS_SZLONG == 64)
+
+typedef __signed__ long s64;
+typedef unsigned long u64;
+
+#else
+
+#if defined(__GNUC__) && !defined(__STRICT_ANSI__)
 typedef __signed__ long long s64;
 typedef unsigned long long u64;
+#endif
+
+#endif
 
 #if (defined(CONFIG_HIGHMEM) && defined(CONFIG_64BIT_PHYS_ADDR)) \
     || defined(CONFIG_64BIT)

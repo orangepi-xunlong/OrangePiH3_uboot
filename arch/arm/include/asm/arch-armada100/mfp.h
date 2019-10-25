@@ -9,7 +9,23 @@
  * Written-by: Prafulla Wadaskar <prafulla@marvell.com>
  * Contributor: Mahavir Jain <mjain@marvell.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+ * MA 02110-1301 USA
  */
 
 #ifndef __ARMADA100_MFP_H
@@ -47,31 +63,6 @@
 /* I2c */
 #define MFP105_CI2C_SDA		(MFP_REG(0x1a4) | MFP_AF1 | MFP_DRIVE_MEDIUM)
 #define MFP106_CI2C_SCL		(MFP_REG(0x1a8) | MFP_AF1 | MFP_DRIVE_MEDIUM)
-
-/* Fast Ethernet */
-#define MFP086_ETH_TXCLK	(MFP_REG(0x158) | MFP_AF5 | MFP_DRIVE_MEDIUM)
-#define MFP087_ETH_TXEN		(MFP_REG(0x15C) | MFP_AF5 | MFP_DRIVE_MEDIUM)
-#define MFP088_ETH_TXDQ3	(MFP_REG(0x160) | MFP_AF5 | MFP_DRIVE_MEDIUM)
-#define MFP089_ETH_TXDQ2	(MFP_REG(0x164) | MFP_AF5 | MFP_DRIVE_MEDIUM)
-#define MFP090_ETH_TXDQ1	(MFP_REG(0x168) | MFP_AF5 | MFP_DRIVE_MEDIUM)
-#define MFP091_ETH_TXDQ0	(MFP_REG(0x16C) | MFP_AF5 | MFP_DRIVE_MEDIUM)
-#define MFP092_ETH_CRS		(MFP_REG(0x170) | MFP_AF5 | MFP_DRIVE_MEDIUM)
-#define MFP093_ETH_COL		(MFP_REG(0x174) | MFP_AF5 | MFP_DRIVE_MEDIUM)
-#define MFP094_ETH_RXCLK	(MFP_REG(0x178) | MFP_AF5 | MFP_DRIVE_MEDIUM)
-#define MFP095_ETH_RXER		(MFP_REG(0x17C) | MFP_AF5 | MFP_DRIVE_MEDIUM)
-#define MFP096_ETH_RXDQ3	(MFP_REG(0x180) | MFP_AF5 | MFP_DRIVE_MEDIUM)
-#define MFP097_ETH_RXDQ2	(MFP_REG(0x184) | MFP_AF5 | MFP_DRIVE_MEDIUM)
-#define MFP098_ETH_RXDQ1	(MFP_REG(0x188) | MFP_AF5 | MFP_DRIVE_MEDIUM)
-#define MFP099_ETH_RXDQ0	(MFP_REG(0x18C) | MFP_AF5 | MFP_DRIVE_MEDIUM)
-#define MFP100_ETH_MDC		(MFP_REG(0x190) | MFP_AF5 | MFP_DRIVE_MEDIUM)
-#define MFP101_ETH_MDIO		(MFP_REG(0x194) | MFP_AF5 | MFP_DRIVE_MEDIUM)
-#define MFP103_ETH_RXDV		(MFP_REG(0x19C) | MFP_AF5 | MFP_DRIVE_MEDIUM)
-
-/* SPI */
-#define MFP107_SSP2_RXD		(MFP_REG(0x1AC) | MFP_AF4 | MFP_DRIVE_MEDIUM)
-#define MFP108_SSP2_TXD		(MFP_REG(0x1B0) | MFP_AF4 | MFP_DRIVE_MEDIUM)
-#define MFP110_SSP2_CS		(MFP_REG(0x1B8) | MFP_AF0 | MFP_DRIVE_MEDIUM)
-#define MFP111_SSP2_CLK		(MFP_REG(0x1BC) | MFP_AF4 | MFP_DRIVE_MEDIUM)
 
 /* More macros can be defined here... */
 

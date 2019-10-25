@@ -258,7 +258,8 @@ static void ns8382x_init_txd(struct eth_device *dev);
 static void ns8382x_init_rxd(struct eth_device *dev);
 static void ns8382x_set_rx_mode(struct eth_device *dev);
 static void ns8382x_check_duplex(struct eth_device *dev);
-static int ns8382x_send(struct eth_device *dev, void *packet, int length);
+static int ns8382x_send(struct eth_device *dev, volatile void *packet,
+			int length);
 static int ns8382x_poll(struct eth_device *dev);
 static void ns8382x_disable(struct eth_device *dev);
 
@@ -321,7 +322,9 @@ ns8382x_initialize(bd_t * bis)
 		pci_read_config_dword(devno, PCI_BASE_ADDRESS_1, &iobase);
 		iobase &= ~0x3;	/* 1: unused and 0:I/O Space Indicator */
 
-		debug("ns8382x: NatSemi dp8382x @ 0x%x\n", iobase);
+#ifdef NS8382X_DEBUG
+		printf("ns8382x: NatSemi dp8382x @ 0x%x\n", iobase);
+#endif
 
 		pci_write_config_dword(devno, PCI_COMMAND,
 				       PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER);
@@ -379,9 +382,11 @@ ns8382x_initialize(bd_t * bis)
 				rev = mdio_read(dev, phyAddress, PHYIDR2);
 				if ((rev & ~(0x000f)) == 0x00005c50 ||
 				    (rev & ~(0x000f)) == 0x00005c60) {
-					debug("phy rev is %x\n", rev);
-					debug("phy address is %x\n",
+#ifdef NS8382X_DEBUG
+					printf("phy rev is %x\n", rev);
+					printf("phy address is %x\n",
 					       phyAddress);
+#endif
 					break;
 				}
 			}
@@ -406,21 +411,21 @@ ns8382x_initialize(bd_t * bis)
 		OUTL(dev, (chip_config & ~(PhyDis)), ChipConfig);
 
 		mdio_sync(dev, EECtrl);
-
+#ifdef NS8382X_DEBUG
 		{
 			u32 chpcfg =
 			    INL(dev, ChipConfig) ^ SpeedStatus_Polarity;
 
-			debug("%s: Transceiver 10%s %s duplex.\n", dev->name,
+			printf("%s: Transceiver 10%s %s duplex.\n", dev->name,
 			       (chpcfg & GigSpeed) ? "00" : (chpcfg & HundSpeed)
 			       ? "0" : "",
 			       chpcfg & FullDuplex ? "full" : "half");
-			debug("%s: %02x:%02x:%02x:%02x:%02x:%02x\n", dev->name,
+			printf("%s: %02x:%02x:%02x:%02x:%02x:%02x\n", dev->name,
 			       dev->enetaddr[0], dev->enetaddr[1],
 			       dev->enetaddr[2], dev->enetaddr[3],
 			       dev->enetaddr[4], dev->enetaddr[5]);
 		}
-
+#endif
 		/* Disable PME:
 		 * The PME bit is initialized from the EEPROM contents.
 		 * PCI cards probably have PME disabled, but motherboard
@@ -558,10 +563,10 @@ ns8382x_init(struct eth_device *dev, bd_t * bis)
 	tx_config = TxCarrierIgn | TxHeartIgn | TxAutoPad
 	    | TxCollRetry | TxMxdma_1024 | (0x1002);
 	rx_config = RxMxdma_1024 | 0x20;
-
-	debug("%s: Setting TxConfig Register %#08X\n", dev->name, tx_config);
-	debug("%s: Setting RxConfig Register %#08X\n", dev->name, rx_config);
-
+#ifdef NS8382X_DEBUG
+	printf("%s: Setting TxConfig Register %#08X\n", dev->name, tx_config);
+	printf("%s: Setting RxConfig Register %#08X\n", dev->name, rx_config);
+#endif
 	OUTL(dev, tx_config, TxConfig);
 	OUTL(dev, rx_config, RxConfig);
 
@@ -624,9 +629,10 @@ ns8382x_init_txd(struct eth_device *dev)
 
 	OUTL(dev, 0x0, TxRingPtrHi);
 	OUTL(dev, phys_to_bus((u32)&txd), TxRingPtr);
-
-	debug("ns8382x_init_txd: TX descriptor register loaded with: %#08X (&txd: %p)\n",
+#ifdef NS8382X_DEBUG
+	printf("ns8382x_init_txd: TX descriptor register loaded with: %#08X (&txd: %p)\n",
 	       INL(dev, TxRingPtr), &txd);
+#endif
 }
 
 /* Function: ns8382x_init_rxd
@@ -652,16 +658,19 @@ ns8382x_init_rxd(struct eth_device *dev)
 		rxd[i].extsts = cpu_to_le32((u32) 0x0);
 		rxd[i].cmdsts = cpu_to_le32((u32) RX_BUF_SIZE);
 		rxd[i].bufptr = cpu_to_le32((u32) & rxb[i * RX_BUF_SIZE]);
-
-		debug
+#ifdef NS8382X_DEBUG
+		printf
 		    ("ns8382x_init_rxd: rxd[%d]=%p link=%X cmdsts=%X bufptr=%X\n",
 		     i, &rxd[i], le32_to_cpu(rxd[i].link),
 		     le32_to_cpu(rxd[i].cmdsts), le32_to_cpu(rxd[i].bufptr));
+#endif
 	}
 	OUTL(dev, phys_to_bus((u32) & rxd), RxRingPtr);
 
-	debug("ns8382x_init_rxd: RX descriptor register loaded with: %X\n",
+#ifdef NS8382X_DEBUG
+	printf("ns8382x_init_rxd: RX descriptor register loaded with: %X\n",
 	       INL(dev, RxRingPtr));
+#endif
 }
 
 /* Function: ns8382x_set_rx_mode
@@ -699,11 +708,11 @@ ns8382x_check_duplex(struct eth_device *dev)
 	duplex = (config & FullDuplex) ? 1 : 0;
 	gig = (config & GigSpeed) ? 1 : 0;
 	hun = (config & HundSpeed) ? 1 : 0;
-
-	debug("%s: Setting 10%s %s-duplex based on negotiated link"
+#ifdef NS8382X_DEBUG
+	printf("%s: Setting 10%s %s-duplex based on negotiated link"
 	       " capability.\n", dev->name, (gig) ? "00" : (hun) ? "0" : "",
 	       duplex ? "full" : "half");
-
+#endif
 	if (duplex) {
 		rx_config |= RxAcceptTx;
 		tx_config |= (TxCarrierIgn | TxHeartIgn);
@@ -711,10 +720,10 @@ ns8382x_check_duplex(struct eth_device *dev)
 		rx_config &= ~RxAcceptTx;
 		tx_config &= ~(TxCarrierIgn | TxHeartIgn);
 	}
-
-	debug("%s: Resetting TxConfig Register %#08X\n", dev->name, tx_config);
-	debug("%s: Resetting RxConfig Register %#08X\n", dev->name, rx_config);
-
+#ifdef NS8382X_DEBUG
+	printf("%s: Resetting TxConfig Register %#08X\n", dev->name, tx_config);
+	printf("%s: Resetting RxConfig Register %#08X\n", dev->name, rx_config);
+#endif
 	OUTL(dev, tx_config, TxConfig);
 	OUTL(dev, rx_config, RxConfig);
 
@@ -726,23 +735,26 @@ ns8382x_check_duplex(struct eth_device *dev)
 	else
 		config &= ~Mode1000;
 
-	debug("%s: %setting Mode1000\n", dev->name, (gig) ? "S" : "Uns");
-
+#ifdef NS8382X_DEBUG
+	printf("%s: %setting Mode1000\n", dev->name, (gig) ? "S" : "Uns");
+#endif
 	OUTL(dev, config, ChipConfig);
 }
 
 /* Function: ns8382x_send
  * Description: transmits a packet and waits for completion or timeout.
  * Returns:   void.  */
-static int ns8382x_send(struct eth_device *dev, void *packet, int length)
+static int
+ns8382x_send(struct eth_device *dev, volatile void *packet, int length)
 {
 	u32 i, status = 0;
 	vu_long tx_stat = 0;
 
 	/* Stop the transmitter */
 	OUTL(dev, TxOff, ChipCmd);
-
-	debug("ns8382x_send: sending %d bytes\n", (int)length);
+#ifdef NS8382X_DEBUG
+	printf("ns8382x_send: sending %d bytes\n", (int)length);
+#endif
 
 	/* set the transmit buffer descriptor and enable Transmit State Machine */
 	txd.link = cpu_to_le32(0x0);
@@ -752,13 +764,13 @@ static int ns8382x_send(struct eth_device *dev, void *packet, int length)
 
 	/* load Transmit Descriptor Register */
 	OUTL(dev, phys_to_bus((u32) & txd), TxRingPtr);
-
-	debug("ns8382x_send: TX descriptor register loaded with: %#08X\n",
+#ifdef NS8382X_DEBUG
+	printf("ns8382x_send: TX descriptor register loaded with: %#08X\n",
 	       INL(dev, TxRingPtr));
-	debug("\ttxd.link:%X\tbufp:%X\texsts:%X\tcmdsts:%X\n",
+	printf("\ttxd.link:%X\tbufp:%X\texsts:%X\tcmdsts:%X\n",
 	       le32_to_cpu(txd.link), le32_to_cpu(txd.bufptr),
 	       le32_to_cpu(txd.extsts), le32_to_cpu(txd.cmdsts));
-
+#endif
 	/* restart the transmitter */
 	OUTL(dev, TxOn, ChipCmd);
 
@@ -774,11 +786,12 @@ static int ns8382x_send(struct eth_device *dev, void *packet, int length)
 		printf("ns8382x_send: Transmit error, Tx status %lX.\n", tx_stat);
 		goto Done;
 	}
-
-	debug("ns8382x_send: tx_stat: %#08lX\n", tx_stat);
+#ifdef NS8382X_DEBUG
+	printf("ns8382x_send: tx_stat: %#08X\n", tx_stat);
+#endif
 
 	status = 1;
-Done:
+      Done:
 	return status;
 }
 
@@ -801,21 +814,19 @@ ns8382x_poll(struct eth_device *dev)
 
 	if (!(rx_status & (u32) DescOwn))
 		return retstat;
-
-	debug("ns8382x_poll: got a packet: cur_rx:%u, status:%lx\n",
+#ifdef NS8382X_DEBUG
+	printf("ns8382x_poll: got a packet: cur_rx:%u, status:%lx\n",
 	       cur_rx, rx_status);
-
+#endif
 	length = (rx_status & DSIZE) - CRC_SIZE;
 
 	if ((rx_status & (DescMore | DescPktOK | DescRxLong)) != DescPktOK) {
 		/* corrupted packet received */
-		printf("ns8382x_poll: Corrupted packet, status:%lx\n",
-		       rx_status);
+		printf("ns8382x_poll: Corrupted packet, status:%lx\n", rx_status);
 		retstat = 0;
 	} else {
 		/* give packet to higher level routine */
-		net_process_received_packet((rxb + cur_rx * RX_BUF_SIZE),
-					    length);
+		NetReceive((rxb + cur_rx * RX_BUF_SIZE), length);
 		retstat = 1;
 	}
 

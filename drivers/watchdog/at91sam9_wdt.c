@@ -6,7 +6,10 @@
  * Copyright (C) 2008 Jean-Christophe PLAGNIOL-VILLARD <plagnioj@jcrosoft.com>
  * Copyright (C) 2008 Renaud CERRATO r.cerrato@til-technologies.fr
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version
+ * 2 of the License, or (at your option) any later version.
  */
 
 /*
@@ -30,11 +33,7 @@
 #define ticks_to_ms(t)	(((t + 1) * 1000) >> 8)
 
 /* Hardware timeout in seconds */
-#if !defined(CONFIG_AT91_HW_WDT_TIMEOUT)
 #define WDT_HW_TIMEOUT 2
-#else
-#define WDT_HW_TIMEOUT CONFIG_AT91_HW_WDT_TIMEOUT
-#endif
 
 /*
  * Set the watchdog time interval in 1/256Hz (write-once)

@@ -3,7 +3,20 @@
  *
  * SH7723 Internal I/O register
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef _ASM_CPU_SH7723_H_
@@ -82,7 +95,16 @@
 #define WTCNT		RWTCNT
 
 /* TMU */
-#define TMU_BASE	0xFFD80000
+#define TSTR        0xFFD80004
+#define TCOR0       0xFFD80008
+#define TCNT0       0xFFD8000C
+#define TCR0        0xFFD80010
+#define TCOR1       0xFFD80014
+#define TCNT1       0xFFD80018
+#define TCR1        0xFFD8001C
+#define TCOR2       0xFFD80020
+#define TCNT2       0xFFD80024
+#define TCR2        0xFFD80028
 
 /* TPU */
 
@@ -178,9 +200,8 @@
 #define PUDR        0xA4050162
 #define PVDR        0xA4050164
 #define PWDR        0xA4050166
-#define PXDR        0xA4050168
-#define PYDR        0xA405016A
-#define PZDR        0xA405016C
+#define PYDR        0xA4050168
+#define PZDR        0xA405016A
 
 /* UBC */
 /* H-UDI */

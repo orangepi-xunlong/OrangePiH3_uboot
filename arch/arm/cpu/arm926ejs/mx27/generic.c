@@ -2,7 +2,20 @@
  *  Copyright (c) 2008 Eric Jarrige <eric.jarrige@armadeus.org>
  *  Copyright (c) 2009 Ilya Yanok <yanok@emcraft.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -10,9 +23,6 @@
 #include <netdev.h>
 #include <asm/io.h>
 #include <asm/arch/imx-regs.h>
-#include <asm/arch/clock.h>
-#include <asm/arch/gpio.h>
-#include <asm/imx-common/sys_proto.h>
 #ifdef CONFIG_MXC_MMC
 #include <asm/arch/mxcmmc.h>
 #endif
@@ -24,7 +34,7 @@
  *  f = 2 * f_ref * --------------------
  *                        pd + 1
  */
-static unsigned int imx_decode_pll(unsigned int pll, unsigned int f_ref)
+unsigned int imx_decode_pll(unsigned int pll, unsigned int f_ref)
 {
 	unsigned int mfi = (pll >> 10) & 0xf;
 	unsigned int mfn = pll & 0x3ff;
@@ -54,7 +64,7 @@ static ulong clk_in_26m(void)
 	}
 }
 
-static ulong imx_get_mpllclk(void)
+ulong imx_get_mpllclk(void)
 {
 	struct pll_regs *pll = (struct pll_regs *)IMX_PLL_BASE;
 	ulong cscr = readl(&pll->cscr);
@@ -68,7 +78,7 @@ static ulong imx_get_mpllclk(void)
 	return imx_decode_pll(readl(&pll->mpctl0), fref);
 }
 
-static ulong imx_get_armclk(void)
+ulong imx_get_armclk(void)
 {
 	struct pll_regs *pll = (struct pll_regs *)IMX_PLL_BASE;
 	ulong cscr = readl(&pll->cscr);
@@ -83,7 +93,7 @@ static ulong imx_get_armclk(void)
 	return lldiv(fref, div);
 }
 
-static ulong imx_get_ahbclk(void)
+ulong imx_get_ahbclk(void)
 {
 	struct pll_regs *pll = (struct pll_regs *)IMX_PLL_BASE;
 	ulong cscr = readl(&pll->cscr);
@@ -95,7 +105,7 @@ static ulong imx_get_ahbclk(void)
 	return lldiv(fref * 2, 3 * div);
 }
 
-static __attribute__((unused)) ulong imx_get_spllclk(void)
+ulong imx_get_spllclk(void)
 {
 	struct pll_regs *pll = (struct pll_regs *)IMX_PLL_BASE;
 	ulong cscr = readl(&pll->cscr);
@@ -114,55 +124,32 @@ static ulong imx_decode_perclk(ulong div)
 	return lldiv((imx_get_mpllclk() * 2), (div * 3));
 }
 
-static ulong imx_get_perclk1(void)
+ulong imx_get_perclk1(void)
 {
 	struct pll_regs *pll = (struct pll_regs *)IMX_PLL_BASE;
 
 	return imx_decode_perclk((readl(&pll->pcdr1) & 0x3f) + 1);
 }
 
-static ulong imx_get_perclk2(void)
+ulong imx_get_perclk2(void)
 {
 	struct pll_regs *pll = (struct pll_regs *)IMX_PLL_BASE;
 
 	return imx_decode_perclk(((readl(&pll->pcdr1) >> 8) & 0x3f) + 1);
 }
 
-static __attribute__((unused)) ulong imx_get_perclk3(void)
+ulong imx_get_perclk3(void)
 {
 	struct pll_regs *pll = (struct pll_regs *)IMX_PLL_BASE;
 
 	return imx_decode_perclk(((readl(&pll->pcdr1) >> 16) & 0x3f) + 1);
 }
 
-static __attribute__((unused)) ulong imx_get_perclk4(void)
+ulong imx_get_perclk4(void)
 {
 	struct pll_regs *pll = (struct pll_regs *)IMX_PLL_BASE;
 
 	return imx_decode_perclk(((readl(&pll->pcdr1) >> 24) & 0x3f) + 1);
-}
-
-unsigned int mxc_get_clock(enum mxc_clock clk)
-{
-	switch (clk) {
-	case MXC_ARM_CLK:
-		return imx_get_armclk();
-	case MXC_I2C_CLK:
-		return imx_get_ahbclk()/2;
-	case MXC_UART_CLK:
-		return imx_get_perclk1();
-	case MXC_FEC_CLK:
-		return imx_get_ahbclk();
-	case MXC_ESDHC_CLK:
-		return imx_get_perclk2();
-	}
-	return -1;
-}
-
-
-u32 get_cpu_rev(void)
-{
-	return MXC_CPU_MX27 << 12;
 }
 
 #if defined(CONFIG_DISPLAY_CPUINFO)
@@ -205,7 +192,7 @@ int cpu_mmc_init(bd_t *bis)
 
 void imx_gpio_mode(int gpio_mode)
 {
-	struct gpio_port_regs *regs = (struct gpio_port_regs *)IMX_GPIO_BASE;
+	struct gpio_regs *regs = (struct gpio_regs *)IMX_GPIO_BASE;
 	unsigned int pin = gpio_mode & GPIO_PIN_MASK;
 	unsigned int port = (gpio_mode & GPIO_PORT_MASK) >> GPIO_PORT_SHIFT;
 	unsigned int ocr = (gpio_mode & GPIO_OCR_MASK) >> GPIO_OCR_SHIFT;
@@ -224,11 +211,11 @@ void imx_gpio_mode(int gpio_mode)
 
 	/* Data direction */
 	if (gpio_mode & GPIO_OUT) {
-		writel(readl(&regs->port[port].gpio_dir) | 1 << pin,
-				&regs->port[port].gpio_dir);
+		writel(readl(&regs->port[port].ddir) | 1 << pin,
+				&regs->port[port].ddir);
 	} else {
-		writel(readl(&regs->port[port].gpio_dir) & ~(1 << pin),
-				&regs->port[port].gpio_dir);
+		writel(readl(&regs->port[port].ddir) & ~(1 << pin),
+				&regs->port[port].ddir);
 	}
 
 	/* Primary / alternate function */
@@ -327,7 +314,7 @@ void mx27_fec_init_pins(void)
 		imx_gpio_mode(mode[i]);
 }
 
-void imx_get_mac_from_fuse(int dev_id, unsigned char *mac)
+void imx_get_mac_from_fuse(unsigned char *mac)
 {
 	int i;
 	struct iim_regs *iim = (struct iim_regs *)IMX_IIM_BASE;
@@ -375,11 +362,3 @@ void mx27_sd2_init_pins(void)
 
 }
 #endif /* CONFIG_MXC_MMC */
-
-#ifndef CONFIG_SYS_DCACHE_OFF
-void enable_caches(void)
-{
-	/* Enable D-cache. I-cache is already enabled in start.S */
-	dcache_enable();
-}
-#endif /* CONFIG_SYS_DCACHE_OFF */

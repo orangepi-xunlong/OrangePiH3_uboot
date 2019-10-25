@@ -11,7 +11,24 @@
  * (C) Copyright 1999 Roman Weissgaerber <weissg@vienna.at>
  * (C) Copyright 2000-2002 David Brownell
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
  */
 /*
  * IMPORTANT NOTES
@@ -41,6 +58,8 @@
 
 #define readl(a) (*((volatile u32 *)(a)))
 #define writel(a, b) (*((volatile u32 *)(b)) = ((volatile u32)a))
+
+#define min_t(type,x,y) ({ type __x = (x); type __y = (y); __x < __y ? __x: __y; })
 
 #ifdef DEBUG
 #define dbg(format, arg...) printf("DEBUG: " format "\n", ## arg)
@@ -599,7 +618,7 @@ static ed_t * ep_add_ed (struct usb_device *usb_dev, unsigned long pipe)
 			| usb_pipeendpoint (pipe) << 7
 			| (usb_pipeisoc (pipe)? 0x8000: 0)
 			| (usb_pipecontrol (pipe)? 0: (usb_pipeout (pipe)? 0x800: 0x1000))
-			| (usb_dev->speed == USB_SPEED_LOW) << 13
+			| usb_pipeslow (pipe) << 13
 			| usb_maxpacket (usb_dev, pipe) << 16);
 
 	return ed_ret;
@@ -729,9 +748,10 @@ static void td_submit_job (struct usb_device *dev, unsigned long pipe, void *buf
 
 static void dl_transfer_length(td_t * td)
 {
-	__u32 tdBE, tdCBP;
+	__u32 tdINFO, tdBE, tdCBP;
 	urb_priv_t *lurb_priv = &urb_priv;
 
+	tdINFO = ohci_cpu_to_le32 (td->hwINFO);
 	tdBE   = ohci_cpu_to_le32 (td->hwBE);
 	tdCBP  = ohci_cpu_to_le32 (td->hwCBP);
 
@@ -840,7 +860,104 @@ static int dl_done_list (ohci_t *ohci, td_t *td_list)
  * Virtual Root Hub
  *-------------------------------------------------------------------------*/
 
-#include <usbroothubdes.h>
+/* Device descriptor */
+static __u8 root_hub_dev_des[] =
+{
+	0x12,	    /*	__u8  bLength; */
+	0x01,	    /*	__u8  bDescriptorType; Device */
+	0x10,	    /*	__u16 bcdUSB; v1.1 */
+	0x01,
+	0x09,	    /*	__u8  bDeviceClass; HUB_CLASSCODE */
+	0x00,	    /*	__u8  bDeviceSubClass; */
+	0x00,	    /*	__u8  bDeviceProtocol; */
+	0x08,	    /*	__u8  bMaxPacketSize0; 8 Bytes */
+	0x00,	    /*	__u16 idVendor; */
+	0x00,
+	0x00,	    /*	__u16 idProduct; */
+	0x00,
+	0x00,	    /*	__u16 bcdDevice; */
+	0x00,
+	0x00,	    /*	__u8  iManufacturer; */
+	0x01,	    /*	__u8  iProduct; */
+	0x00,	    /*	__u8  iSerialNumber; */
+	0x01	    /*	__u8  bNumConfigurations; */
+};
+
+
+/* Configuration descriptor */
+static __u8 root_hub_config_des[] =
+{
+	0x09,	    /*	__u8  bLength; */
+	0x02,	    /*	__u8  bDescriptorType; Configuration */
+	0x19,	    /*	__u16 wTotalLength; */
+	0x00,
+	0x01,	    /*	__u8  bNumInterfaces; */
+	0x01,	    /*	__u8  bConfigurationValue; */
+	0x00,	    /*	__u8  iConfiguration; */
+	0x40,	    /*	__u8  bmAttributes;
+		 Bit 7: Bus-powered, 6: Self-powered, 5 Remote-wakwup, 4..0: resvd */
+	0x00,	    /*	__u8  MaxPower; */
+
+	/* interface */
+	0x09,	    /*	__u8  if_bLength; */
+	0x04,	    /*	__u8  if_bDescriptorType; Interface */
+	0x00,	    /*	__u8  if_bInterfaceNumber; */
+	0x00,	    /*	__u8  if_bAlternateSetting; */
+	0x01,	    /*	__u8  if_bNumEndpoints; */
+	0x09,	    /*	__u8  if_bInterfaceClass; HUB_CLASSCODE */
+	0x00,	    /*	__u8  if_bInterfaceSubClass; */
+	0x00,	    /*	__u8  if_bInterfaceProtocol; */
+	0x00,	    /*	__u8  if_iInterface; */
+
+	/* endpoint */
+	0x07,	    /*	__u8  ep_bLength; */
+	0x05,	    /*	__u8  ep_bDescriptorType; Endpoint */
+	0x81,	    /*	__u8  ep_bEndpointAddress; IN Endpoint 1 */
+	0x03,	    /*	__u8  ep_bmAttributes; Interrupt */
+	0x02,	    /*	__u16 ep_wMaxPacketSize; ((MAX_ROOT_PORTS + 1) / 8 */
+	0x00,
+	0xff	    /*	__u8  ep_bInterval; 255 ms */
+};
+
+static unsigned char root_hub_str_index0[] =
+{
+	0x04,			/*  __u8  bLength; */
+	0x03,			/*  __u8  bDescriptorType; String-descriptor */
+	0x09,			/*  __u8  lang ID */
+	0x04,			/*  __u8  lang ID */
+};
+
+static unsigned char root_hub_str_index1[] =
+{
+	28,			/*  __u8  bLength; */
+	0x03,			/*  __u8  bDescriptorType; String-descriptor */
+	'O',			/*  __u8  Unicode */
+	0,				/*  __u8  Unicode */
+	'H',			/*  __u8  Unicode */
+	0,				/*  __u8  Unicode */
+	'C',			/*  __u8  Unicode */
+	0,				/*  __u8  Unicode */
+	'I',			/*  __u8  Unicode */
+	0,				/*  __u8  Unicode */
+	' ',			/*  __u8  Unicode */
+	0,				/*  __u8  Unicode */
+	'R',			/*  __u8  Unicode */
+	0,				/*  __u8  Unicode */
+	'o',			/*  __u8  Unicode */
+	0,				/*  __u8  Unicode */
+	'o',			/*  __u8  Unicode */
+	0,				/*  __u8  Unicode */
+	't',			/*  __u8  Unicode */
+	0,				/*  __u8  Unicode */
+	' ',			/*  __u8  Unicode */
+	0,				/*  __u8  Unicode */
+	'H',			/*  __u8  Unicode */
+	0,				/*  __u8  Unicode */
+	'u',			/*  __u8  Unicode */
+	0,				/*  __u8  Unicode */
+	'b',			/*  __u8  Unicode */
+	0,				/*  __u8  Unicode */
+};
 
 /* Hub class-specific descriptor is constructed dynamically */
 
@@ -1153,7 +1270,7 @@ int submit_common_msg(struct usb_device *dev, unsigned long pipe, void *buffer,
 		}
 
 		if (--timeout) {
-			mdelay(1);
+			wait_ms(1);
 			if (!urb_finished)
 				dbg("\%");
 
@@ -1256,7 +1373,7 @@ static int hc_reset (ohci_t *ohci)
 		writel (OHCI_OCR, &ohci->regs->cmdstatus); /* request ownership */
 		info("USB HC TakeOver from SMM");
 		while (readl (&ohci->regs->control) & OHCI_CTRL_IR) {
-			mdelay (10);
+			wait_ms (10);
 			if (--smm_timeout == 0) {
 				err("USB HC TakeOver failed!");
 				return -1;
@@ -1338,6 +1455,7 @@ static int hc_start (ohci_t * ohci)
 	writel (RH_HS_LPSC, &ohci->regs->roothub.status);
 #endif	/* OHCI_USE_NPS */
 
+#define mdelay(n) ({unsigned long msec=(n); while (msec--) udelay(1000);})
 	/* POTPGT delay is bits 24-31, in 2 ms units. */
 	mdelay ((roothub_a (ohci) >> 23) & 0x1fe);
 
@@ -1413,7 +1531,7 @@ hc_interrupt (void)
 	/* FIXME:  this assumes SOF (1/ms) interrupts don't get lost... */
 	if (ints & OHCI_INTR_SF) {
 		unsigned int frame = ohci_cpu_to_le16 (ohci->hcca->frame_no) & 1;
-		mdelay(1);
+		wait_ms(1);
 		writel (OHCI_INTR_SF, &regs->intrdisable);
 		if (ohci->ed_rm_list[frame] != NULL)
 			writel (OHCI_INTR_SF, &regs->intrenable);
@@ -1445,7 +1563,7 @@ static void hc_release_ohci (ohci_t *ohci)
  */
 static char ohci_inited = 0;
 
-int usb_lowlevel_init(int index, enum usb_init_type init, void **controller)
+int usb_lowlevel_init(void)
 {
 
 	/* Set the USB Clock						     */
@@ -1513,7 +1631,7 @@ int usb_lowlevel_init(int index, enum usb_init_type init, void **controller)
 	return 0;
 }
 
-int usb_lowlevel_stop(int index)
+int usb_lowlevel_stop(void)
 {
 	/* this gets called really early - before the controller has */
 	/* even been initialized! */

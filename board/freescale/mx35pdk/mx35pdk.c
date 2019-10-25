@@ -3,7 +3,23 @@
  *
  * (C) Copyright 2008-2010 Freescale Semiconductor, Inc.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -11,13 +27,10 @@
 #include <asm/errno.h>
 #include <asm/arch/imx-regs.h>
 #include <asm/arch/crm_regs.h>
-#include <asm/arch/clock.h>
-#include <asm/arch/iomux-mx35.h>
+#include <asm/arch/mx35_pins.h>
+#include <asm/arch/iomux.h>
 #include <i2c.h>
-#include <power/pmic.h>
 #include <fsl_pmic.h>
-#include <mmc.h>
-#include <fsl_esdhc.h>
 #include <mc9sdz60.h>
 #include <mc13892.h>
 #include <linux/types.h>
@@ -25,13 +38,15 @@
 #include <asm/arch/sys_proto.h>
 #include <netdev.h>
 
-#ifndef CONFIG_BOARD_LATE_INIT
-#error "CONFIG_BOARD_LATE_INIT must be set for this board"
+#ifndef BOARD_LATE_INIT
+#error "BOARD_LATE_INIT must be set for this board"
 #endif
 
 #ifndef CONFIG_BOARD_EARLY_INIT_F
 #error "CONFIG_BOARD_EARLY_INIT_F must be set for this board"
 #endif
+
+#define mdelay(n) ({unsigned long msec = (n); while (msec--) udelay(1000); })
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -56,88 +71,94 @@ void dram_init_banksize(void)
 	gd->bd->bi_dram[1].size = PHYS_SDRAM_2_SIZE;
 }
 
-#define I2C_PAD_CTRL	(PAD_CTL_HYS | PAD_CTL_PUS_100K_DOWN | PAD_CTL_ODE)
-
 static void setup_iomux_i2c(void)
 {
-	static const iomux_v3_cfg_t i2c1_pads[] = {
-		NEW_PAD_CTRL(MX35_PAD_I2C1_CLK__I2C1_SCL, I2C_PAD_CTRL),
-		NEW_PAD_CTRL(MX35_PAD_I2C1_DAT__I2C1_SDA, I2C_PAD_CTRL),
-	};
+	int pad;
 
 	/* setup pins for I2C1 */
-	imx_iomux_v3_setup_multiple_pads(i2c1_pads, ARRAY_SIZE(i2c1_pads));
+	mxc_request_iomux(MX35_PIN_I2C1_CLK, MUX_CONFIG_SION);
+	mxc_request_iomux(MX35_PIN_I2C1_DAT, MUX_CONFIG_SION);
+
+	pad = (PAD_CTL_HYS_SCHMITZ | PAD_CTL_PKE_ENABLE \
+			| PAD_CTL_PUE_PUD | PAD_CTL_ODE_OpenDrain);
+
+	mxc_iomux_set_pad(MX35_PIN_I2C1_CLK, pad);
+	mxc_iomux_set_pad(MX35_PIN_I2C1_DAT, pad);
 }
 
 
 static void setup_iomux_spi(void)
 {
-	static const iomux_v3_cfg_t spi_pads[] = {
-		MX35_PAD_CSPI1_MOSI__CSPI1_MOSI,
-		MX35_PAD_CSPI1_MISO__CSPI1_MISO,
-		MX35_PAD_CSPI1_SS0__CSPI1_SS0,
-		MX35_PAD_CSPI1_SS1__CSPI1_SS1,
-		MX35_PAD_CSPI1_SCLK__CSPI1_SCLK,
-	};
-
-	imx_iomux_v3_setup_multiple_pads(spi_pads, ARRAY_SIZE(spi_pads));
+	mxc_request_iomux(MX35_PIN_CSPI1_MOSI, MUX_CONFIG_SION);
+	mxc_request_iomux(MX35_PIN_CSPI1_MISO, MUX_CONFIG_SION);
+	mxc_request_iomux(MX35_PIN_CSPI1_SS0, MUX_CONFIG_SION);
+	mxc_request_iomux(MX35_PIN_CSPI1_SS1, MUX_CONFIG_SION);
+	mxc_request_iomux(MX35_PIN_CSPI1_SCLK, MUX_CONFIG_SION);
 }
-
-#define USBOTG_IN_PAD_CTRL	(PAD_CTL_HYS | PAD_CTL_PUS_100K_DOWN | \
-				 PAD_CTL_DSE_LOW | PAD_CTL_SRE_SLOW)
-#define USBOTG_OUT_PAD_CTRL	(PAD_CTL_DSE_LOW | PAD_CTL_SRE_SLOW)
-
-static void setup_iomux_usbotg(void)
-{
-	static const iomux_v3_cfg_t usbotg_pads[] = {
-		NEW_PAD_CTRL(MX35_PAD_USBOTG_PWR__USB_TOP_USBOTG_PWR,
-				USBOTG_OUT_PAD_CTRL),
-		NEW_PAD_CTRL(MX35_PAD_USBOTG_OC__USB_TOP_USBOTG_OC,
-				USBOTG_IN_PAD_CTRL),
-	};
-
-	/* Set up pins for USBOTG. */
-	imx_iomux_v3_setup_multiple_pads(usbotg_pads, ARRAY_SIZE(usbotg_pads));
-}
-
-#define FEC_PAD_CTRL	(PAD_CTL_DSE_LOW | PAD_CTL_SRE_SLOW)
 
 static void setup_iomux_fec(void)
 {
-	static const iomux_v3_cfg_t fec_pads[] = {
-		NEW_PAD_CTRL(MX35_PAD_FEC_TX_CLK__FEC_TX_CLK, FEC_PAD_CTRL |
-					PAD_CTL_HYS | PAD_CTL_PUS_100K_DOWN),
-		NEW_PAD_CTRL(MX35_PAD_FEC_RX_CLK__FEC_RX_CLK, FEC_PAD_CTRL |
-					PAD_CTL_HYS | PAD_CTL_PUS_100K_DOWN),
-		NEW_PAD_CTRL(MX35_PAD_FEC_RX_DV__FEC_RX_DV, FEC_PAD_CTRL |
-					PAD_CTL_HYS | PAD_CTL_PUS_100K_DOWN),
-		NEW_PAD_CTRL(MX35_PAD_FEC_COL__FEC_COL, FEC_PAD_CTRL |
-					PAD_CTL_HYS | PAD_CTL_PUS_100K_DOWN),
-		NEW_PAD_CTRL(MX35_PAD_FEC_RDATA0__FEC_RDATA_0, FEC_PAD_CTRL |
-					PAD_CTL_HYS | PAD_CTL_PUS_100K_DOWN),
-		NEW_PAD_CTRL(MX35_PAD_FEC_TDATA0__FEC_TDATA_0, FEC_PAD_CTRL),
-		NEW_PAD_CTRL(MX35_PAD_FEC_TX_EN__FEC_TX_EN, FEC_PAD_CTRL),
-		NEW_PAD_CTRL(MX35_PAD_FEC_MDC__FEC_MDC, FEC_PAD_CTRL),
-		NEW_PAD_CTRL(MX35_PAD_FEC_MDIO__FEC_MDIO, FEC_PAD_CTRL |
-					PAD_CTL_HYS | PAD_CTL_PUS_22K_UP),
-		NEW_PAD_CTRL(MX35_PAD_FEC_TX_ERR__FEC_TX_ERR, FEC_PAD_CTRL),
-		NEW_PAD_CTRL(MX35_PAD_FEC_RX_ERR__FEC_RX_ERR, FEC_PAD_CTRL |
-					PAD_CTL_HYS | PAD_CTL_PUS_100K_DOWN),
-		NEW_PAD_CTRL(MX35_PAD_FEC_CRS__FEC_CRS, FEC_PAD_CTRL |
-					PAD_CTL_HYS | PAD_CTL_PUS_100K_DOWN),
-		NEW_PAD_CTRL(MX35_PAD_FEC_RDATA1__FEC_RDATA_1, FEC_PAD_CTRL |
-					PAD_CTL_HYS | PAD_CTL_PUS_100K_DOWN),
-		NEW_PAD_CTRL(MX35_PAD_FEC_TDATA1__FEC_TDATA_1, FEC_PAD_CTRL),
-		NEW_PAD_CTRL(MX35_PAD_FEC_RDATA2__FEC_RDATA_2, FEC_PAD_CTRL |
-					PAD_CTL_HYS | PAD_CTL_PUS_100K_DOWN),
-		NEW_PAD_CTRL(MX35_PAD_FEC_TDATA2__FEC_TDATA_2, FEC_PAD_CTRL),
-		NEW_PAD_CTRL(MX35_PAD_FEC_RDATA3__FEC_RDATA_3, FEC_PAD_CTRL |
-					PAD_CTL_HYS | PAD_CTL_PUS_100K_DOWN),
-		NEW_PAD_CTRL(MX35_PAD_FEC_TDATA3__FEC_TDATA_3, FEC_PAD_CTRL),
-	};
+	int pad;
 
 	/* setup pins for FEC */
-	imx_iomux_v3_setup_multiple_pads(fec_pads, ARRAY_SIZE(fec_pads));
+	mxc_request_iomux(MX35_PIN_FEC_TX_CLK, MUX_CONFIG_FUNC);
+	mxc_request_iomux(MX35_PIN_FEC_RX_CLK, MUX_CONFIG_FUNC);
+	mxc_request_iomux(MX35_PIN_FEC_RX_DV, MUX_CONFIG_FUNC);
+	mxc_request_iomux(MX35_PIN_FEC_COL, MUX_CONFIG_FUNC);
+	mxc_request_iomux(MX35_PIN_FEC_RDATA0, MUX_CONFIG_FUNC);
+	mxc_request_iomux(MX35_PIN_FEC_TDATA0, MUX_CONFIG_FUNC);
+	mxc_request_iomux(MX35_PIN_FEC_TX_EN, MUX_CONFIG_FUNC);
+	mxc_request_iomux(MX35_PIN_FEC_MDC, MUX_CONFIG_FUNC);
+	mxc_request_iomux(MX35_PIN_FEC_MDIO, MUX_CONFIG_FUNC);
+	mxc_request_iomux(MX35_PIN_FEC_TX_ERR, MUX_CONFIG_FUNC);
+	mxc_request_iomux(MX35_PIN_FEC_RX_ERR, MUX_CONFIG_FUNC);
+	mxc_request_iomux(MX35_PIN_FEC_CRS, MUX_CONFIG_FUNC);
+	mxc_request_iomux(MX35_PIN_FEC_RDATA1, MUX_CONFIG_FUNC);
+	mxc_request_iomux(MX35_PIN_FEC_TDATA1, MUX_CONFIG_FUNC);
+	mxc_request_iomux(MX35_PIN_FEC_RDATA2, MUX_CONFIG_FUNC);
+	mxc_request_iomux(MX35_PIN_FEC_TDATA2, MUX_CONFIG_FUNC);
+	mxc_request_iomux(MX35_PIN_FEC_RDATA3, MUX_CONFIG_FUNC);
+	mxc_request_iomux(MX35_PIN_FEC_TDATA3, MUX_CONFIG_FUNC);
+
+	pad = (PAD_CTL_DRV_3_3V | PAD_CTL_PUE_PUD | PAD_CTL_ODE_CMOS | \
+			PAD_CTL_DRV_NORMAL | PAD_CTL_SRE_SLOW);
+
+	mxc_iomux_set_pad(MX35_PIN_FEC_TX_CLK, pad | PAD_CTL_HYS_SCHMITZ | \
+			PAD_CTL_PKE_ENABLE | PAD_CTL_100K_PD);
+	mxc_iomux_set_pad(MX35_PIN_FEC_RX_CLK, pad | PAD_CTL_HYS_SCHMITZ | \
+			PAD_CTL_PKE_ENABLE | PAD_CTL_100K_PD);
+	mxc_iomux_set_pad(MX35_PIN_FEC_RX_DV, pad | PAD_CTL_HYS_SCHMITZ | \
+			 PAD_CTL_PKE_ENABLE | PAD_CTL_100K_PD);
+	mxc_iomux_set_pad(MX35_PIN_FEC_COL, pad | PAD_CTL_HYS_SCHMITZ | \
+			  PAD_CTL_PKE_ENABLE | PAD_CTL_100K_PD);
+	mxc_iomux_set_pad(MX35_PIN_FEC_RDATA0, pad | PAD_CTL_HYS_SCHMITZ | \
+			  PAD_CTL_PKE_ENABLE | PAD_CTL_100K_PD);
+	mxc_iomux_set_pad(MX35_PIN_FEC_TDATA0, pad | PAD_CTL_HYS_CMOS | \
+			  PAD_CTL_PKE_NONE | PAD_CTL_100K_PD);
+	mxc_iomux_set_pad(MX35_PIN_FEC_TX_EN, pad | PAD_CTL_HYS_CMOS | \
+			  PAD_CTL_PKE_NONE | PAD_CTL_100K_PD);
+	mxc_iomux_set_pad(MX35_PIN_FEC_MDC, pad | PAD_CTL_HYS_CMOS | \
+			  PAD_CTL_PKE_NONE | PAD_CTL_100K_PD);
+	mxc_iomux_set_pad(MX35_PIN_FEC_MDIO, pad | PAD_CTL_HYS_SCHMITZ | \
+			  PAD_CTL_PKE_ENABLE | PAD_CTL_22K_PU);
+	mxc_iomux_set_pad(MX35_PIN_FEC_TX_ERR, pad | PAD_CTL_HYS_CMOS | \
+			  PAD_CTL_PKE_NONE | PAD_CTL_100K_PD);
+	mxc_iomux_set_pad(MX35_PIN_FEC_RX_ERR, pad | PAD_CTL_HYS_SCHMITZ | \
+			  PAD_CTL_PKE_ENABLE | PAD_CTL_100K_PD);
+	mxc_iomux_set_pad(MX35_PIN_FEC_CRS, pad | PAD_CTL_HYS_SCHMITZ | \
+			  PAD_CTL_PKE_ENABLE | PAD_CTL_100K_PD);
+	mxc_iomux_set_pad(MX35_PIN_FEC_RDATA1, pad | PAD_CTL_HYS_SCHMITZ | \
+			  PAD_CTL_PKE_ENABLE | PAD_CTL_100K_PD);
+	mxc_iomux_set_pad(MX35_PIN_FEC_TDATA1, pad | PAD_CTL_HYS_CMOS | \
+			  PAD_CTL_PKE_NONE | PAD_CTL_100K_PD);
+	mxc_iomux_set_pad(MX35_PIN_FEC_RDATA2, pad | PAD_CTL_HYS_SCHMITZ | \
+			  PAD_CTL_PKE_ENABLE | PAD_CTL_100K_PD);
+	mxc_iomux_set_pad(MX35_PIN_FEC_TDATA2, pad | PAD_CTL_HYS_CMOS | \
+			  PAD_CTL_PKE_NONE | PAD_CTL_100K_PD);
+	mxc_iomux_set_pad(MX35_PIN_FEC_RDATA3, pad | PAD_CTL_HYS_SCHMITZ | \
+			  PAD_CTL_PKE_ENABLE | PAD_CTL_100K_PD);
+	mxc_iomux_set_pad(MX35_PIN_FEC_TDATA3, pad | PAD_CTL_HYS_CMOS | \
+			  PAD_CTL_PKE_NONE | PAD_CTL_100K_PD);
 }
 
 int board_early_init_f(void)
@@ -148,7 +169,7 @@ int board_early_init_f(void)
 	/* enable clocks */
 	writel(readl(&ccm->cgr0) |
 		MXC_CCM_CGR0_EMI_MASK |
-		MXC_CCM_CGR0_EDIO_MASK |
+		MXC_CCM_CGR0_EDI0_MASK |
 		MXC_CCM_CGR0_EPIT1_MASK,
 		&ccm->cgr0);
 
@@ -166,7 +187,6 @@ int board_early_init_f(void)
 	__raw_writel(readl(&ccm->rcsr) | MXC_CCM_RCSR_NFC_FMS, &ccm->rcsr);
 
 	setup_iomux_i2c();
-	setup_iomux_usbotg();
 	setup_iomux_fec();
 	setup_iomux_spi();
 
@@ -184,12 +204,9 @@ int board_init(void)
 
 static inline int pmic_detect(void)
 {
-	unsigned int id;
-	struct pmic *p = pmic_get("FSL_PMIC");
-	if (!p)
-		return -ENODEV;
+	int id;
 
-	pmic_reg_read(p, REG_IDENTIFICATION, &id);
+	id = pmic_reg_read(REG_IDENTIFICATION);
 
 	id = (id >> 6) & 0x7;
 	if (id == 0x7)
@@ -210,26 +227,20 @@ int board_late_init(void)
 {
 	u8 val;
 	u32 pmic_val;
-	struct pmic *p;
-	int ret;
-
-	ret = pmic_init(I2C_0);
-	if (ret)
-		return ret;
 
 	if (pmic_detect()) {
-		p = pmic_get("FSL_PMIC");
-		imx_iomux_v3_setup_pad(MX35_PAD_WDOG_RST__WDOG_WDOG_B);
+		mxc_request_iomux(MX35_PIN_WATCHDOG_RST, MUX_CONFIG_SION |
+					MUX_CONFIG_ALT1);
 
-		pmic_reg_read(p, REG_SETTING_0, &pmic_val);
-		pmic_reg_write(p, REG_SETTING_0,
-			pmic_val | VO_1_30V | VO_1_50V);
-		pmic_reg_read(p, REG_MODE_0, &pmic_val);
-		pmic_reg_write(p, REG_MODE_0, pmic_val | VGEN3EN);
+		pmic_val = pmic_reg_read(REG_SETTING_0);
+		pmic_reg_write(REG_SETTING_0, pmic_val | VO_1_30V | VO_1_50V);
+		pmic_val = pmic_reg_read(REG_MODE_0);
+		pmic_reg_write(REG_MODE_0, pmic_val | VGEN3EN);
 
-		imx_iomux_v3_setup_pad(MX35_PAD_COMPARE__GPIO1_5);
+		mxc_request_iomux(MX35_PIN_COMPARE, MUX_CONFIG_GPIO);
+		mxc_iomux_set_input(MUX_IN_GPIO1_IN_5, INPUT_CTL_PATH0);
 
-		gpio_direction_output(IMX_GPIO_NR(1, 5), 1);
+		gpio_direction_output(37, 1);
 	}
 
 	val = mc9sdz60_reg_read(MC9SDZ60_REG_GPIO_1) | 0x04;
@@ -243,46 +254,56 @@ int board_late_init(void)
 	val |= 0x80;
 	mc9sdz60_reg_write(MC9SDZ60_REG_RESET_1, val);
 
+	return 0;
+}
+
+int checkboard(void)
+{
+	struct ccm_regs *ccm =
+		(struct ccm_regs *)IMX_CCM_BASE;
+	u32 cpu_rev = get_cpu_rev();
+
+	/*
+	 * Be sure that I2C is initialized to check
+	 * the board revision
+	 */
+	i2c_init(CONFIG_SYS_I2C_SPEED, CONFIG_SYS_I2C_SLAVE);
+
 	/* Print board revision */
-	printf("Board: MX35 PDK %d.0\n", ((get_board_rev() >> 8) + 1) & 0x0F);
+	printf("Board: MX35 PDK %d.0 ", ((get_board_rev() >> 8) + 1) & 0x0F);
+
+	/* Print CPU revision */
+	printf("i.MX35 %d.%d [", (cpu_rev & 0xF0) >> 4, cpu_rev & 0x0F);
+
+	switch (readl(&ccm->rcsr) & 0x0F) {
+	case 0x0000:
+		puts("POR");
+		break;
+	case 0x0002:
+		puts("JTAG");
+		break;
+	case 0x0004:
+		puts("RST");
+		break;
+	case 0x0008:
+		puts("WDT");
+		break;
+	default:
+		puts("unknown");
+	}
+	puts("]\n");
 
 	return 0;
 }
 
 int board_eth_init(bd_t *bis)
 {
+	int rc = -ENODEV;
 #if defined(CONFIG_SMC911X)
-	int rc = smc911x_initialize(0, CONFIG_SMC911X_BASE);
-	if (rc)
-		return rc;
+	rc = smc911x_initialize(0, CONFIG_SMC911X_BASE);
 #endif
-	return cpu_eth_init(bis);
+
+	cpu_eth_init(bis);
+
+	return rc;
 }
-
-#if defined(CONFIG_FSL_ESDHC)
-
-struct fsl_esdhc_cfg esdhc_cfg = {MMC_SDHC1_BASE_ADDR};
-
-int board_mmc_init(bd_t *bis)
-{
-	static const iomux_v3_cfg_t sdhc1_pads[] = {
-		MX35_PAD_SD1_CMD__ESDHC1_CMD,
-		MX35_PAD_SD1_CLK__ESDHC1_CLK,
-		MX35_PAD_SD1_DATA0__ESDHC1_DAT0,
-		MX35_PAD_SD1_DATA1__ESDHC1_DAT1,
-		MX35_PAD_SD1_DATA2__ESDHC1_DAT2,
-		MX35_PAD_SD1_DATA3__ESDHC1_DAT3,
-	};
-
-	/* configure pins for SDHC1 only */
-	imx_iomux_v3_setup_multiple_pads(sdhc1_pads, ARRAY_SIZE(sdhc1_pads));
-
-	esdhc_cfg.sdhc_clk = mxc_get_clock(MXC_ESDHC1_CLK);
-	return fsl_esdhc_initialize(bis, &esdhc_cfg);
-}
-
-int board_mmc_getcd(struct mmc *mmc)
-{
-	return !(mc9sdz60_reg_read(MC9SDZ60_REG_DES_FLAG) & 0x4);
-}
-#endif

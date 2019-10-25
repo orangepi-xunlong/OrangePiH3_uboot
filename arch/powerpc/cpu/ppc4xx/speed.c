@@ -2,7 +2,23 @@
  * (C) Copyright 2000-2008
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -19,7 +35,9 @@ DECLARE_GLOBAL_DATA_PTR;
 #define DEBUGF(fmt,args...)
 #endif
 
-#if defined(CONFIG_405GP)
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+
+#if defined(CONFIG_405GP) || defined(CONFIG_405CR)
 
 void get_sys_info (PPC4xx_SYS_INFO * sysInfo)
 {
@@ -171,7 +189,7 @@ ulong get_PCI_freq (void)
 #elif defined(CONFIG_440)
 
 #if defined(CONFIG_460EX) || defined(CONFIG_460GT) || \
-    defined(CONFIG_460SX)
+    defined(CONFIG_460SX) || defined(CONFIG_APM821XX)
 static u8 pll_fwdv_multi_bits[] = {
 	/* values for:  1 - 16 */
 	0x00, 0x01, 0x0f, 0x04, 0x09, 0x0a, 0x0d, 0x0e, 0x03, 0x0c,
@@ -232,6 +250,78 @@ u32 get_cpr0_fbdv(unsigned long cpr_reg_fbdv)
 	return 0;
 }
 
+#if defined(CONFIG_APM821XX)
+
+void get_sys_info(sys_info_t *sysInfo)
+{
+	unsigned long plld;
+	unsigned long temp;
+	unsigned long mul;
+	unsigned long cpudv;
+	unsigned long plb2dv;
+	unsigned long ddr2dv;
+
+	/* Calculate Forward divisor A and Feeback divisor */
+	mfcpr(CPR0_PLLD, plld);
+
+	temp = CPR0_PLLD_FWDVA(plld);
+	sysInfo->pllFwdDivA = get_cpr0_fwdv(temp);
+
+	temp = CPR0_PLLD_FDV(plld);
+	sysInfo->pllFbkDiv = get_cpr0_fbdv(temp);
+
+	/* Calculate OPB clock divisor */
+	mfcpr(CPR0_OPBD, temp);
+	temp = CPR0_OPBD_OPBDV(temp);
+	sysInfo->pllOpbDiv = temp ? temp : 4;
+
+	/* Calculate Peripheral clock divisor */
+	mfcpr(CPR0_PERD, temp);
+	temp = CPR0_PERD_PERDV(temp);
+	sysInfo->pllExtBusDiv = temp ? temp : 4;
+
+	/* Calculate CPU clock divisor */
+	mfcpr(CPR0_CPUD, temp);
+	temp = CPR0_CPUD_CPUDV(temp);
+	cpudv = temp ? temp : 8;
+
+	/* Calculate PLB2 clock divisor */
+	mfcpr(CPR0_PLB2D, temp);
+	temp = CPR0_PLB2D_PLB2DV(temp);
+	plb2dv = temp ? temp : 4;
+
+	/* Calculate DDR2 clock divisor */
+	mfcpr(CPR0_DDR2D, temp);
+	temp = CPR0_DDR2D_DDR2DV(temp);
+	ddr2dv = temp ? temp : 4;
+
+	/* Calculate 'M' based on feedback source */
+	mfcpr(CPR0_PLLC, temp);
+	temp = CPR0_PLLC_SEL(temp);
+	if (temp == 0) {
+		/* PLL internal feedback */
+		mul = sysInfo->pllFbkDiv;
+	} else {
+		/* PLL PerClk feedback */
+		mul = sysInfo->pllFwdDivA * sysInfo->pllFbkDiv * cpudv
+			* plb2dv * 2 * sysInfo->pllOpbDiv *
+			  sysInfo->pllExtBusDiv;
+	}
+
+	/* Now calculate the individual clocks */
+	sysInfo->freqVCOMhz = (mul * CONFIG_SYS_CLK_FREQ) + (mul >> 1);
+	sysInfo->freqProcessor = sysInfo->freqVCOMhz /
+		sysInfo->pllFwdDivA / cpudv;
+	sysInfo->freqPLB = sysInfo->freqVCOMhz /
+		sysInfo->pllFwdDivA / cpudv / plb2dv / 2;
+	sysInfo->freqOPB = sysInfo->freqPLB / sysInfo->pllOpbDiv;
+	sysInfo->freqEBC = sysInfo->freqOPB / sysInfo->pllExtBusDiv;
+	sysInfo->freqDDR = sysInfo->freqVCOMhz /
+		sysInfo->pllFwdDivA / cpudv / ddr2dv / 2;
+	sysInfo->freqUART = sysInfo->freqPLB;
+}
+
+#else
 /*
  * AMCC_TODO: verify this routine against latest EAS, cause stuff changed
  *            with latest EAS
@@ -289,6 +379,7 @@ void get_sys_info (sys_info_t * sysInfo)
 
 	return;
 }
+#endif
 
 #elif defined(CONFIG_440EP) || defined(CONFIG_440GR) || \
     defined(CONFIG_440EPX) || defined(CONFIG_440GRX)
@@ -721,6 +812,14 @@ unsigned long determine_pci_clock_per(void)
 extern void get_sys_info (sys_info_t * sysInfo);
 extern ulong get_PCI_freq (void);
 
+#elif defined(CONFIG_AP1000)
+void get_sys_info (sys_info_t * sysInfo)
+{
+	sysInfo->freqProcessor = 240 * 1000 * 1000;
+	sysInfo->freqPLB = 80 * 1000 * 1000;
+	sysInfo->freqPCI = 33 * 1000 * 1000;
+}
+
 #elif defined(CONFIG_405)
 
 void get_sys_info (sys_info_t * sysInfo)
@@ -1091,12 +1190,22 @@ void get_sys_info (sys_info_t * sysInfo)
 
 int get_clocks (void)
 {
+#if defined(CONFIG_405GP) || defined(CONFIG_405CR) || \
+    defined(CONFIG_405EP) || defined(CONFIG_405EZ) || \
+    defined(CONFIG_405EX) || defined(CONFIG_405) || \
+    defined(CONFIG_440)
 	sys_info_t sys_info;
 
 	get_sys_info (&sys_info);
 	gd->cpu_clk = sys_info.freqProcessor;
 	gd->bus_clk = sys_info.freqPLB;
 
+#endif	/* defined(CONFIG_405GP) || defined(CONFIG_405CR) */
+
+#ifdef CONFIG_IOP480
+	gd->cpu_clk = 66000000;
+	gd->bus_clk = 66000000;
+#endif
 	return (0);
 }
 
@@ -1109,7 +1218,7 @@ ulong get_bus_freq (ulong dummy)
 {
 	ulong val;
 
-#if defined(CONFIG_405GP) || \
+#if defined(CONFIG_405GP) || defined(CONFIG_405CR) || \
     defined(CONFIG_405EP) || defined(CONFIG_405EZ) || \
     defined(CONFIG_405EX) || defined(CONFIG_405) || \
     defined(CONFIG_440)
@@ -1117,6 +1226,11 @@ ulong get_bus_freq (ulong dummy)
 
 	get_sys_info (&sys_info);
 	val = sys_info.freqPLB;
+
+#elif defined(CONFIG_IOP480)
+
+	val = 66;
+
 #else
 # error get_bus_freq() not implemented
 #endif
@@ -1124,6 +1238,7 @@ ulong get_bus_freq (ulong dummy)
 	return val;
 }
 
+#if !defined(CONFIG_IOP480)
 ulong get_OPB_freq (void)
 {
 	PPC4xx_SYS_INFO sys_info;
@@ -1132,3 +1247,4 @@ ulong get_OPB_freq (void)
 
 	return sys_info.freqOPB;
 }
+#endif

@@ -2,7 +2,24 @@
  * (C) Copyright 2001
  * Denis Peter, MPL AG Switzerland
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
  *
  * TODO: clean-up
  */
@@ -22,6 +39,13 @@
 #define	PRINTF(fmt,args...)	printf (fmt ,##args)
 #else
 #define PRINTF(fmt,args...)
+#endif
+
+#ifndef	TRUE
+#define TRUE            1
+#endif
+#ifndef FALSE
+#define FALSE           0
 #endif
 
 #if defined(CONFIG_PIP405)
@@ -92,9 +116,9 @@ unsigned char open_cfg_super_IO(int address)
 	out8(CONFIG_SYS_ISA_IO_BASE_ADDRESS | address,0x55); /* open config */
 	out8(CONFIG_SYS_ISA_IO_BASE_ADDRESS | address,0x20); /* set address to DEV ID */
 	if(in8(CONFIG_SYS_ISA_IO_BASE_ADDRESS | address | 0x1)==0x40) /* ok Device ID is correct */
-		return true;
+		return TRUE;
 	else
-		return false;
+		return FALSE;
 }
 
 void close_cfg_super_IO(int address)
@@ -155,7 +179,7 @@ void isa_sio_loadtable(void)
 
 void isa_sio_setup(void)
 {
-	if (open_cfg_super_IO(SIO_CFG_PORT) == true)
+	if(open_cfg_super_IO(SIO_CFG_PORT)==TRUE)
 	{
 		isa_sio_loadtable();
 		close_cfg_super_IO(0x3F0);
@@ -358,12 +382,12 @@ void init_8259A(void)
 int handle_isa_int(void)
 {
 	unsigned long irqack;
-	unsigned char irq;
+	unsigned char isr1,isr2,irq;
 	/* first we acknokledge the int via the PCI bus */
 	irqack=in32(PCI_INT_ACK_ADDR);
 	/* now we get the ISRs */
-	in8(ISR_2);
-	in8(ISR_1);
+	isr2=in8(ISR_2);
+	isr1=in8(ISR_1);
 	irq=(unsigned char)irqack;
 	irq-=32;
 /*	if((irq==7)&&((isr1&0x80)==0)) {

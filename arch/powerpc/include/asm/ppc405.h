@@ -1,6 +1,25 @@
-/*
- * SPDX-License-Identifier:	GPL-2.0	IBM-pibs
- */
+/*----------------------------------------------------------------------------+
+|   This source code is dual-licensed.  You may use it under the terms of the
+|   GNU General Public License version 2, or under the license below.
+|
+|	This source code has been made available to you by IBM on an AS-IS
+|	basis.	Anyone receiving this source is licensed under IBM
+|	copyrights to use it in any way he or she deems fit, including
+|	copying it, modifying it, compiling it, and redistributing it either
+|	with or without modifications.	No license under IBM patents or
+|	patent applications is to be implied by the copyright license.
+|
+|	Any user of this software should understand that IBM cannot provide
+|	technical support for this software and will not be responsible for
+|	any consequences resulting from the use of this software.
+|
+|	Any person who transfers this source code or any derivative work
+|	must include the IBM copyright notice, this paragraph, and the
+|	preceding two paragraphs in the transferred software.
+|
+|	COPYRIGHT   I B M   CORPORATION 1999
+|	LICENSED MATERIAL  -  PROGRAM PROPERTY OF I B M
++----------------------------------------------------------------------------*/
 
 #ifndef	__PPC405_H__
 #define __PPC405_H__
@@ -9,7 +28,11 @@
 #define PPC_128MB_SACR_BIT(addr)	((addr) >> 27)
 #define PPC_128MB_SACR_VALUE(addr)	PPC_REG_VAL(PPC_128MB_SACR_BIT(addr),1)
 
+#ifndef CONFIG_IOP480
 #define CONFIG_SYS_DCACHE_SIZE		(16 << 10)	/* For AMCC 405 CPUs */
+#else
+#define CONFIG_SYS_DCACHE_SIZE		(2 << 10)	/* For PLX IOP480(403)*/
+#endif
 
 /* DCR registers */
 #define PLB0_ACR	0x0087

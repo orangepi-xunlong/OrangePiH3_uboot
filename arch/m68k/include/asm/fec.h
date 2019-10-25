@@ -9,13 +9,27 @@
  * Copyright (C) 2004-2007 Freescale Semiconductor, Inc.
  * TsiChung Liew (Tsi-Chung.Liew@freescale.com)
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef	fec_h
 #define	fec_h
-
-#include <phy.h>
 
 /* Buffer descriptors used FEC.
 */
@@ -343,9 +357,10 @@ int fecpin_setclear(struct eth_device *dev, int setclear);
 void __mii_init(void);
 uint mii_send(uint mii_cmd);
 int mii_discover_phy(struct eth_device *dev);
-int mcffec_miiphy_read(struct mii_dev *bus, int addr, int devad, int reg);
-int mcffec_miiphy_write(struct mii_dev *bus, int addr, int devad, int reg,
-			u16 value);
+int mcffec_miiphy_read(const char *devname, unsigned char addr,
+		       unsigned char reg, unsigned short *value);
+int mcffec_miiphy_write(const char *devname, unsigned char addr,
+			unsigned char reg, unsigned short value);
 #endif
 
 #endif				/* fec_h */

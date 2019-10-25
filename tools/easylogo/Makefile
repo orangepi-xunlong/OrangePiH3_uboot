@@ -1,7 +1,11 @@
-#
-# SPDX-License-Identifier:	GPL-2.0+
-#
+include $(TOPDIR)/config.mk
 
-hostprogs-y := easylogo
+all: $(obj)easylogo
 
-always := $(hostprogs-y)
+$(obj)easylogo: $(SRCTREE)/tools/easylogo/easylogo.c
+	$(HOSTCC) $(HOSTCFLAGS_NOPED) $(HOSTLDFLAGS) -o $@ $^
+
+clean:
+	rm -f $(obj)easylogo
+
+.PHONY: all clean

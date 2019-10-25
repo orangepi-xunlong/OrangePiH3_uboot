@@ -3,7 +3,20 @@
  *
  * Copyright (c) 2008 Texas Instruments
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  *
  * Author: Thomas Abraham t-abraham@ti.com, Texas Instruments
  */
@@ -17,8 +30,8 @@
 extern unsigned char new[];
 #endif
 
-#ifndef CONFIG_USB_MUSB_TIMEOUT
-# define CONFIG_USB_MUSB_TIMEOUT 100000
+#ifndef CONFIG_MUSB_TIMEOUT
+# define CONFIG_MUSB_TIMEOUT 100000
 #endif
 
 /* This defines the endpoint number used for control transfers */
@@ -36,6 +49,9 @@ extern unsigned char new[];
 #define musb_ishighspeed() \
 	((readb(&musbr->power) & MUSB_POWER_HSMODE) \
 		>> MUSB_POWER_HSMODE_SHIFT)
+
+#define min_t(type, x, y)	\
+	({ type __x = (x); type __y = (y); __x < __y ? __x : __y; })
 
 /* USB HUB CONSTANTS (not OHCI-specific; see hub.h) */
 

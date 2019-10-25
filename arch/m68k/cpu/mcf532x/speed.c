@@ -3,17 +3,32 @@
  * (C) Copyright 2000-2003
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * Copyright (C) 2004-2008, 2012 Freescale Semiconductor, Inc.
+ * Copyright (C) 2004-2008 Freescale Semiconductor, Inc.
  * TsiChung Liew (Tsi-Chung.Liew@freescale.com)
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
 #include <asm/processor.h>
 
 #include <asm/immap.h>
-#include <asm/io.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -50,13 +65,13 @@ DECLARE_GLOBAL_DATA_PTR;
 /* Get the value of the current system clock */
 int get_sys_clock(void)
 {
-	ccm_t *ccm = (ccm_t *)(MMAP_CCM);
-	pll_t *pll = (pll_t *)(MMAP_PLL);
+	volatile ccm_t *ccm = (volatile ccm_t *)(MMAP_CCM);
+	volatile pll_t *pll = (volatile pll_t *)(MMAP_PLL);
 	int divider;
 
 	/* Test to see if device is in LIMP mode */
-	if (in_be16(&ccm->misccr) & CCM_MISCCR_LIMP) {
-		divider = in_be16(&ccm->cdr) & CCM_CDR_LPDIV(0xF);
+	if (ccm->misccr & CCM_MISCCR_LIMP) {
+		divider = ccm->cdr & CCM_CDR_LPDIV(0xF);
 #ifdef CONFIG_MCF5301x
 		return (FREF / (3 * (1 << divider)));
 #endif
@@ -65,14 +80,14 @@ int get_sys_clock(void)
 #endif
 	} else {
 #ifdef CONFIG_MCF5301x
-		u32 pfdr = (in_be32(&pll->pcr) & 0x3F) + 1;
-		u32 refdiv = (1 << ((in_be32(&pll->pcr) & PLL_PCR_REFDIV(7)) >> 8));
-		u32 busdiv = ((in_be32(&pll->pdr) & 0x00F0) >> 4) + 1;
+		u32 pfdr = (pll->pcr & 0x3F) + 1;
+		u32 refdiv = (1 << ((pll->pcr & PLL_PCR_REFDIV(7)) >> 8));
+		u32 busdiv = ((pll->pdr & 0x00F0) >> 4) + 1;
 
 		return (((FREF * pfdr) / refdiv) / busdiv);
 #endif
 #ifdef CONFIG_MCF532x
-		return (FREF * in_8(&pll->pfdr)) / (BUSDIV * 4);
+		return ((FREF * pll->pfdr) / (BUSDIV * 4));
 #endif
 	}
 }
@@ -88,7 +103,7 @@ int get_sys_clock(void)
  */
 int clock_limp(int div)
 {
-	ccm_t *ccm = (ccm_t *)(MMAP_CCM);
+	volatile ccm_t *ccm = (volatile ccm_t *)(MMAP_CCM);
 	u32 temp;
 
 	/* Check bounds of divider */
@@ -98,12 +113,12 @@ int clock_limp(int div)
 		div = MAX_LPD;
 
 	/* Save of the current value of the SSIDIV so we don't overwrite the value */
-	temp = (in_be16(&ccm->cdr) & CCM_CDR_SSIDIV(0xFF));
+	temp = (ccm->cdr & CCM_CDR_SSIDIV(0xFF));
 
 	/* Apply the divider to the system clock */
-	out_be16(&ccm->cdr, CCM_CDR_LPDIV(div) | CCM_CDR_SSIDIV(temp));
+	ccm->cdr = (CCM_CDR_LPDIV(div) | CCM_CDR_SSIDIV(temp));
 
-	setbits_be16(&ccm->misccr, CCM_MISCCR_LIMP);
+	ccm->misccr |= CCM_MISCCR_LIMP;
 
 	return (FREF / (3 * (1 << div)));
 }
@@ -111,15 +126,14 @@ int clock_limp(int div)
 /* Exit low power LIMP mode */
 int clock_exit_limp(void)
 {
-	ccm_t *ccm = (ccm_t *)(MMAP_CCM);
+	volatile ccm_t *ccm = (volatile ccm_t *)(MMAP_CCM);
 	int fout;
 
 	/* Exit LIMP mode */
-	clrbits_be16(&ccm->misccr, CCM_MISCCR_LIMP);
+	ccm->misccr &= (~CCM_MISCCR_LIMP);
 
 	/* Wait for PLL to lock */
-	while (!(in_be16(&ccm->misccr) & CCM_MISCCR_PLL_LOCK))
-		;
+	while (!(ccm->misccr & CCM_MISCCR_PLL_LOCK)) ;
 
 	fout = get_sys_clock();
 
@@ -139,10 +153,10 @@ int clock_exit_limp(void)
 int clock_pll(int fsys, int flags)
 {
 #ifdef CONFIG_MCF532x
-	u32 *sdram_workaround = (u32 *)(MMAP_SDRAM + 0x80);
+	volatile u32 *sdram_workaround = (volatile u32 *)(MMAP_SDRAM + 0x80);
 #endif
-	sdram_t *sdram = (sdram_t *)(MMAP_SDRAM);
-	pll_t *pll = (pll_t *)(MMAP_PLL);
+	volatile sdram_t *sdram = (volatile sdram_t *)(MMAP_SDRAM);
+	volatile pll_t *pll = (volatile pll_t *)(MMAP_PLL);
 	int fref, temp, fout, mfd;
 	u32 i;
 
@@ -151,13 +165,13 @@ int clock_pll(int fsys, int flags)
 	if (fsys == 0) {
 		/* Return current PLL output */
 #ifdef CONFIG_MCF5301x
-		u32 busdiv = ((in_be32(&pll->pdr) >> 4) & 0x0F) + 1;
-		mfd = (in_be32(&pll->pcr) & 0x3F) + 1;
+		u32 busdiv = ((pll->pdr >> 4) & 0x0F) + 1;
+		mfd = (pll->pcr & 0x3F) + 1;
 
 		return (fref * mfd) / busdiv;
 #endif
 #ifdef CONFIG_MCF532x
-		mfd = in_8(&pll->pfdr);
+		mfd = pll->pfdr;
 
 		return (fref * mfd / (BUSDIV * 4));
 #endif
@@ -197,8 +211,8 @@ int clock_pll(int fsys, int flags)
 	 * If it has then the SDRAM needs to be put into self refresh
 	 * mode before reprogramming the PLL.
 	 */
-	if (in_be32(&sdram->ctrl) & SDRAMC_SDCR_REF)
-		clrbits_be32(&sdram->ctrl, SDRAMC_SDCR_CKE);
+	if (sdram->ctrl & SDRAMC_SDCR_REF)
+		sdram->ctrl &= ~SDRAMC_SDCR_CKE;
 
 	/*
 	 * Initialize the PLL to generate the new system clock frequency.
@@ -209,36 +223,35 @@ int clock_pll(int fsys, int flags)
 	clock_limp(DEFAULT_LPD);
 
 #ifdef CONFIG_MCF5301x
-	out_be32(&pll->pdr,
-		PLL_PDR_OUTDIV1((BUSDIV / 3) - 1) |
-		PLL_PDR_OUTDIV2(BUSDIV - 1)	|
-		PLL_PDR_OUTDIV3((BUSDIV / 2) - 1) |
-		PLL_PDR_OUTDIV4(USBDIV - 1));
+	pll->pdr =
+	    PLL_PDR_OUTDIV1((BUSDIV / 3) - 1)	|
+	    PLL_PDR_OUTDIV2(BUSDIV - 1)	|
+	    PLL_PDR_OUTDIV3((BUSDIV / 2) - 1)	|
+	    PLL_PDR_OUTDIV4(USBDIV - 1);
 
-	clrbits_be32(&pll->pcr, ~PLL_PCR_FBDIV_UNMASK);
-	setbits_be32(&pll->pcr, PLL_PCR_FBDIV(mfd - 1));
+	pll->pcr &= PLL_PCR_FBDIV_UNMASK;
+	pll->pcr |= PLL_PCR_FBDIV(mfd - 1);
 #endif
 #ifdef CONFIG_MCF532x
 	/* Reprogram PLL for desired fsys */
-	out_8(&pll->podr,
-		PLL_PODR_CPUDIV(BUSDIV / 3) | PLL_PODR_BUSDIV(BUSDIV));
+	pll->podr = (PLL_PODR_CPUDIV(BUSDIV / 3) | PLL_PODR_BUSDIV(BUSDIV));
 
-	out_8(&pll->pfdr, mfd);
+	pll->pfdr = mfd;
 #endif
 
 	/* Exit LIMP mode */
 	clock_exit_limp();
 
 	/* Return the SDRAM to normal operation if it is in use. */
-	if (in_be32(&sdram->ctrl) & SDRAMC_SDCR_REF)
-		setbits_be32(&sdram->ctrl, SDRAMC_SDCR_CKE);
+	if (sdram->ctrl & SDRAMC_SDCR_REF)
+		sdram->ctrl |= SDRAMC_SDCR_CKE;
 
 #ifdef CONFIG_MCF532x
 	/*
 	 * software workaround for SDRAM opeartion after exiting LIMP
 	 * mode errata
 	 */
-	out_be32(sdram_workaround, CONFIG_SYS_SDRAM_BASE);
+	*sdram_workaround = CONFIG_SYS_SDRAM_BASE;
 #endif
 
 	/* wait for DQS logic to relock */
@@ -254,8 +267,8 @@ int get_clocks(void)
 	gd->bus_clk = clock_pll(CONFIG_SYS_CLK / 1000, 0) * 1000;
 	gd->cpu_clk = (gd->bus_clk * 3);
 
-#ifdef CONFIG_SYS_I2C_FSL
-	gd->arch.i2c1_clk = gd->bus_clk;
+#ifdef CONFIG_FSL_I2C
+	gd->i2c1_clk = gd->bus_clk;
 #endif
 
 	return (0);

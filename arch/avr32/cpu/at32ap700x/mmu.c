@@ -7,7 +7,7 @@ void mmu_init_r(unsigned long dest_addr)
 	uintptr_t	vmr_table_addr;
 
 	/* Round monitor address down to the nearest page boundary */
-	dest_addr &= MMU_PAGE_ADDR_MASK;
+	dest_addr &= PAGE_ADDR_MASK;
 
 	/* Initialize TLB entry 0 to cover the monitor, and lock it */
 	sysreg_write(TLBEHI, dest_addr | SYSREG_BIT(TLBEHI_V));
@@ -22,7 +22,7 @@ void mmu_init_r(unsigned long dest_addr)
 	 */
 	vmr_table_addr = (uintptr_t)&mmu_vmr_table;
 	sysreg_write(PTBR, vmr_table_addr);
-	printf("VMR table @ 0x%08lx\n", vmr_table_addr);
+	printf("VMR table @ 0x%08x\n", vmr_table_addr);
 
 	/* Enable paging */
 	sysreg_write(MMUCR, SYSREG_BF(DRP, 1) | SYSREG_BF(DLA, 1)
@@ -36,7 +36,7 @@ int mmu_handle_tlb_miss(void)
 	unsigned int fault_pgno;
 	int first, last;
 
-	fault_pgno = sysreg_read(TLBEAR) >> MMU_PAGE_SHIFT;
+	fault_pgno = sysreg_read(TLBEAR) >> PAGE_SHIFT;
 	vmr_table = (const struct mmu_vm_range *)sysreg_read(PTBR);
 
 	/* Do a binary search through the VM ranges */
@@ -60,8 +60,8 @@ int mmu_handle_tlb_miss(void)
 			/* Got it; let's slam it into the TLB */
 			uint32_t tlbelo;
 
-			tlbelo = vmr->phys & ~MMU_PAGE_ADDR_MASK;
-			tlbelo |= fault_pgno << MMU_PAGE_SHIFT;
+			tlbelo = vmr->phys & ~PAGE_ADDR_MASK;
+			tlbelo |= fault_pgno << PAGE_SHIFT;
 			sysreg_write(TLBELO, tlbelo);
 			__builtin_tlbw();
 

@@ -8,7 +8,24 @@
  * ispVM functions adapted from Lattice's ispmVMEmbedded code:
  * Copyright 2009 Lattice Semiconductor Corp.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
  */
 
 #include <common.h>
@@ -258,7 +275,7 @@ signed char ispVM(void)
 
 static int lattice_validate(Lattice_desc *desc, const char *fn)
 {
-	int ret_val = false;
+	int ret_val = FALSE;
 
 	if (desc) {
 		if ((desc->family > min_lattice_type) &&
@@ -266,7 +283,7 @@ static int lattice_validate(Lattice_desc *desc, const char *fn)
 			if ((desc->iface > min_lattice_iface_type) &&
 				(desc->iface < max_lattice_iface_type)) {
 				if (desc->size) {
-					ret_val = true;
+					ret_val = TRUE;
 				} else {
 					printf("%s: NULL part size\n", fn);
 				}
@@ -300,7 +317,7 @@ int lattice_load(Lattice_desc *desc, const void *buf, size_t bsize)
 			read_bytes = 0;
 			bufsize = bsize;
 			debug("%s: Launching the Lattice ISPVME Loader:"
-				" addr %p size 0x%lx...\n",
+				" addr 0x%x size 0x%x...\n",
 				__func__, fpga_image, bufsize);
 			ret_val = ispVM();
 			if (ret_val)

@@ -2,18 +2,33 @@
  * (C) Copyright 2003-2007
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef __CONFIG_H
 #define __CONFIG_H
 
-#define CONFIG_DISPLAY_BOARDINFO
-
 /*
  * High Level Configuration Options
  */
-#define CONFIG_MPC5200		1	/* This is an MPC5200 CPU */
+#define CONFIG_MPC5xxx		1	/* This is an MPC5xxx CPU */
+#define CONFIG_MPC5200		1	/* (more precisely an MPC5200 CPU) */
 #define CONFIG_CM5200		1	/* ... on CM5200 platform */
 
 #define	CONFIG_SYS_TEXT_BASE	0xfc000000
@@ -23,11 +38,22 @@
 /*
  * Supported commands
  */
+#include <config_cmd_default.h>
+
+#define CONFIG_CMD_ASKENV
 #define CONFIG_CMD_BSP
 #define CONFIG_CMD_DATE
+#define CONFIG_CMD_DHCP
 #define CONFIG_CMD_DIAG
+#define CONFIG_CMD_FAT
+#define CONFIG_CMD_I2C
 #define CONFIG_CMD_JFFS2
+#define CONFIG_CMD_MII
+#define CONFIG_CMD_NFS
+#define CONFIG_CMD_PING
 #define CONFIG_CMD_REGINFO
+#define CONFIG_CMD_SNTP
+#define CONFIG_CMD_USB
 
 /*
  * Serial console configuration
@@ -64,6 +90,7 @@
 /*
  * Autobooting
  */
+#define CONFIG_BOOTDELAY	5	/* autoboot after 5 seconds */
 #define CONFIG_PREBOOT	"echo;" \
 	"echo Type \"run net_nfs_fdt\" to mount root filesystem over NFS;" \
 	"echo"
@@ -161,10 +188,12 @@
 #define CONFIG_SYS_MAX_FLASH_SECT	256	/* max num of sectors on one chip */
 #define CONFIG_SYS_FLASH_SIZE		0x02000000 /* 32 MiB */
 
+
 #if (CONFIG_SYS_MONITOR_BASE < CONFIG_SYS_FLASH_BASE)
 #define CONFIG_SYS_RAMBOOT		1
 #undef CONFIG_SYS_LOWBOOT
 #endif
+
 
 /*
  * Chip selects configuration
@@ -225,6 +254,7 @@
  * USB configuration
  */
 #define CONFIG_USB_OHCI		1
+#define CONFIG_USB_STORAGE	1
 #define CONFIG_USB_CLOCK	0x0001BBBB
 #define CONFIG_USB_CONFIG	0x00001000
 /* Partitions (for USB) */
@@ -269,6 +299,7 @@
  * Miscellaneous configurable options
  */
 #define CONFIG_SYS_LONGHELP		1	/* undef to save memory */
+#define CONFIG_SYS_PROMPT		"=> "	/* Monitor Command Prompt */
 #define CONFIG_SYS_CBSIZE		1024	/* Console I/O Buffer Size */
 #define CONFIG_SYS_PBSIZE (CONFIG_SYS_CBSIZE+sizeof(CONFIG_SYS_PROMPT)+16) /* Print Buffer Size */
 #define CONFIG_SYS_MAXARGS		16	/* max number of command args */
@@ -278,7 +309,10 @@
 #define CONFIG_SYS_MEMTEST_START	0x00100000	/* memtest works on */
 #define CONFIG_SYS_MEMTEST_END		0x03f00000	/* 1 .. 63 MiB in SDRAM */
 
+#define CONFIG_LOOPW		1
+
 #define CONFIG_SYS_LOAD_ADDR		0x100000	/* default load address */
+#define CONFIG_SYS_HZ			1000	/* decrementer freq: 1 ms ticks */
 
 /*
  * Various low-level settings
@@ -299,6 +333,8 @@
 /*
  * Flat Device Tree support
  */
+#define CONFIG_OF_LIBFDT	1
+#define CONFIG_OF_BOARD_SETUP	1
 #define OF_CPU			"PowerPC,5200@0"
 #define OF_SOC			"soc5200@f0000000"
 #define OF_TBCLK		(bd->bi_busfreq / 4)

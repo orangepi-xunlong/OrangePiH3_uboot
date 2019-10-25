@@ -5,7 +5,23 @@
  * Copyright (c) 2001 Gerd Mennchen <Gerd.Mennchen@icn.siemens.de>
  * Copyright (c) 2001-2003 Wolfgang Denk, DENX Software Engineering, <wd@denx.de>.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -130,7 +146,7 @@ void spi_init_f (void)
 	immr = (immap_t *)  CONFIG_SYS_IMMR;
 	cp   = (cpm8260_t *) &immr->im_cpm;
 
-	immr->im_dprambase16[PROFF_SPI_BASE / sizeof(u16)] = PROFF_SPI;
+	*(ushort *)(&immr->im_dprambase[PROFF_SPI_BASE]) = PROFF_SPI;
 	spi  = (spi_t *)&immr->im_dprambase[PROFF_SPI];
 
 /* 1 */
@@ -260,9 +276,11 @@ void spi_init_r (void)
 {
 	volatile spi_t *spi;
 	volatile immap_t *immr;
+	volatile cpm8260_t *cp;
 	volatile cbd_t *tbdf, *rbdf;
 
 	immr = (immap_t *)  CONFIG_SYS_IMMR;
+	cp   = (cpm8260_t *) &immr->im_cpm;
 
 	spi  = (spi_t *)&immr->im_dprambase[PROFF_SPI];
 
@@ -340,6 +358,7 @@ ssize_t spi_read (uchar *addr, int alen, uchar *buffer, int len)
 ssize_t spi_xfer (size_t count)
 {
 	volatile immap_t *immr;
+	volatile cpm8260_t *cp;
 	volatile spi_t *spi;
 	cbd_t *tbdf, *rbdf;
 	int tm;
@@ -347,6 +366,7 @@ ssize_t spi_xfer (size_t count)
 	DPRINT (("*** spi_xfer entered ***\n"));
 
 	immr = (immap_t *) CONFIG_SYS_IMMR;
+	cp   = (cpm8260_t *) &immr->im_cpm;
 
 	spi  = (spi_t *)&immr->im_dprambase[PROFF_SPI];
 

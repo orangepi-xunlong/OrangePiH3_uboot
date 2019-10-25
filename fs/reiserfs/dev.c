@@ -2,7 +2,19 @@
  *  (C) Copyright 2003 - 2004
  *  Sysgo AG, <www.elinos.com>, Pavel Bartusek <pba@sysgo.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
 
@@ -12,14 +24,25 @@
 
 #include "reiserfs_private.h"
 
-static struct blk_desc *reiserfs_blk_desc;
-static disk_partition_t *part_info;
+static block_dev_desc_t *reiserfs_block_dev_desc;
+static disk_partition_t part_info;
 
 
-void reiserfs_set_blk_dev(struct blk_desc *rbdd, disk_partition_t *info)
+int reiserfs_set_blk_dev(block_dev_desc_t *rbdd, int part)
 {
-	reiserfs_blk_desc = rbdd;
-	part_info = info;
+	reiserfs_block_dev_desc = rbdd;
+
+	if (part == 0) {
+		/* disk doesn't use partition table */
+		part_info.start = 0;
+		part_info.size = rbdd->lba;
+		part_info.blksz = rbdd->blksz;
+	} else {
+		if (get_partition_info (reiserfs_block_dev_desc, part, &part_info)) {
+			return 0;
+		}
+	}
+	return (part_info.size);
 }
 
 
@@ -36,7 +59,7 @@ int reiserfs_devread (int sector, int byte_offset, int byte_len, char *buf)
 	*/
 	if (sector < 0
 	    || ((sector + ((byte_offset + byte_len - 1) >> SECTOR_BITS))
-	    >= part_info->size)) {
+	    >= part_info.size)) {
 /*		errnum = ERR_OUTSIDE_PART; */
 		printf (" ** reiserfs_devread() read outside partition\n");
 		return 0;
@@ -53,15 +76,14 @@ int reiserfs_devread (int sector, int byte_offset, int byte_len, char *buf)
 #endif
 
 
-	if (reiserfs_blk_desc == NULL)
+	if (reiserfs_block_dev_desc == NULL)
 		return 0;
 
 
 	if (byte_offset != 0) {
 		/* read first part which isn't aligned with start of sector */
-		if (reiserfs_blk_desc->block_read(reiserfs_blk_desc,
-						  part_info->start + sector,
-						  1, (void *)sec_buf) != 1) {
+		if (reiserfs_block_dev_desc->block_read(reiserfs_block_dev_desc->dev,
+		    part_info.start+sector, 1, (unsigned long *)sec_buf) != 1) {
 			printf (" ** reiserfs_devread() read error\n");
 			return 0;
 		}
@@ -73,10 +95,9 @@ int reiserfs_devread (int sector, int byte_offset, int byte_len, char *buf)
 
 	/* read sector aligned part */
 	block_len = byte_len & ~(SECTOR_SIZE-1);
-	if (reiserfs_blk_desc->block_read(reiserfs_blk_desc,
-					  part_info->start + sector,
-					  block_len / SECTOR_SIZE, (void *)buf)
-			!= block_len/SECTOR_SIZE) {
+	if (reiserfs_block_dev_desc->block_read(reiserfs_block_dev_desc->dev,
+	    part_info.start+sector, block_len/SECTOR_SIZE, (unsigned long *)buf) !=
+	    block_len/SECTOR_SIZE) {
 		printf (" ** reiserfs_devread() read error - block\n");
 		return 0;
 	}
@@ -86,9 +107,8 @@ int reiserfs_devread (int sector, int byte_offset, int byte_len, char *buf)
 
 	if ( byte_len != 0 ) {
 		/* read rest of data which are not in whole sector */
-		if (reiserfs_blk_desc->block_read(reiserfs_blk_desc,
-						  part_info->start + sector,
-						  1, (void *)sec_buf) != 1) {
+		if (reiserfs_block_dev_desc->block_read(reiserfs_block_dev_desc->dev,
+		    part_info.start+sector, 1, (unsigned long *)sec_buf) != 1) {
 			printf (" ** reiserfs_devread() read error - last part\n");
 			return 0;
 		}

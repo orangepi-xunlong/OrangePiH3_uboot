@@ -36,21 +36,17 @@ typedef unsigned short u16;
 typedef signed int s32;
 typedef unsigned int u32;
 
-#if !defined(CONFIG_USE_STDINT) || !defined(__INT64_TYPE__)
 typedef signed long long s64;
 typedef unsigned long long u64;
-#else
-typedef __INT64_TYPE__ s64;
-typedef __UINT64_TYPE__ u64;
-#endif
 
 #define BITS_PER_LONG 32
+
 /* Dma addresses are 32-bits wide.  */
 
 typedef u32 dma_addr_t;
 
-typedef unsigned long long phys_addr_t;
-typedef unsigned long long phys_size_t;
+typedef unsigned long phys_addr_t;
+typedef unsigned long phys_size_t;
 
 #endif /* __KERNEL__ */
 

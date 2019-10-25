@@ -237,7 +237,8 @@ static void natsemi_init_txd(struct eth_device *dev);
 static void natsemi_init_rxd(struct eth_device *dev);
 static void natsemi_set_rx_mode(struct eth_device *dev);
 static void natsemi_check_duplex(struct eth_device *dev);
-static int natsemi_send(struct eth_device *dev, void *packet, int length);
+static int natsemi_send(struct eth_device *dev, volatile void *packet,
+			int length);
 static int natsemi_poll(struct eth_device *dev);
 static void natsemi_disable(struct eth_device *dev);
 
@@ -753,7 +754,8 @@ natsemi_check_duplex(struct eth_device *dev)
  * Description: transmits a packet and waits for completion or timeout.
  *
  * Returns:   void.  */
-static int natsemi_send(struct eth_device *dev, void *packet, int length)
+static int
+natsemi_send(struct eth_device *dev, volatile void *packet, int length)
 {
 	u32 i, status = 0;
 	u32 tx_status = 0;
@@ -841,8 +843,7 @@ natsemi_poll(struct eth_device *dev)
 		     rx_status);
 		retstat = 0;
 	} else {		/* give packet to higher level routine */
-		net_process_received_packet((rxb + cur_rx * RX_BUF_SIZE),
-					    length);
+		NetReceive((rxb + cur_rx * RX_BUF_SIZE), length);
 		retstat = 1;
 	}
 

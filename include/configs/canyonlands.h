@@ -2,7 +2,20 @@
  * (C) Copyright 2008
  * Stefan Roese, DENX Software Engineering, sr@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /************************************************************************
@@ -10,8 +23,6 @@
  ***********************************************************************/
 #ifndef __CONFIG_H
 #define __CONFIG_H
-
-#include <linux/kconfig.h>
 
 /*-----------------------------------------------------------------------
  * High Level Configuration Options
@@ -21,10 +32,10 @@
  * and Arches dual (460GT)
  */
 #ifdef CONFIG_CANYONLANDS
-#define CONFIG_460EX			/* Specific PPC460EX		*/
+#define CONFIG_460EX		1	/* Specific PPC460EX		*/
 #define CONFIG_HOSTNAME		canyonlands
 #else
-#define CONFIG_460GT			/* Specific PPC460GT		*/
+#define CONFIG_460GT		1	/* Specific PPC460GT		*/
 #ifdef CONFIG_GLACIER
 #define CONFIG_HOSTNAME		glacier
 #else
@@ -34,7 +45,8 @@
 #endif
 #endif
 
-#define CONFIG_440
+#define CONFIG_440		1
+#define CONFIG_4xx		1	/* ... PPC4xx family */
 
 #ifndef CONFIG_SYS_TEXT_BASE
 #define CONFIG_SYS_TEXT_BASE	0xFFF80000
@@ -47,10 +59,10 @@
 
 #define CONFIG_SYS_CLK_FREQ	66666667	/* external freq to pll	*/
 
-#define CONFIG_BOARD_EARLY_INIT_F		/* Call board_early_init_f */
-#define CONFIG_BOARD_EARLY_INIT_R		/* Call board_early_init_r */
-#define CONFIG_MISC_INIT_R			/* Call misc_init_r */
-#define CONFIG_BOARD_TYPES			/* support board types */
+#define CONFIG_BOARD_EARLY_INIT_F	1	/* Call board_early_init_f */
+#define CONFIG_BOARD_EARLY_INIT_R	1	/* Call board_early_init_r */
+#define CONFIG_MISC_INIT_R		1	/* Call misc_init_r */
+#define CONFIG_BOARD_TYPES		1	/* support board types */
 
 /*-----------------------------------------------------------------------
  * Base addresses -- Note these are effective addresses where the
@@ -127,16 +139,87 @@
 /*
  * Define here the location of the environment variables (FLASH).
  */
+#if !defined(CONFIG_NAND_U_BOOT) && !defined(CONFIG_NAND_SPL)
 #define	CONFIG_ENV_IS_IN_FLASH	1	/* use FLASH for environment vars */
 #define CONFIG_SYS_NOR_CS		0	/* NOR chip connected to CSx */
 #define CONFIG_SYS_NAND_CS		3	/* NAND chip connected to CSx */
+#else
+#define	CONFIG_ENV_IS_IN_NAND	1	/* use NAND for environment vars  */
+#define CONFIG_SYS_NOR_CS		3	/* NOR chip connected to CSx */
+#define CONFIG_SYS_NAND_CS		0	/* NAND chip connected to CSx */
+#define CONFIG_ENV_IS_EMBEDDED	1	/* use embedded environment */
+#endif
+
+/*
+ * IPL (Initial Program Loader, integrated inside CPU)
+ * Will load first 4k from NAND (SPL) into cache and execute it from there.
+ *
+ * SPL (Secondary Program Loader)
+ * Will load special U-Boot version (NUB) from NAND and execute it. This SPL
+ * has to fit into 4kByte. It sets up the CPU and configures the SDRAM
+ * controller and the NAND controller so that the special U-Boot image can be
+ * loaded from NAND to SDRAM.
+ *
+ * NUB (NAND U-Boot)
+ * This NAND U-Boot (NUB) is a special U-Boot version which can be started
+ * from RAM. Therefore it mustn't (re-)configure the SDRAM controller.
+ *
+ * On 440EPx the SPL is copied to SDRAM before the NAND controller is
+ * set up. While still running from cache, I experienced problems accessing
+ * the NAND controller.	sr - 2006-08-25
+ *
+ * This is the first official implementation of booting from 2k page sized
+ * NAND devices (e.g. Micron 29F2G08AA 256Mbit * 8)
+ */
+#define CONFIG_SYS_NAND_BOOT_SPL_SRC	0xfffff000	/* SPL location		      */
+#define CONFIG_SYS_NAND_BOOT_SPL_SIZE	(4 << 10)	/* SPL size		      */
+#define CONFIG_SYS_NAND_BOOT_SPL_DST	(CONFIG_SYS_OCM_BASE + (12 << 10)) /* Copy SPL here  */
+#define CONFIG_SYS_NAND_U_BOOT_DST	0x01000000	/* Load NUB to this addr      */
+#define CONFIG_SYS_NAND_U_BOOT_START	CONFIG_SYS_NAND_U_BOOT_DST	/* Start NUB from     */
+							/*   this addr	      */
+#define CONFIG_SYS_NAND_BOOT_SPL_DELTA	(CONFIG_SYS_NAND_BOOT_SPL_SRC - CONFIG_SYS_NAND_BOOT_SPL_DST)
+
+/*
+ * Define the partitioning of the NAND chip (only RAM U-Boot is needed here)
+ */
+#define CONFIG_SYS_NAND_U_BOOT_OFFS	(128 << 10)	/* Offset to RAM U-Boot image */
+#define CONFIG_SYS_NAND_U_BOOT_SIZE	(1 << 20)	/* Size of RAM U-Boot image   */
+
+/*
+ * Now the NAND chip has to be defined (no autodetection used!)
+ */
+#define CONFIG_SYS_NAND_PAGE_SIZE	(2 << 10)	/* NAND chip page size	      */
+#define CONFIG_SYS_NAND_BLOCK_SIZE	(128 << 10)	/* NAND chip block size	      */
+#define CONFIG_SYS_NAND_PAGE_COUNT	(CONFIG_SYS_NAND_BLOCK_SIZE / CONFIG_SYS_NAND_PAGE_SIZE)
+						/* NAND chip page count	      */
+#define CONFIG_SYS_NAND_BAD_BLOCK_POS	0		/* Location of bad block marker*/
+#define CONFIG_SYS_NAND_5_ADDR_CYCLE			/* Fifth addr used (<=128MB)  */
+
+#define CONFIG_SYS_NAND_ECCSIZE	256
+#define CONFIG_SYS_NAND_ECCBYTES	3
+#define CONFIG_SYS_NAND_ECCSTEPS	(CONFIG_SYS_NAND_PAGE_SIZE / CONFIG_SYS_NAND_ECCSIZE)
+#define CONFIG_SYS_NAND_OOBSIZE	64
+#define CONFIG_SYS_NAND_ECCTOTAL	(CONFIG_SYS_NAND_ECCBYTES * CONFIG_SYS_NAND_ECCSTEPS)
+#define CONFIG_SYS_NAND_ECCPOS		{40, 41, 42, 43, 44, 45, 46, 47, \
+				 48, 49, 50, 51, 52, 53, 54, 55, \
+				 56, 57, 58, 59, 60, 61, 62, 63}
+
+#ifdef CONFIG_ENV_IS_IN_NAND
+/*
+ * For NAND booting the environment is embedded in the U-Boot image. Please take
+ * look at the file board/amcc/canyonlands/u-boot-nand.lds for details.
+ */
+#define CONFIG_ENV_SIZE		CONFIG_SYS_NAND_BLOCK_SIZE
+#define CONFIG_ENV_OFFSET		(CONFIG_SYS_NAND_U_BOOT_OFFS + CONFIG_ENV_SIZE)
+#define CONFIG_ENV_OFFSET_REDUND	(CONFIG_ENV_OFFSET + CONFIG_ENV_SIZE)
+#endif
 
 /*-----------------------------------------------------------------------
  * FLASH related
  *----------------------------------------------------------------------*/
 #define CONFIG_SYS_FLASH_CFI			/* The flash is CFI compatible	*/
 #define CONFIG_FLASH_CFI_DRIVER		/* Use common CFI driver	*/
-#define CONFIG_SYS_FLASH_CFI_AMD_RESET	/* Use AMD (Spansion) reset cmd */
+#define CONFIG_SYS_FLASH_CFI_AMD_RESET	1	/* Use AMD (Spansion) reset cmd */
 
 #define CONFIG_SYS_FLASH_BANKS_LIST    {CONFIG_SYS_FLASH_BASE}
 #define CONFIG_SYS_MAX_FLASH_BANKS	1	/* max number of memory banks		*/
@@ -168,15 +251,16 @@
 /*------------------------------------------------------------------------------
  * DDR SDRAM
  *----------------------------------------------------------------------------*/
+#if !defined(CONFIG_NAND_U_BOOT)
 #if !defined(CONFIG_ARCHES)
 /*
  * NAND booting U-Boot version uses a fixed initialization, since the whole
  * I2C SPD DIMM autodetection/calibration doesn't fit into the 4k of boot
  * code.
  */
-#define CONFIG_SPD_EEPROM		/* Use SPD EEPROM for setup	*/
+#define CONFIG_SPD_EEPROM	1	/* Use SPD EEPROM for setup	*/
 #define SPD_EEPROM_ADDRESS	{0x50, 0x51}	/* SPD i2c spd addresses*/
-#define CONFIG_DDR_ECC			/* with ECC support		*/
+#define CONFIG_DDR_ECC		1	/* with ECC support		*/
 #define CONFIG_DDR_RQDC_FIXED	0x80000038 /* fixed value for RQDC	*/
 
 #else /* defined(CONFIG_ARCHES) */
@@ -240,14 +324,16 @@
 #define CONFIG_SYS_SDRAM0_MMODE		0x00000432
 #define CONFIG_SYS_SDRAM0_MEMODE	0x00000004
 #endif	/* !defined(CONFIG_ARCHES) */
+#endif	/* !defined(CONFIG_NAND_U_BOOT) */
 
 #define CONFIG_SYS_MBYTES_SDRAM	512	/* 512MB			*/
 
 /*-----------------------------------------------------------------------
  * I2C
  *----------------------------------------------------------------------*/
-#define CONFIG_SYS_I2C_PPC4XX_SPEED_0		400000
+#define CONFIG_SYS_I2C_SPEED		400000	/* I2C speed			*/
 
+#define CONFIG_SYS_I2C_MULTI_EEPROMS
 #define CONFIG_SYS_I2C_EEPROM_ADDR		(0xa8>>1)
 #define CONFIG_SYS_I2C_EEPROM_ADDR_LEN		1
 #define CONFIG_SYS_EEPROM_PAGE_WRITE_BITS	3
@@ -263,8 +349,8 @@
 #define CONFIG_4xx_CONFIG_BLOCKSIZE		16
 
 /* I2C SYSMON (LM75, AD7414 is almost compatible)			*/
-#define CONFIG_DTT_LM75				/* ON Semi's LM75	*/
-#define CONFIG_DTT_AD7414			/* use AD7414		*/
+#define CONFIG_DTT_LM75		1		/* ON Semi's LM75	*/
+#define CONFIG_DTT_AD7414	1		/* use AD7414		*/
 #define CONFIG_DTT_SENSORS	{0}		/* Sensor addresses	*/
 #define CONFIG_SYS_DTT_MAX_TEMP	70
 #define CONFIG_SYS_DTT_LOW_TEMP	-30
@@ -276,14 +362,14 @@
 
 #if !defined(CONFIG_ARCHES)
 /* RTC configuration */
-#define CONFIG_RTC_M41T62
+#define CONFIG_RTC_M41T62	1
 #define CONFIG_SYS_I2C_RTC_ADDR	0x68
 #endif
 
 /*-----------------------------------------------------------------------
  * Ethernet
  *----------------------------------------------------------------------*/
-#define CONFIG_IBM_EMAC4_V4
+#define CONFIG_IBM_EMAC4_V4	1
 
 #define CONFIG_HAS_ETH0
 #define CONFIG_HAS_ETH1
@@ -323,9 +409,9 @@
 #define CONFIG_GPCS_PHY2_ADDR   0xC
 #endif	/* !defined(CONFIG_ARCHES) */
 
-#define CONFIG_PHY_RESET		/* reset phy upon startup	*/
-#define CONFIG_PHY_GIGE			/* Include GbE speed/duplex detection */
-#define CONFIG_PHY_DYNAMIC_ANEG
+#define CONFIG_PHY_RESET	1	/* reset phy upon startup	*/
+#define CONFIG_PHY_GIGE		1	/* Include GbE speed/duplex detection */
+#define CONFIG_PHY_DYNAMIC_ANEG	1
 
 /*-----------------------------------------------------------------------
  * USB-OHCI
@@ -333,6 +419,7 @@
 /* Only Canyonlands (460EX) has USB */
 #ifdef CONFIG_460EX
 #define CONFIG_USB_OHCI_NEW
+#define CONFIG_USB_STORAGE
 #undef CONFIG_SYS_OHCI_BE_CONTROLLER		/* 460EX has little endian descriptors	*/
 #define CONFIG_SYS_OHCI_SWAP_REG_ACCESS	/* 460EX has little endian register	*/
 #define CONFIG_SYS_OHCI_USE_NPS		/* force NoPowerSwitching mode		*/
@@ -350,6 +437,7 @@
 	CONFIG_AMCC_DEF_ENV						\
 	CONFIG_AMCC_DEF_ENV_POWERPC					\
 	CONFIG_AMCC_DEF_ENV_NOR_UPD					\
+	CONFIG_AMCC_DEF_ENV_NAND_UPD					\
 	"kernel_addr=fc000000\0"					\
 	"fdt_addr=fc1e0000\0"						\
 	"ramdisk_addr=fc200000\0"					\
@@ -381,16 +469,21 @@
 #elif defined(CONFIG_CANYONLANDS)
 #define CONFIG_CMD_DATE
 #define CONFIG_CMD_DTT
+#define CONFIG_CMD_EXT2
+#define CONFIG_CMD_FAT
 #define CONFIG_CMD_NAND
 #define CONFIG_CMD_PCI
 #define CONFIG_CMD_SATA
 #define CONFIG_CMD_SDRAM
+#define CONFIG_CMD_SNTP
+#define CONFIG_CMD_USB
 #elif defined(CONFIG_GLACIER)
 #define CONFIG_CMD_DATE
 #define CONFIG_CMD_DTT
 #define CONFIG_CMD_NAND
 #define CONFIG_CMD_PCI
 #define CONFIG_CMD_SDRAM
+#define CONFIG_CMD_SNTP
 #else
 #error "board type not defined"
 #endif
@@ -405,7 +498,6 @@
  *----------------------------------------------------------------------*/
 /* General PCI */
 #define CONFIG_PCI			/* include pci support	        */
-#define CONFIG_PCI_INDIRECT_BRIDGE	/* indirect PCI bridge support */
 #define CONFIG_PCI_PNP			/* do pci plug-and-play   */
 #define CONFIG_PCI_SCAN_SHOW		/* show pci devices on startup  */
 #define CONFIG_PCI_CONFIG_HOST_BRIDGE
@@ -479,6 +571,15 @@
  * 0xfe00.0000 -> 4.ce00.0000
  */
 
+#if defined(CONFIG_NAND_U_BOOT) || defined(CONFIG_NAND_SPL)
+/* Memory Bank 3 (NOR-FLASH) initialization					*/
+#define CONFIG_SYS_EBC_PB3AP		0x10055e00
+#define CONFIG_SYS_EBC_PB3CR		(CONFIG_SYS_BOOT_BASE_ADDR | 0x9a000)
+
+/* Memory Bank 0 (NAND-FLASH) initialization						*/
+#define CONFIG_SYS_EBC_PB0AP		0x018003c0
+#define CONFIG_SYS_EBC_PB0CR		(CONFIG_SYS_NAND_ADDR | 0x1E000) /* BAS=NAND,BS=1MB,BU=R/W,BW=32bit*/
+#else
 /* Memory Bank 0 (NOR-FLASH) initialization					*/
 #define CONFIG_SYS_EBC_PB0AP		0x10055e00
 #define CONFIG_SYS_EBC_PB0CR		(CONFIG_SYS_BOOT_BASE_ADDR | 0x9a000)
@@ -488,6 +589,7 @@
 #define CONFIG_SYS_EBC_PB3AP		0x018003c0
 #define CONFIG_SYS_EBC_PB3CR		(CONFIG_SYS_NAND_ADDR | 0x1E000) /* BAS=NAND,BS=1MB,BU=R/W,BW=32bit*/
 #endif
+#endif	/*defined(CONFIG_NAND_U_BOOT) || defined(CONFIG_NAND_SPL) */
 
 #if !defined(CONFIG_ARCHES)
 /* Memory Bank 2 (CPLD) initialization						*/

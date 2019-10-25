@@ -4,7 +4,23 @@
  * (C) Copyright 2000
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 #include <common.h>
 
@@ -47,6 +63,8 @@ search_one_table(const struct exception_table_entry *first,
 	return 0;
 }
 
+int	ex_tab_message = 1;
+
 unsigned long
 search_exception_table(unsigned long addr)
 {
@@ -56,7 +74,8 @@ search_exception_table(unsigned long addr)
 	ret = search_one_table(__start___ex_table, __stop___ex_table-1, addr);
 	/* if the serial port does not hang in exception, printf can be used */
 #if !defined(CONFIG_SYS_SERIAL_HANG_IN_EXCEPTION)
-	debug("Bus Fault @ 0x%08lx, fixup 0x%08lx\n", addr, ret);
+	if (ex_tab_message)
+		debug("Bus Fault @ 0x%08lx, fixup 0x%08lx\n", addr, ret);
 #endif
 	if (ret) return ret;
 

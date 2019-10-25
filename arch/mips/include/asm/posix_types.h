@@ -1,7 +1,10 @@
-/*
- * Copyright (C) 1996, 1997, 1998, 2000 by Ralf Baechle
+/* $Id: posix_types.h,v 1.6 2000/02/04 23:32:54 ralf Exp $
  *
- * SPDX-License-Identifier:	GPL-2.0
+ * This file is subject to the terms and conditions of the GNU General Public
+ * License.  See the file "COPYING" in the main directory of this archive
+ * for more details.
+ *
+ * Copyright (C) 1996, 1997, 1998, 2000 by Ralf Baechle
  */
 #ifndef _ASM_POSIX_TYPES_H
 #define _ASM_POSIX_TYPES_H
@@ -21,15 +24,9 @@ typedef int		__kernel_pid_t;
 typedef int		__kernel_ipc_pid_t;
 typedef int		__kernel_uid_t;
 typedef int		__kernel_gid_t;
-#if _MIPS_SZLONG != 64
 typedef unsigned int	__kernel_size_t;
 typedef int		__kernel_ssize_t;
 typedef int		__kernel_ptrdiff_t;
-#else
-typedef unsigned long	__kernel_size_t;
-typedef long		__kernel_ssize_t;
-typedef long		__kernel_ptrdiff_t;
-#endif
 typedef long		__kernel_time_t;
 typedef long		__kernel_suseconds_t;
 typedef long		__kernel_clock_t;

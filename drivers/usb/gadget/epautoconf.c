@@ -3,11 +3,21 @@
  *
  * Copyright (C) 2004 David Brownell
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
  *
- * Ported to U-Boot by: Thomas Smits <ts.smits@gmail.com> and
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ * Ported to U-boot by: Thomas Smits <ts.smits@gmail.com> and
  *                      Remy Bohmer <linux@bohmer.net>
  */
 
@@ -15,7 +25,6 @@
 #include <linux/usb/ch9.h>
 #include <asm/errno.h>
 #include <linux/usb/gadget.h>
-#include <asm/unaligned.h>
 #include "gadget_chips.h"
 
 #define isdigit(c)      ('0' <= (c) && (c) <= '9')
@@ -118,7 +127,7 @@ static int ep_matches(
 	 * where it's an output parameter representing the full speed limit.
 	 * the usb spec fixes high speed bulk maxpacket at 512 bytes.
 	 */
-	max = 0x7ff & le16_to_cpu(get_unaligned(&desc->wMaxPacketSize));
+	max = 0x7ff & le16_to_cpu(desc->wMaxPacketSize);
 	switch (type) {
 	case USB_ENDPOINT_XFER_INT:
 		/* INT:  limit 64 bytes full speed, 1024 high speed */
@@ -134,8 +143,7 @@ static int ep_matches(
 			return 0;
 
 		/* BOTH:  "high bandwidth" works only at high speed */
-		if ((get_unaligned(&desc->wMaxPacketSize) &
-					__constant_cpu_to_le16(3<<11))) {
+		if ((desc->wMaxPacketSize & __constant_cpu_to_le16(3<<11))) {
 			if (!gadget->is_dualspeed)
 				return 0;
 			/* configure your hardware with enough buffering!! */
@@ -168,7 +176,7 @@ static int ep_matches(
 		/* min() doesn't work on bitfields with gcc-3.5 */
 		if (size > 64)
 			size = 64;
-		put_unaligned(cpu_to_le16(size), &desc->wMaxPacketSize);
+		desc->wMaxPacketSize = cpu_to_le16(size);
 	}
 	return 1;
 }
@@ -220,7 +228,7 @@ struct usb_ep *usb_ep_autoconfig(
 	struct usb_endpoint_descriptor	*desc
 )
 {
-	struct usb_ep	*ep = NULL;
+	struct usb_ep	*ep;
 	u8		type;
 
 	type = desc->bmAttributes & USB_ENDPOINT_XFERTYPE_MASK;
@@ -259,28 +267,6 @@ struct usb_ep *usb_ep_autoconfig(
 
 	} else if (gadget_is_mq11xx(gadget) && USB_ENDPOINT_XFER_INT == type) {
 		ep = find_ep(gadget, "ep1-bulk");
-		if (ep && ep_matches(gadget, ep, desc))
-			return ep;
-	} else if (gadget_is_dwc3(gadget)) {
-		const char *name = NULL;
-		/*
-		 * First try standard, common configuration: ep1in-bulk,
-		 * ep2out-bulk, ep3in-int to match other udc drivers to avoid
-		 * confusion in already deployed software (endpoint numbers
-		 * hardcoded in userspace software/drivers)
-		 */
-		if ((desc->bEndpointAddress & USB_DIR_IN) &&
-		    type == USB_ENDPOINT_XFER_BULK)
-			name = "ep1in";
-		else if ((desc->bEndpointAddress & USB_DIR_IN) == 0 &&
-			 type == USB_ENDPOINT_XFER_BULK)
-			name = "ep2out";
-		else if ((desc->bEndpointAddress & USB_DIR_IN) &&
-			 type == USB_ENDPOINT_XFER_INT)
-			name = "ep3in";
-
-		if (name)
-			ep = find_ep(gadget, name);
 		if (ep && ep_matches(gadget, ep, desc))
 			return ep;
 	}

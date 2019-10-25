@@ -3,10 +3,26 @@
  * (C) Copyright 2000-2003
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * Copyright (C) 2004-2007, 2012 Freescale Semiconductor, Inc.
+ * Copyright (C) 2004-2007 Freescale Semiconductor, Inc.
  * TsiChung Liew (Tsi-Chung.Liew@freescale.com)
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -15,20 +31,19 @@
 #include <netdev.h>
 
 #include <asm/immap.h>
-#include <asm/io.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
 int do_reset(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
-	gptmr_t *gptmr = (gptmr_t *) (MMAP_GPTMR);
+	volatile gptmr_t *gptmr = (gptmr_t *) (MMAP_GPTMR);
 
-	out_be16(&gptmr->pre, 10);
-	out_be16(&gptmr->cnt, 1);
+	gptmr->pre = 10;
+	gptmr->cnt = 1;
 
 	/* enable watchdog, set timeout to 0 and wait */
-	out_8(&gptmr->mode, GPT_TMS_SGPIO);
-	out_8(&gptmr->ctrl, GPT_CTRL_WDEN | GPT_CTRL_CE);
+	gptmr->mode = GPT_TMS_SGPIO;
+	gptmr->ctrl = GPT_CTRL_WDEN | GPT_CTRL_CE;
 
 	/* we don't return! */
 	return 1;
@@ -36,12 +51,12 @@ int do_reset(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 
 int checkcpu(void)
 {
-	siu_t *siu = (siu_t *) MMAP_SIU;
+	volatile siu_t *siu = (siu_t *) MMAP_SIU;
 	u16 id = 0;
 
 	puts("CPU:   ");
 
-	switch ((in_be32(&siu->jtagid) & 0x000FF000) >> 12) {
+	switch ((siu->jtagid & 0x000FF000) >> 12) {
 	case 0x0C:
 		id = 5485;
 		break;
@@ -96,18 +111,18 @@ int checkcpu(void)
 /* Called by macro WATCHDOG_RESET */
 void hw_watchdog_reset(void)
 {
-	gptmr_t *gptmr = (gptmr_t *) (MMAP_GPTMR);
+	volatile gptmr_t *gptmr = (gptmr_t *) (MMAP_GPTMR);
 
-	out_8(&gptmr->ocpw, 0xa5);
+	gptmr->ocpw = 0xa5;
 }
 
 int watchdog_disable(void)
 {
-	gptmr_t *gptmr = (gptmr_t *) (MMAP_GPTMR);
+	volatile gptmr_t *gptmr = (gptmr_t *) (MMAP_GPTMR);
 
 	/* UserManual, once the wdog is disabled, wdog cannot be re-enabled */
-	out_8(&gptmr->mode, 0);
-	out_8(&gptmr->ctrl, 0);
+	gptmr->mode = 0;
+	gptmr->ctrl = 0;
 
 	puts("WATCHDOG:disabled\n");
 
@@ -116,13 +131,14 @@ int watchdog_disable(void)
 
 int watchdog_init(void)
 {
-	gptmr_t *gptmr = (gptmr_t *) (MMAP_GPTMR);
 
-	out_be16(&gptmr->pre, CONFIG_WATCHDOG_TIMEOUT);
-	out_be16(&gptmr->cnt, CONFIG_SYS_TIMER_PRESCALER * 1000);
+	volatile gptmr_t *gptmr = (gptmr_t *) (MMAP_GPTMR);
 
-	out_8(&gptmr->mode, GPT_TMS_SGPIO);
-	out_8(&gptmr->ctrl, GPT_CTRL_CE | GPT_CTRL_WDEN);
+	gptmr->pre = CONFIG_WATCHDOG_TIMEOUT;
+	gptmr->cnt = CONFIG_SYS_TIMER_PRESCALER * 1000;
+
+	gptmr->mode = GPT_TMS_SGPIO;
+	gptmr->ctrl = GPT_CTRL_CE | GPT_CTRL_WDEN;
 	puts("WATCHDOG:enabled\n");
 
 	return (0);

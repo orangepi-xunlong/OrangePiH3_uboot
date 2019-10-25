@@ -2,7 +2,22 @@
  * (C) Copyright 2003
  * Martin Winistoerfer, martinwinistoerfer@gmx.ch.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation,
  */
 
 /*
@@ -18,40 +33,20 @@
 #include <watchdog.h>
 #include <command.h>
 #include <mpc5xx.h>
-#include <serial.h>
-#include <linux/compiler.h>
 
 DECLARE_GLOBAL_DATA_PTR;
 
 /*
- * Local functions
+ * Local function prototypes
  */
 
-static int ready_to_send(void)
-{
-	volatile immap_t *immr = (immap_t *)CONFIG_SYS_IMMR;
-	volatile short status;
-
-	do {
-#if defined(CONFIG_5xx_CONS_SCI1)
-		status = immr->im_qsmcm.qsmcm_sc1sr;
-#else
-		status = immr->im_qsmcm.qsmcm_sc2sr;
-#endif
-
-#if defined(CONFIG_WATCHDOG)
-		reset_5xx_watchdog (immr);
-#endif
-	} while ((status & SCI_TDRE) == 0);
-	return 1;
-
-}
+static int ready_to_send(void);
 
 /*
  * Minimal global serial functions needed to use one of the SCI modules.
  */
 
-static int mpc5xx_serial_init(void)
+int serial_init (void)
 {
 	volatile immap_t *immr = (immap_t *)CONFIG_SYS_IMMR;
 
@@ -68,7 +63,7 @@ static int mpc5xx_serial_init(void)
 	return 0;
 }
 
-static void mpc5xx_serial_putc(const char c)
+void serial_putc(const char c)
 {
 	volatile immap_t *immr = (immap_t *)CONFIG_SYS_IMMR;
 
@@ -90,7 +85,7 @@ static void mpc5xx_serial_putc(const char c)
 	}
 }
 
-static int mpc5xx_serial_getc(void)
+int serial_getc(void)
 {
 	volatile immap_t *immr = (immap_t *)CONFIG_SYS_IMMR;
 	volatile short status;
@@ -118,7 +113,7 @@ static int mpc5xx_serial_getc(void)
 	return	tmp;
 }
 
-static int mpc5xx_serial_tstc(void)
+int serial_tstc()
 {
 	volatile immap_t *immr = (immap_t *)CONFIG_SYS_IMMR;
 	short status;
@@ -132,7 +127,7 @@ static int mpc5xx_serial_tstc(void)
 	return (status & SCI_RDRF);
 }
 
-static void mpc5xx_serial_setbrg(void)
+void serial_setbrg (void)
 {
 	volatile immap_t *immr = (immap_t *)CONFIG_SYS_IMMR;
 	short scxbr;
@@ -146,23 +141,30 @@ static void mpc5xx_serial_setbrg(void)
 #endif
 }
 
-static struct serial_device mpc5xx_serial_drv = {
-	.name	= "mpc5xx_serial",
-	.start	= mpc5xx_serial_init,
-	.stop	= NULL,
-	.setbrg	= mpc5xx_serial_setbrg,
-	.putc	= mpc5xx_serial_putc,
-	.puts	= default_serial_puts,
-	.getc	= mpc5xx_serial_getc,
-	.tstc	= mpc5xx_serial_tstc,
-};
-
-void mpc5xx_serial_initialize(void)
+void serial_puts (const char *s)
 {
-	serial_register(&mpc5xx_serial_drv);
+	while (*s) {
+		serial_putc(*s);
+		++s;
+	}
 }
 
-__weak struct serial_device *default_serial_console(void)
+int ready_to_send(void)
 {
-	return &mpc5xx_serial_drv;
+	volatile immap_t *immr = (immap_t *)CONFIG_SYS_IMMR;
+	volatile short status;
+
+	do {
+#if defined(CONFIG_5xx_CONS_SCI1)
+		status = immr->im_qsmcm.qsmcm_sc1sr;
+#else
+		status = immr->im_qsmcm.qsmcm_sc2sr;
+#endif
+
+#if defined(CONFIG_WATCHDOG)
+		reset_5xx_watchdog (immr);
+#endif
+	} while ((status & SCI_TDRE) == 0);
+	return 1;
+
 }

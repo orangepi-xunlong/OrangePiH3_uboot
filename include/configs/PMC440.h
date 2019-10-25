@@ -10,7 +10,20 @@
  * Jacqueline Pira-Ferriol, AMCC/IBM, jpira-ferriol@fr.ibm.com
  * Alain Saurel,            AMCC/IBM, alain.saurel@fr.ibm.com
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /************************************************************************
@@ -24,12 +37,11 @@
  *----------------------------------------------------------------------*/
 #define CONFIG_440EPX		1	/* Specific PPC440EPx   */
 #define CONFIG_440		1	/* ... PPC440 family    */
+#define CONFIG_4xx		1	/* ... PPC4xx family    */
 
 #ifndef CONFIG_SYS_TEXT_BASE
 #define CONFIG_SYS_TEXT_BASE	0xFFF90000
 #endif
-
-#define CONFIG_DISPLAY_BOARDINFO
 
 #define CONFIG_SYS_CLK_FREQ	33333400
 
@@ -84,11 +96,13 @@
  * Serial Port
  *----------------------------------------------------------------------*/
 #define CONFIG_CONS_INDEX	1	/* Use UART0			*/
+#define CONFIG_SYS_NS16550
 #define CONFIG_SYS_NS16550_SERIAL
 #define CONFIG_SYS_NS16550_REG_SIZE	1
 #define CONFIG_SYS_NS16550_CLK		get_serial_clock()
 #undef CONFIG_SYS_EXT_SERIAL_CLOCK
 #define CONFIG_BAUDRATE		115200
+#define CONFIG_SERIAL_MULTI     1
 
 #define CONFIG_SYS_BAUDRATE_TABLE						\
 	{300, 600, 1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200}
@@ -96,7 +110,12 @@
 /*-----------------------------------------------------------------------
  * Environment
  *----------------------------------------------------------------------*/
+#if !defined(CONFIG_NAND_U_BOOT) && !defined(CONFIG_NAND_SPL)
 #define CONFIG_ENV_IS_IN_EEPROM	1	/* use FLASH for environment vars */
+#else
+#define CONFIG_ENV_IS_IN_NAND	1	/* use NAND for environment vars */
+#define CONFIG_ENV_IS_EMBEDDED	1	/* use embedded environment */
+#endif
 
 /*-----------------------------------------------------------------------
  * RTC
@@ -134,29 +153,90 @@
 #endif
 
 #ifdef CONFIG_ENV_IS_IN_EEPROM
-#define CONFIG_I2C_ENV_EEPROM_BUS	0
 #define CONFIG_ENV_OFFSET		0	/* environment starts at the beginning of the EEPROM */
 #define CONFIG_ENV_SIZE		0x1000	/* 4096 bytes may be used for env vars */
+#endif
+
+/*
+ * IPL (Initial Program Loader, integrated inside CPU)
+ * Will load first 4k from NAND (SPL) into cache and execute it from there.
+ *
+ * SPL (Secondary Program Loader)
+ * Will load special U-Boot version (NUB) from NAND and execute it. This SPL
+ * has to fit into 4kByte. It sets up the CPU and configures the SDRAM
+ * controller and the NAND controller so that the special U-Boot image can be
+ * loaded from NAND to SDRAM.
+ *
+ * NUB (NAND U-Boot)
+ * This NAND U-Boot (NUB) is a special U-Boot version which can be started
+ * from RAM. Therefore it mustn't (re-)configure the SDRAM controller.
+ *
+ * On 440EPx the SPL is copied to SDRAM before the NAND controller is
+ * set up. While still running from cache, I experienced problems accessing
+ * the NAND controller.	sr - 2006-08-25
+ */
+#if defined (CONFIG_NAND_U_BOOT)
+#define CONFIG_SYS_NAND_BOOT_SPL_SRC	0xfffff000	/* SPL location                 */
+#define CONFIG_SYS_NAND_BOOT_SPL_SIZE	(4 << 10)	/* SPL size                     */
+#define CONFIG_SYS_NAND_BOOT_SPL_DST	(CONFIG_SYS_OCM_BASE + (12 << 10)) /* Copy SPL here    */
+#define CONFIG_SYS_NAND_U_BOOT_DST	0x01000000	/* Load NUB to this addr        */
+#define CONFIG_SYS_NAND_U_BOOT_START	CONFIG_SYS_NAND_U_BOOT_DST /* Start NUB from this addr */
+#define CONFIG_SYS_NAND_BOOT_SPL_DELTA	(CONFIG_SYS_NAND_BOOT_SPL_SRC - CONFIG_SYS_NAND_BOOT_SPL_DST)
+
+/*
+ * Define the partitioning of the NAND chip (only RAM U-Boot is needed here)
+ */
+#define CONFIG_SYS_NAND_U_BOOT_OFFS	(16 << 10)	/* Offset to RAM U-Boot image   */
+#define CONFIG_SYS_NAND_U_BOOT_SIZE	(384 << 10)	/* Size of RAM U-Boot image     */
+
+/*
+ * Now the NAND chip has to be defined (no autodetection used!)
+ */
+#define CONFIG_SYS_NAND_PAGE_SIZE	512	/* NAND chip page size          */
+#define CONFIG_SYS_NAND_BLOCK_SIZE	(16 << 10) /* NAND chip block size      */
+#define CONFIG_SYS_NAND_PAGE_COUNT	32	/* NAND chip page count         */
+#define CONFIG_SYS_NAND_BAD_BLOCK_POS	5	/* Location of bad block marker */
+#undef CONFIG_SYS_NAND_4_ADDR_CYCLE		/* No fourth addr used (<=32MB) */
+
+#define CONFIG_SYS_NAND_ECCSIZE	256
+#define CONFIG_SYS_NAND_ECCBYTES	3
+#define CONFIG_SYS_NAND_ECCSTEPS	(CONFIG_SYS_NAND_PAGE_SIZE / CONFIG_SYS_NAND_ECCSIZE)
+#define CONFIG_SYS_NAND_OOBSIZE	16
+#define CONFIG_SYS_NAND_ECCTOTAL	(CONFIG_SYS_NAND_ECCBYTES * CONFIG_SYS_NAND_ECCSTEPS)
+#define CONFIG_SYS_NAND_ECCPOS		{0, 1, 2, 3, 6, 7}
+#endif
+
+#ifdef CONFIG_ENV_IS_IN_NAND
+/*
+ * For NAND booting the environment is embedded in the U-Boot image. Please take
+ * look at the file board/amcc/sequoia/u-boot-nand.lds for details.
+ */
+#define CONFIG_ENV_SIZE		CONFIG_SYS_NAND_BLOCK_SIZE
+#define CONFIG_ENV_OFFSET		(CONFIG_SYS_NAND_U_BOOT_OFFS + CONFIG_ENV_SIZE)
+#define CONFIG_ENV_OFFSET_REDUND	(CONFIG_ENV_OFFSET + CONFIG_ENV_SIZE)
 #endif
 
 /*-----------------------------------------------------------------------
  * DDR SDRAM
  *----------------------------------------------------------------------*/
+#if !defined(CONFIG_NAND_U_BOOT) && !defined(CONFIG_NAND_SPL)
 #define CONFIG_DDR_DATA_EYE	/* use DDR2 optimization        */
+#endif
 #define CONFIG_SYS_MEM_TOP_HIDE	(4 << 10) /* don't use last 4kbytes */
 						  /* 440EPx errata CHIP 11 */
 
 /*-----------------------------------------------------------------------
  * I2C
  *----------------------------------------------------------------------*/
-#define CONFIG_SYS_I2C
-#define CONFIG_SYS_I2C_PPC4XX
-#define CONFIG_SYS_I2C_PPC4XX_CH0
-#define CONFIG_SYS_I2C_PPC4XX_SPEED_0		400000
-#define CONFIG_SYS_I2C_PPC4XX_SLAVE_0		0x7F
-#define CONFIG_SYS_I2C_PPC4XX_CH1
-#define CONFIG_SYS_I2C_PPC4XX_SPEED_1		400000
-#define CONFIG_SYS_I2C_PPC4XX_SLAVE_1		0x7F
+#define CONFIG_HARD_I2C		1	/* I2C with hardware support    */
+#undef	CONFIG_SOFT_I2C		/* I2C bit-banged               */
+#define CONFIG_PPC4XX_I2C		/* use PPC4xx driver		*/
+#define CONFIG_SYS_I2C_SPEED		400000	/* I2C speed and slave address  */
+#define CONFIG_SYS_I2C_SLAVE		0x7F
+
+#define CONFIG_I2C_MULTI_BUS	1
+
+#define CONFIG_SYS_I2C_MULTI_EEPROMS
 
 #define CONFIG_SYS_I2C_EEPROM_ADDR		0x54
 #define CONFIG_SYS_I2C_EEPROM_ADDR_LEN		2
@@ -229,6 +309,7 @@
 		"cp.b 200000 fff90000 70000\0"				\
 	""
 
+#define CONFIG_BOOTDELAY	3	/* autoboot after 3 seconds     */
 
 #define CONFIG_LOADS_ECHO	1	/* echo on for serial download  */
 #define CONFIG_SYS_LOADS_BAUD_CHANGE	1	/* allow baudrate change        */
@@ -243,12 +324,14 @@
 #define CONFIG_HAS_ETH0
 #define CONFIG_SYS_RX_ETH_BUFFER	32	/* Number of ethernet rx buffers & descriptors */
 
+#define CONFIG_NET_MULTI	1
 #define CONFIG_HAS_ETH1		1	/* add support for "eth1addr"   */
 #define CONFIG_PHY1_ADDR	1
 #define CONFIG_RESET_PHY_R	1
 
 /* USB */
 #define CONFIG_USB_OHCI_NEW
+#define CONFIG_USB_STORAGE
 #define CONFIG_SYS_OHCI_BE_CONTROLLER
 
 #define CONFIG_SYS_USB_OHCI_BOARD_INIT 1
@@ -265,12 +348,23 @@
 #define CONFIG_DOS_PARTITION
 #define CONFIG_ISO_PARTITION
 
+#include <config_cmd_default.h>
+
 #define CONFIG_CMD_BSP
 #define CONFIG_CMD_DATE
+#define CONFIG_CMD_DHCP
 #define CONFIG_CMD_DTT
 #define CONFIG_CMD_EEPROM
+#define CONFIG_CMD_ELF
+#define CONFIG_CMD_FAT
+#define CONFIG_CMD_I2C
+#define CONFIG_CMD_MII
 #define CONFIG_CMD_NAND
+#define CONFIG_CMD_NET
+#define CONFIG_CMD_NFS
 #define CONFIG_CMD_PCI
+#define CONFIG_CMD_PING
+#define CONFIG_CMD_USB
 #define CONFIG_CMD_REGINFO
 
 /* POST support */
@@ -294,6 +388,7 @@
  * Miscellaneous configurable options
  *----------------------------------------------------------------------*/
 #define CONFIG_SYS_LONGHELP			/* undef to save memory         */
+#define CONFIG_SYS_PROMPT		"=> "	/* Monitor Command Prompt       */
 #if defined(CONFIG_CMD_KGDB)
 #define CONFIG_SYS_CBSIZE		1024	/* Console I/O Buffer Size      */
 #else
@@ -309,15 +404,25 @@
 #define CONFIG_SYS_LOAD_ADDR		0x100000	/* default load address      */
 #define CONFIG_SYS_EXTBDINFO		1	/* To use extended board_into (bd_t) */
 
+#define CONFIG_SYS_HZ			1000	/* decrementer freq: 1 ms ticks */
+
 #define CONFIG_CMDLINE_EDITING	1	/* add command line history     */
+#define CONFIG_LOOPW		1	/* enable loopw command         */
 #define CONFIG_MX_CYCLIC	1	/* enable mdc/mwc commands      */
+#define CONFIG_ZERO_BOOTDELAY_CHECK	/* check for keypress on bootdelay==0 */
+#define CONFIG_VERSION_VARIABLE 1	/* include version env variable */
+
+#define CONFIG_AUTOBOOT_KEYED	1
+#define CONFIG_AUTOBOOT_PROMPT	\
+	"Press SPACE to abort autoboot in %d seconds\n", bootdelay
+#undef CONFIG_AUTOBOOT_DELAY_STR
+#define CONFIG_AUTOBOOT_STOP_STR " "
 
 /*-----------------------------------------------------------------------
  * PCI stuff
  *----------------------------------------------------------------------*/
 /* General PCI */
 #define CONFIG_PCI		/* include pci support          */
-#define CONFIG_PCI_INDIRECT_BRIDGE	/* indirect PCI bridge support */
 #define CONFIG_PCI_PNP		/* do (not) pci plug-and-play   */
 #define CONFIG_SYS_PCI_CACHE_LINE_SIZE	0	/* to avoid problems with PNP   */
 #define CONFIG_PCI_SCAN_SHOW	/* show pci devices on startup  */
@@ -327,8 +432,6 @@
 #define CONFIG_SYS_PCI_TARGET_INIT
 #define CONFIG_SYS_PCI_MASTER_INIT
 #define CONFIG_SYS_PCI_BOARD_FIXUP_IRQ
-
-#define CONFIG_PCI_BOOTDELAY 0
 
 /* PCI identification */
 #define CONFIG_SYS_PCI_SUBSYS_VENDORID 0x12FE	/* PCI Vendor ID: esd gmbh      */
@@ -362,6 +465,7 @@
 /*
  * On Sequoia CS0 and CS3 are switched when configuring for NAND booting
  */
+#if !defined(CONFIG_NAND_U_BOOT) && !defined(CONFIG_NAND_SPL)
 #define CONFIG_SYS_NAND_CS		2	/* NAND chip connected to CSx   */
 
 /* Memory Bank 0 (NOR-FLASH) initialization */
@@ -371,6 +475,16 @@
 /* Memory Bank 2 (NAND-FLASH) initialization */
 #define CONFIG_SYS_EBC_PB2AP		0x018003c0
 #define CONFIG_SYS_EBC_PB2CR		(CONFIG_SYS_NAND_ADDR | 0x1c000)
+#else
+#define CONFIG_SYS_NAND_CS		0	/* NAND chip connected to CSx   */
+/* Memory Bank 2 (NOR-FLASH) initialization */
+#define CONFIG_SYS_EBC_PB2AP		0x03017200
+#define CONFIG_SYS_EBC_PB2CR		(CONFIG_SYS_FLASH_BASE | 0xda000)
+
+/* Memory Bank 0 (NAND-FLASH) initialization */
+#define CONFIG_SYS_EBC_PB0AP		0x018003c0
+#define CONFIG_SYS_EBC_PB0CR		(CONFIG_SYS_NAND_ADDR | 0x1c000)
+#endif
 
 /* Memory Bank 1 (RESET) initialization */
 #define CONFIG_SYS_EBC_PB1AP		0x7f817200 /* 0x03017200 */
@@ -390,10 +504,16 @@
 #define CONFIG_SYS_MAX_NAND_DEVICE	1
 #define CONFIG_SYS_NAND_BASE		(CONFIG_SYS_NAND_ADDR + CONFIG_SYS_NAND_CS)
 #define CONFIG_SYS_NAND_SELECT_DEVICE	1 /* nand driver supports mutipl. chips */
+#define CONFIG_SYS_NAND_QUIET_TEST	1
 
 #if defined(CONFIG_CMD_KGDB)
 #define CONFIG_KGDB_BAUDRATE	230400	/* speed to run kgdb serial port */
+#define CONFIG_KGDB_SER_INDEX	2	/* which serial port to use */
 #endif
+
+/* pass open firmware flat tree */
+#define CONFIG_OF_LIBFDT	1
+#define CONFIG_OF_BOARD_SETUP	1
 
 #define CONFIG_API		1
 

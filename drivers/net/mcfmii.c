@@ -2,7 +2,23 @@
  * Copyright (C) 2004-2008 Freescale Semiconductor, Inc.
  * TsiChung Liew (Tsi-Chung.Liew@freescale.com)
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -19,7 +35,7 @@
 
 DECLARE_GLOBAL_DATA_PTR;
 
-#if defined(CONFIG_CMD_NET)
+#if defined(CONFIG_CMD_NET) && defined(CONFIG_NET_MULTI)
 #undef MII_DEBUG
 #undef ET_DEBUG
 
@@ -170,7 +186,7 @@ int mii_discover_phy(struct eth_device *dev)
 			printf("PHY @ 0x%x pass %d\n", phyno, pass);
 #endif
 
-			for (i = 0; (i < ARRAY_SIZE(phyinfo))
+			for (i = 0; (i < (sizeof(phyinfo) / sizeof(phy_info_t)))
 				&& (phyinfo[i].phyid != 0); i++) {
 				if (phyinfo[i].phyid == phytype) {
 #ifdef ET_DEBUG
@@ -277,7 +293,8 @@ void __mii_init(void)
  *	  Otherwise they hang in mii_send() !!! Sorry!
  */
 
-int mcffec_miiphy_read(struct mii_dev *bus, int addr, int devad, int reg)
+int mcffec_miiphy_read(const char *devname, unsigned char addr, unsigned char reg,
+		       unsigned short *value)
 {
 	short rdreg;		/* register working value */
 
@@ -286,23 +303,31 @@ int mcffec_miiphy_read(struct mii_dev *bus, int addr, int devad, int reg)
 #endif
 	rdreg = mii_send(mk_mii_read(addr, reg));
 
+	*value = rdreg;
+
 #ifdef MII_DEBUG
-	printf("0x%04x\n", rdreg);
+	printf("0x%04x\n", *value);
 #endif
-
-	return rdreg;
-}
-
-int mcffec_miiphy_write(struct mii_dev *bus, int addr, int devad, int reg,
-			u16 value)
-{
-#ifdef MII_DEBUG
-	printf("miiphy_write(0x%x) @ 0x%x = 0x%04x\n", reg, addr, value);
-#endif
-
-	mii_send(mk_mii_write(addr, reg, value));
 
 	return 0;
 }
 
-#endif				/* CONFIG_CMD_NET */
+int mcffec_miiphy_write(const char *devname, unsigned char addr, unsigned char reg,
+			unsigned short value)
+{
+	short rdreg;		/* register working value */
+
+#ifdef MII_DEBUG
+	printf("miiphy_write(0x%x) @ 0x%x = ", reg, addr);
+#endif
+
+	rdreg = mii_send(mk_mii_write(addr, reg, value));
+
+#ifdef MII_DEBUG
+	printf("0x%04x\n", value);
+#endif
+
+	return 0;
+}
+
+#endif				/* CONFIG_CMD_NET, FEC_ENET & NET_MULTI */

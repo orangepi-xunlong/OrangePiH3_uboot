@@ -2,7 +2,23 @@
  * (C) Copyright 2000
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -173,6 +189,20 @@ static int smc_init (void)
 # endif
 #endif
 
+#if defined(CONFIG_FADS) || defined(CONFIG_ADS)
+	/* Enable RS232 */
+#if defined(CONFIG_8xx_CONS_SMC1)
+	*((uint *) BCSR1) &= ~BCSR1_RS232EN_1;
+#else
+	*((uint *) BCSR1) &= ~BCSR1_RS232EN_2;
+#endif
+#endif	/* CONFIG_FADS */
+
+#if defined(CONFIG_RPXLITE) || defined(CONFIG_RPXCLASSIC)
+	/* Enable Monitor Port Transceiver */
+	*((uchar *) BCSR0) |= BCSR0_ENMONXCVR ;
+#endif /* CONFIG_RPXLITE */
+
 	/* Set the physical address of the host memory buffers in
 	 * the buffer descriptors.
 	 */
@@ -210,6 +240,10 @@ static int smc_init (void)
 	up->smc_rstate = 0;
 	up->smc_tstate = 0;
 #endif
+
+#if defined(CONFIG_MBX)
+	board_serial_init();
+#endif	/* CONFIG_MBX */
 
 	/* Set UART mode, 8 bit, no parity, one stop.
 	 * Enable receive and transmit.
@@ -267,6 +301,11 @@ smc_putc(const char c)
 	volatile immap_t	*im = (immap_t *)CONFIG_SYS_IMMR;
 	volatile cpm8xx_t	*cpmp = &(im->im_cpm);
 	volatile serialbuffer_t	*rtx;
+
+#ifdef CONFIG_MODEM_SUPPORT
+	if (gd->be_quiet)
+		return;
+#endif
 
 	if (c == '\n')
 		smc_putc ('\r');
@@ -351,14 +390,14 @@ smc_tstc(void)
 
 struct serial_device serial_smc_device =
 {
-	.name	= "serial_smc",
-	.start	= smc_init,
-	.stop	= NULL,
-	.setbrg	= smc_setbrg,
-	.getc	= smc_getc,
-	.tstc	= smc_tstc,
-	.putc	= smc_putc,
-	.puts	= smc_puts,
+	"serial_smc",
+	smc_init,
+	NULL,
+	smc_setbrg,
+	smc_getc,
+	smc_tstc,
+	smc_putc,
+	smc_puts,
 };
 
 #endif /* CONFIG_8xx_CONS_SMC1 || CONFIG_8xx_CONS_SMC2 */
@@ -400,6 +439,22 @@ static int scc_init (void)
 	sp = (scc_t *) &(cp->cp_scc[SCC_INDEX]);
 	up = (scc_uart_t *) &cp->cp_dparam[PROFF_SCC];
 
+#if defined(CONFIG_LWMON) && defined(CONFIG_8xx_CONS_SCC2)
+    {	/* Disable Ethernet, enable Serial */
+	uchar c;
+
+	c = pic_read  (0x61);
+	c &= ~0x40;	/* enable COM3 */
+	c |=  0x80;	/* disable Ethernet */
+	pic_write (0x61, c);
+
+	/* enable RTS2 */
+	cp->cp_pbpar |=  0x2000;
+	cp->cp_pbdat |=  0x2000;
+	cp->cp_pbdir |=  0x2000;
+    }
+#endif	/* CONFIG_LWMON */
+
 	/* Disable transmitter/receiver. */
 	sp->scc_gsmrl &= ~(SCC_GSMRL_ENR | SCC_GSMRL_ENT);
 
@@ -411,13 +466,18 @@ static int scc_init (void)
 	cp->cp_pbdir &= ~0x06;
 	cp->cp_pbodr &= ~0x06;
 
-#elif (SCC_INDEX < 2)
+#elif (SCC_INDEX < 2) || !defined(CONFIG_IP860)
 	/*
 	 * Standard configuration for SCC's is on Part A
 	 */
 	ip->iop_papar |=  ((3 << (2 * SCC_INDEX)));
 	ip->iop_padir &= ~((3 << (2 * SCC_INDEX)));
 	ip->iop_paodr &= ~((3 << (2 * SCC_INDEX)));
+#else
+	/*
+	 * The IP860 has SCC3 and SCC4 on Port D
+	 */
+	ip->iop_pdpar |=  ((3 << (2 * SCC_INDEX)));
 #endif
 
 	/* Allocate space for two buffer descriptors in the DP ram. */
@@ -522,6 +582,11 @@ scc_putc(const char c)
 	volatile immap_t	*im = (immap_t *)CONFIG_SYS_IMMR;
 	volatile cpm8xx_t	*cpmp = &(im->im_cpm);
 
+#ifdef CONFIG_MODEM_SUPPORT
+	if (gd->be_quiet)
+		return;
+#endif
+
 	if (c == '\n')
 		scc_putc ('\r');
 
@@ -595,14 +660,14 @@ scc_tstc(void)
 
 struct serial_device serial_scc_device =
 {
-	.name	= "serial_scc",
-	.start	= scc_init,
-	.stop	= NULL,
-	.setbrg	= scc_setbrg,
-	.getc	= scc_getc,
-	.tstc	= scc_tstc,
-	.putc	= scc_putc,
-	.puts	= scc_puts,
+	"serial_scc",
+	scc_init,
+	NULL,
+	scc_setbrg,
+	scc_getc,
+	scc_tstc,
+	scc_putc,
+	scc_puts,
 };
 
 #endif	/* CONFIG_8xx_CONS_SCCx */
@@ -616,16 +681,17 @@ __weak struct serial_device *default_serial_console(void)
 #endif
 }
 
-void mpc8xx_serial_initialize(void)
+#ifdef CONFIG_MODEM_SUPPORT
+void disable_putc(void)
 {
-#if defined(CONFIG_8xx_CONS_SMC1) || defined(CONFIG_8xx_CONS_SMC2)
-	serial_register(&serial_smc_device);
-#endif
-#if	defined(CONFIG_8xx_CONS_SCC1) || defined(CONFIG_8xx_CONS_SCC2) || \
-	defined(CONFIG_8xx_CONS_SCC3) || defined(CONFIG_8xx_CONS_SCC4)
-	serial_register(&serial_scc_device);
-#endif
+	gd->be_quiet = 1;
 }
+
+void enable_putc(void)
+{
+	gd->be_quiet = 0;
+}
+#endif
 
 #if defined(CONFIG_CMD_KGDB)
 

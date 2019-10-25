@@ -1,8 +1,27 @@
-/*
- * SPDX-License-Identifier:	GPL-2.0	IBM-pibs
- *
- * Additions (C) Copyright 2009 Industrie Dial Face S.p.A.
- */
+/*----------------------------------------------------------------------------+
+|   This source code is dual-licensed.  You may use it under the terms of the
+|   GNU General Public License version 2, or under the license below.
+|
+|	This source code has been made available to you by IBM on an AS-IS
+|	basis.	Anyone receiving this source is licensed under IBM
+|	copyrights to use it in any way he or she deems fit, including
+|	copying it, modifying it, compiling it, and redistributing it either
+|	with or without modifications.	No license under IBM patents or
+|	patent applications is to be implied by the copyright license.
+|
+|	Any user of this software should understand that IBM cannot provide
+|	technical support for this software and will not be responsible for
+|	any consequences resulting from the use of this software.
+|
+|	Any person who transfers this source code or any derivative work
+|	must include the IBM copyright notice, this paragraph, and the
+|	preceding two paragraphs in the transferred software.
+|
+|	COPYRIGHT   I B M   CORPORATION 1999
+|	LICENSED MATERIAL  -  PROGRAM PROPERTY OF I B M
+|
+|   Additions (C) Copyright 2009 Industrie Dial Face S.p.A.
++----------------------------------------------------------------------------*/
 /*----------------------------------------------------------------------------+
 |
 |  File Name:	miiphy.h
@@ -21,6 +40,13 @@
 #include <net.h>
 #include <phy.h>
 
+struct legacy_mii_dev {
+	int (*read)(const char *devname, unsigned char addr,
+		     unsigned char reg, unsigned short *value);
+	int (*write)(const char *devname, unsigned char addr,
+		      unsigned char reg, unsigned short value);
+};
+
 int miiphy_read(const char *devname, unsigned char addr, unsigned char reg,
 		 unsigned short *value);
 int miiphy_write(const char *devname, unsigned char addr, unsigned char reg,
@@ -37,6 +63,12 @@ int miiphy_link(const char *devname, unsigned char addr);
 
 void miiphy_init(void);
 
+void miiphy_register(const char *devname,
+		      int (*read)(const char *devname, unsigned char addr,
+				   unsigned char reg, unsigned short *value),
+		      int (*write)(const char *devname, unsigned char addr,
+				    unsigned char reg, unsigned short value));
+
 int miiphy_set_current_dev(const char *devname);
 const char *miiphy_get_current_dev(void);
 struct mii_dev *mdio_get_current_dev(void);
@@ -46,9 +78,7 @@ struct phy_device *mdio_phydev_for_ethname(const char *devname);
 void miiphy_listdev(void);
 
 struct mii_dev *mdio_alloc(void);
-void mdio_free(struct mii_dev *bus);
 int mdio_register(struct mii_dev *bus);
-int mdio_unregister(struct mii_dev *bus);
 void mdio_list_devices(void);
 
 #ifdef CONFIG_BITBANGMII
@@ -56,7 +86,7 @@ void mdio_list_devices(void);
 #define BB_MII_DEVNAME	"bb_miiphy"
 
 struct bb_miiphy_bus {
-	char name[16];
+	char name[NAMESIZE];
 	int (*init)(struct bb_miiphy_bus *bus);
 	int (*mdio_active)(struct bb_miiphy_bus *bus);
 	int (*mdio_tristate)(struct bb_miiphy_bus *bus);
@@ -73,9 +103,10 @@ extern struct bb_miiphy_bus bb_miiphy_buses[];
 extern int bb_miiphy_buses_num;
 
 void bb_miiphy_init(void);
-int bb_miiphy_read(struct mii_dev *miidev, int addr, int devad, int reg);
-int bb_miiphy_write(struct mii_dev *miidev, int addr, int devad, int reg,
-		    u16 value);
+int bb_miiphy_read(const char *devname, unsigned char addr,
+		    unsigned char reg, unsigned short *value);
+int bb_miiphy_write(const char *devname, unsigned char addr,
+		     unsigned char reg, unsigned short value);
 #endif
 
 /* phy seed setup */

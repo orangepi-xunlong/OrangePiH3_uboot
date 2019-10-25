@@ -4,7 +4,20 @@
  * Martin Krause, Martin.Krause@tqs.de
  * reworked original enc28j60.c
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -21,8 +34,8 @@
  * enc_miiphy_read(), enc_miiphy_write(), enc_write_hwaddr(),
  * enc_init(), enc_recv(), enc_send(), enc_halt()
  * ALL other functions assume that the bus has already been claimed!
- * Since net_process_received_packet() might call enc_send() in return, the bus
- * must be released, net_process_received_packet() called and claimed again.
+ * Since NetReceive() might call enc_send() in return, the bus must be
+ * released, NetReceive() called and claimed again.
  */
 
 /*
@@ -381,7 +394,7 @@ static int enc_phy_link_wait(enc_dev_t *enc)
 		udelay(1000);
 	}
 
-	/* timeout occurred */
+	/* timeout occured */
 	printf("%s: link down\n", enc->dev->name);
 	return 1;
 }
@@ -415,10 +428,11 @@ static void enc_reset_rx_call(enc_dev_t *enc)
  */
 static void enc_receive(enc_dev_t *enc)
 {
-	u8 *packet = (u8 *)net_rx_packets[0];
+	u8 *packet = (u8 *)NetRxPackets[0];
 	u16 pkt_len;
 	u16 copy_len;
 	u16 status;
+	u8 eir_reg;
 	u8 pkt_cnt = 0;
 	u16 rxbuf_rdpt;
 	u8 hbuf[6];
@@ -462,21 +476,20 @@ static void enc_receive(enc_dev_t *enc)
 		/* read pktcnt */
 		pkt_cnt = enc_r8(enc, CTL_REG_EPKTCNT);
 		if (copy_len == 0) {
-			(void)enc_r8(enc, CTL_REG_EIR);
+			eir_reg = enc_r8(enc, CTL_REG_EIR);
 			enc_reset_rx(enc);
 			printf("%s: receive copy_len=0\n", enc->dev->name);
 			continue;
 		}
 		/*
-		 * Because net_process_received_packet() might call enc_send(),
-		 * we need to release the SPI bus, call
-		 * net_process_received_packet(), reclaim the bus.
+		 * Because NetReceive() might call enc_send(), we need to
+		 * release the SPI bus, call NetReceive(), reclaim the bus
 		 */
 		enc_release_bus(enc);
-		net_process_received_packet(packet, pkt_len);
+		NetReceive(packet, pkt_len);
 		if (enc_claim_bus(enc))
 			return;
-		(void)enc_r8(enc, CTL_REG_EIR);
+		eir_reg = enc_r8(enc, CTL_REG_EIR);
 	} while (pkt_cnt);
 	/* Use EPKTCNT not EIR.PKTIF flag, see errata pt. 6 */
 }
@@ -487,13 +500,14 @@ static void enc_receive(enc_dev_t *enc)
 static void enc_poll(enc_dev_t *enc)
 {
 	u8 eir_reg;
+	u8 estat_reg;
 	u8 pkt_cnt;
 
 #ifdef CONFIG_USE_IRQ
 	/* clear global interrupt enable bit in enc28j60 */
 	enc_bclr(enc, CTL_REG_EIE, ENC_EIE_INTIE);
 #endif
-	(void)enc_r8(enc, CTL_REG_ESTAT);
+	estat_reg = enc_r8(enc, CTL_REG_ESTAT);
 	eir_reg = enc_r8(enc, CTL_REG_EIR);
 	if (eir_reg & ENC_EIR_TXIF) {
 		/* clear TXIF bit in EIR */
@@ -742,10 +756,9 @@ static int enc_initcheck(enc_dev_t *enc, const enum enc_initstate requiredstate)
  *
  * This function is registered with miiphy_register().
  */
-int enc_miiphy_read(struct mii_dev *bus, int phy_adr, int devad, int reg)
+int enc_miiphy_read(const char *devname, u8 phy_adr, u8 reg, u16 *value)
 {
-	u16 value = 0;
-	struct eth_device *dev = eth_get_dev_by_name(bus->name);
+	struct eth_device *dev = eth_get_dev_by_name(devname);
 	enc_dev_t *enc;
 
 	if (!dev || phy_adr != 0)
@@ -758,9 +771,9 @@ int enc_miiphy_read(struct mii_dev *bus, int phy_adr, int devad, int reg)
 		enc_release_bus(enc);
 		return -1;
 	}
-	value = enc_phy_read(enc, reg);
+	*value = enc_phy_read(enc, reg);
 	enc_release_bus(enc);
-	return value;
+	return 0;
 }
 
 /*
@@ -768,10 +781,9 @@ int enc_miiphy_read(struct mii_dev *bus, int phy_adr, int devad, int reg)
  *
  * This function is registered with miiphy_register().
  */
-int enc_miiphy_write(struct mii_dev *bus, int phy_adr, int devad, int reg,
-		     u16 value)
+int enc_miiphy_write(const char *devname, u8 phy_adr, u8 reg, u16 value)
 {
-	struct eth_device *dev = eth_get_dev_by_name(bus->name);
+	struct eth_device *dev = eth_get_dev_by_name(devname);
 	enc_dev_t *enc;
 
 	if (!dev || phy_adr != 0)
@@ -865,7 +877,7 @@ static int enc_recv(struct eth_device *dev)
  */
 static int enc_send(
 	struct eth_device *dev,
-	void *packet,
+	volatile void *packet,
 	int length)
 {
 	enc_dev_t *enc = dev->priv;
@@ -960,17 +972,7 @@ int enc28j60_initialize(unsigned int bus, unsigned int cs,
 	sprintf(dev->name, "enc%i.%i", bus, cs);
 	eth_register(dev);
 #if defined(CONFIG_CMD_MII)
-	int retval;
-	struct mii_dev *mdiodev = mdio_alloc();
-	if (!mdiodev)
-		return -ENOMEM;
-	strncpy(mdiodev->name, dev->name, MDIO_NAME_LEN);
-	mdiodev->read = enc_miiphy_read;
-	mdiodev->write = enc_miiphy_write;
-
-	retval = mdio_register(mdiodev);
-	if (retval < 0)
-		return retval;
+	miiphy_register(dev->name, enc_miiphy_read, enc_miiphy_write);
 #endif
 	return 0;
 }

@@ -54,7 +54,10 @@
 #endif
 
 /* ========================================================================= */
-uLong ZEXPORT adler32(uLong adler, const Bytef *buf, uInt len)
+uLong ZEXPORT adler32(adler, buf, len)
+    uLong adler;
+    const Bytef *buf;
+    uInt len;
 {
     unsigned long sum2;
     unsigned n;

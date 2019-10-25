@@ -3,7 +3,7 @@
  * For conditions of distribution and use, see copyright notice in zlib.h
  */
 
-/* U-Boot: we already included these
+/* U-boot: we already included these
 #include "zutil.h"
 #include "inftrees.h"
 */
@@ -29,9 +29,13 @@
    table index bits.  It will differ if the request is greater than the
    longest code or if it is less than the shortest code.
  */
-int inflate_table(codetype type, unsigned short FAR *lens, unsigned codes,
-		  code FAR * FAR *table, unsigned FAR *bits,
-		  unsigned short FAR *work)
+int inflate_table(type, lens, codes, table, bits, work)
+codetype type;
+unsigned short FAR *lens;
+unsigned codes;
+code FAR * FAR *table;
+unsigned FAR *bits;
+unsigned short FAR *work;
 {
     unsigned len;               /* a code's length in bits */
     unsigned sym;               /* index of code symbols */

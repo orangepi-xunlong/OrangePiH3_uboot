@@ -41,9 +41,9 @@
 #ifndef __ASSEMBLY__
 
 typedef struct {
-	unsigned long freq_processor;
-	unsigned long freq_systembus;
-	unsigned long freq_localbus;
+	unsigned long freqProcessor;
+	unsigned long freqSystemBus;
+	unsigned long freqLocalBus;
 } MPC86xx_SYS_INFO;
 
 #define l1icache_enable	icache_enable
@@ -84,7 +84,6 @@ static __inline__ unsigned long get_l2cr (void)
 }
 
 void setup_ddr_bat(phys_addr_t dram_size);
-extern void setup_bats(void);
 
 #endif  /* _ASMLANGUAGE */
 #endif	/* __MPC86xx_H__ */

@@ -1,20 +1,44 @@
 /* Initializes CPU and basic hardware such as memory
  * controllers, IRQ controller and system timer 0.
  *
- * (C) Copyright 2007, 2015
- * Daniel Hellstrom, Cobham Gaisler, daniel@gaisler.com
+ * (C) Copyright 2007
+ * Daniel Hellstrom, Gaisler Research, daniel@gaisler.com
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
  */
 
 #include <common.h>
 #include <asm/asi.h>
 #include <asm/leon.h>
-#include <asm/io.h>
 
 #include <config.h>
 
 DECLARE_GLOBAL_DATA_PTR;
+
+/* reset CPU (jump to 0, without reset) */
+void start(void);
+
+struct {
+	gd_t gd_area;
+	bd_t bd;
+} global_data;
 
 /*
  * Breath some life into the CPU...
@@ -40,56 +64,79 @@ void cpu_init_f(void)
 
 	/* cache */
 
-	/* I/O port setup */
+       /* I/O port setup */
 #ifdef LEON2_IO_PORT_DIR
-	leon2->PIO_Direction = LEON2_IO_PORT_DIR;
+       leon2->PIO_Direction = LEON2_IO_PORT_DIR;
 #endif
 #ifdef LEON2_IO_PORT_DATA
-	leon2->PIO_Data = LEON2_IO_PORT_DATA;
+       leon2->PIO_Data = LEON2_IO_PORT_DATA;
 #endif
 #ifdef LEON2_IO_PORT_INT
-	leon2->PIO_Interrupt = LEON2_IO_PORT_INT;
+       leon2->PIO_Interrupt = LEON2_IO_PORT_INT;
 #else
-	leon2->PIO_Interrupt = 0;
+       leon2->PIO_Interrupt = 0;
 #endif
-
-	/* disable timers */
-	leon2->Timer_Control_1 = leon2->Timer_Control_2 = 0;
 }
 
-int arch_cpu_init(void)
+void cpu_init_f2(void)
 {
-	gd->cpu_clk = CONFIG_SYS_CLK_FREQ;
-	gd->bus_clk = CONFIG_SYS_CLK_FREQ;
-	gd->ram_size = CONFIG_SYS_SDRAM_SIZE;
 
-	return 0;
 }
 
 /*
- * initialize higher level parts of CPU
+ * initialize higher level parts of CPU like time base and timers
  */
 int cpu_init_r(void)
 {
-	return 0;
-}
-
-/* initiate and setup timer0 to configured HZ. Base clock is 1MHz.
- */
-int timer_init(void)
-{
-	LEON2_regs *leon2 = (LEON2_regs *)LEON2_PREGS;
+	LEON2_regs *leon2 = (LEON2_regs *) LEON2_PREGS;
 
 	/* initialize prescaler common to all timers to 1MHz */
 	leon2->Scaler_Counter = leon2->Scaler_Reload =
-		(((CONFIG_SYS_CLK_FREQ / 1000) + 500) / 1000) - 1;
+	    (((CONFIG_SYS_CLK_FREQ / 1000) + 500) / 1000) - 1;
 
-	/* SYS_HZ ticks per second */
+	return (0);
+}
+
+/* Uses Timer 0 to get accurate
+ * pauses. Max 2 raised to 32 ticks
+ *
+ */
+void cpu_wait_ticks(unsigned long ticks)
+{
+	unsigned long start = get_timer(0);
+	while (get_timer(start) < ticks) ;
+}
+
+/* initiate and setup timer0 interrupt to 1MHz
+ * Return irq number for timer int or a negative number for
+ * dealing with self
+ */
+int timer_interrupt_init_cpu(void)
+{
+	LEON2_regs *leon2 = (LEON2_regs *) LEON2_PREGS;
+
+	/* 1ms ticks */
 	leon2->Timer_Counter_1 = 0;
-	leon2->Timer_Reload_1 = (CONFIG_SYS_TIMER_RATE / CONFIG_SYS_HZ) - 1;
-	leon2->Timer_Control_1 = LEON2_TIMER_CTRL_EN | LEON2_TIMER_CTRL_RS |
-		LEON2_TIMER_CTRL_LD;
+	leon2->Timer_Reload_1 = 999;	/* (((1000000 / 100) - 1)) */
+	leon2->Timer_Control_1 =
+	    (LEON2_TIMER_CTRL_EN | LEON2_TIMER_CTRL_RS | LEON2_TIMER_CTRL_LD);
 
-	CONFIG_SYS_TIMER_COUNTER = (void *)&leon2->Timer_Counter_1;
-	return 0;
+	return LEON2_TIMER1_IRQNO;
+}
+
+/*
+ * This function is intended for SHORT delays only.
+ */
+unsigned long cpu_usec2ticks(unsigned long usec)
+{
+	/* timer set to 1kHz ==> 1 clk tick = 1 msec */
+	if (usec < 1000)
+		return 1;
+	return (usec / 1000);
+}
+
+unsigned long cpu_ticks2usec(unsigned long ticks)
+{
+	/* 1tick = 1usec */
+	return ticks * 1000;
 }

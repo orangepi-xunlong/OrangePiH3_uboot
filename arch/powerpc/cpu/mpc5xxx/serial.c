@@ -2,14 +2,30 @@
  * (C) Copyright 2000 - 2003
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  *
  * Hacked for MPC8260 by Murray.Jensen@cmst.csiro.au, 19-Oct-00, with
  * changes based on the file arch/powerpc/mbxboot/m8260_tty.c from the
  * Linux/PPC sources (m8260_tty.c had no copyright info in it).
  *
  * Martin Krause, 8 Jun 2006
- * Added SERIAL_MULTI support
+ * Added CONFIG_SERIAL_MULTI support
  */
 
 /*
@@ -20,7 +36,10 @@
 #include <common.h>
 #include <linux/compiler.h>
 #include <mpc5xxx.h>
+
+#if defined (CONFIG_SERIAL_MULTI)
 #include <serial.h>
+#endif
 
 DECLARE_GLOBAL_DATA_PTR;
 
@@ -42,8 +61,11 @@ DECLARE_GLOBAL_DATA_PTR;
 #error CONFIG_PSC_CONSOLE must be in 1 ... 6
 #endif
 
-#if defined(CONFIG_PSC_CONSOLE2)
+#if defined(CONFIG_SERIAL_MULTI) && !defined(CONFIG_PSC_CONSOLE2)
+#error you must define CONFIG_PSC_CONSOLE2 if CONFIG_SERIAL_MULTI is set
+#endif
 
+#if defined(CONFIG_SERIAL_MULTI)
 #if CONFIG_PSC_CONSOLE2 == 1
 #define PSC_BASE2 MPC5XXX_PSC1
 #elif CONFIG_PSC_CONSOLE2 == 2
@@ -59,12 +81,19 @@ DECLARE_GLOBAL_DATA_PTR;
 #else
 #error CONFIG_PSC_CONSOLE2 must be in 1 ... 6
 #endif
+#endif /* CONFIG_SERIAL_MULTI */
 
-#endif
-
+#if defined(CONFIG_SERIAL_MULTI)
 int serial_init_dev (unsigned long dev_base)
+#else
+int serial_init (void)
+#endif
 {
+#if defined(CONFIG_SERIAL_MULTI)
 	volatile struct mpc5xxx_psc *psc = (struct mpc5xxx_psc *)dev_base;
+#else
+	volatile struct mpc5xxx_psc *psc = (struct mpc5xxx_psc *)PSC_BASE;
+#endif
 	unsigned long baseclk;
 	int div;
 
@@ -73,7 +102,7 @@ int serial_init_dev (unsigned long dev_base)
 
 	/* select clock sources */
 	psc->psc_clock_select = 0;
-	baseclk = (gd->arch.ipb_clk + 16) / 32;
+	baseclk = (gd->ipb_clk + 16) / 32;
 
 	/* switch to UART mode */
 	psc->sicr = 0;
@@ -98,12 +127,24 @@ int serial_init_dev (unsigned long dev_base)
 	return (0);
 }
 
+#if defined(CONFIG_SERIAL_MULTI)
 void serial_putc_dev (unsigned long dev_base, const char c)
+#else
+void serial_putc(const char c)
+#endif
 {
+#if defined(CONFIG_SERIAL_MULTI)
 	volatile struct mpc5xxx_psc *psc = (struct mpc5xxx_psc *)dev_base;
+#else
+	volatile struct mpc5xxx_psc *psc = (struct mpc5xxx_psc *)PSC_BASE;
+#endif
 
 	if (c == '\n')
+#if defined(CONFIG_SERIAL_MULTI)
 		serial_putc_dev (dev_base, '\r');
+#else
+		serial_putc('\r');
+#endif
 
 	/* Wait for last character to go. */
 	while (!(psc->psc_status & PSC_SR_TXEMP))
@@ -112,16 +153,51 @@ void serial_putc_dev (unsigned long dev_base, const char c)
 	psc->psc_buffer_8 = c;
 }
 
+#if defined(CONFIG_SERIAL_MULTI)
+void serial_putc_raw_dev(unsigned long dev_base, const char c)
+#else
+void serial_putc_raw(const char c)
+#endif
+{
+#if defined(CONFIG_SERIAL_MULTI)
+	volatile struct mpc5xxx_psc *psc = (struct mpc5xxx_psc *)dev_base;
+#else
+	volatile struct mpc5xxx_psc *psc = (struct mpc5xxx_psc *)PSC_BASE;
+#endif
+	/* Wait for last character to go. */
+	while (!(psc->psc_status & PSC_SR_TXEMP))
+		;
+
+	psc->psc_buffer_8 = c;
+}
+
+
+#if defined(CONFIG_SERIAL_MULTI)
 void serial_puts_dev (unsigned long dev_base, const char *s)
+#else
+void serial_puts (const char *s)
+#endif
 {
 	while (*s) {
+#if defined(CONFIG_SERIAL_MULTI)
 		serial_putc_dev (dev_base, *s++);
+#else
+		serial_putc (*s++);
+#endif
 	}
 }
 
+#if defined(CONFIG_SERIAL_MULTI)
 int serial_getc_dev (unsigned long dev_base)
+#else
+int serial_getc(void)
+#endif
 {
+#if defined(CONFIG_SERIAL_MULTI)
 	volatile struct mpc5xxx_psc *psc = (struct mpc5xxx_psc *)dev_base;
+#else
+	volatile struct mpc5xxx_psc *psc = (struct mpc5xxx_psc *)PSC_BASE;
+#endif
 
 	/* Wait for a character to arrive. */
 	while (!(psc->psc_status & PSC_SR_RXRDY))
@@ -130,19 +206,35 @@ int serial_getc_dev (unsigned long dev_base)
 	return psc->psc_buffer_8;
 }
 
+#if defined(CONFIG_SERIAL_MULTI)
 int serial_tstc_dev (unsigned long dev_base)
+#else
+int serial_tstc(void)
+#endif
 {
+#if defined(CONFIG_SERIAL_MULTI)
 	volatile struct mpc5xxx_psc *psc = (struct mpc5xxx_psc *)dev_base;
+#else
+	volatile struct mpc5xxx_psc *psc = (struct mpc5xxx_psc *)PSC_BASE;
+#endif
 
 	return (psc->psc_status & PSC_SR_RXRDY);
 }
 
+#if defined(CONFIG_SERIAL_MULTI)
 void serial_setbrg_dev (unsigned long dev_base)
+#else
+void serial_setbrg(void)
+#endif
 {
+#if defined(CONFIG_SERIAL_MULTI)
 	volatile struct mpc5xxx_psc *psc = (struct mpc5xxx_psc *)dev_base;
+#else
+	volatile struct mpc5xxx_psc *psc = (struct mpc5xxx_psc *)PSC_BASE;
+#endif
 	unsigned long baseclk, div;
 
-	baseclk = (gd->arch.ipb_clk + 16) / 32;
+	baseclk = (gd->ipb_clk + 16) / 32;
 
 	/* set up UART divisor */
 	div = (baseclk + (gd->baudrate/2)) / gd->baudrate;
@@ -150,9 +242,17 @@ void serial_setbrg_dev (unsigned long dev_base)
 	psc->ctlr =  div & 0xff;
 }
 
+#if defined(CONFIG_SERIAL_MULTI)
 void serial_setrts_dev (unsigned long dev_base, int s)
+#else
+void serial_setrts(int s)
+#endif
 {
+#if defined(CONFIG_SERIAL_MULTI)
 	volatile struct mpc5xxx_psc *psc = (struct mpc5xxx_psc *)dev_base;
+#else
+	volatile struct mpc5xxx_psc *psc = (struct mpc5xxx_psc *)PSC_BASE;
+#endif
 
 	if (s) {
 		/* Assert RTS (become LOW) */
@@ -164,21 +264,38 @@ void serial_setrts_dev (unsigned long dev_base, int s)
 	}
 }
 
+#if defined(CONFIG_SERIAL_MULTI)
 int serial_getcts_dev (unsigned long dev_base)
+#else
+int serial_getcts(void)
+#endif
 {
+#if defined(CONFIG_SERIAL_MULTI)
 	volatile struct mpc5xxx_psc *psc = (struct mpc5xxx_psc *)dev_base;
+#else
+	volatile struct mpc5xxx_psc *psc = (struct mpc5xxx_psc *)PSC_BASE;
+#endif
 
 	return (psc->ip & 0x1) ? 0 : 1;
 }
 
+#if defined(CONFIG_SERIAL_MULTI)
 int serial0_init(void)
 {
 	return (serial_init_dev(PSC_BASE));
 }
 
+int serial1_init(void)
+{
+	return (serial_init_dev(PSC_BASE2));
+}
 void serial0_setbrg (void)
 {
 	serial_setbrg_dev(PSC_BASE);
+}
+void serial1_setbrg (void)
+{
+	serial_setbrg_dev(PSC_BASE2);
 }
 
 void serial0_putc(const char c)
@@ -186,52 +303,13 @@ void serial0_putc(const char c)
 	serial_putc_dev(PSC_BASE,c);
 }
 
-void serial0_puts(const char *s)
-{
-	serial_puts_dev(PSC_BASE, s);
-}
-
-int serial0_getc(void)
-{
-	return(serial_getc_dev(PSC_BASE));
-}
-
-int serial0_tstc(void)
-{
-	return (serial_tstc_dev(PSC_BASE));
-}
-
-struct serial_device serial0_device =
-{
-	.name	= "serial0",
-	.start	= serial0_init,
-	.stop	= NULL,
-	.setbrg	= serial0_setbrg,
-	.getc	= serial0_getc,
-	.tstc	= serial0_tstc,
-	.putc	= serial0_putc,
-	.puts	= serial0_puts,
-};
-
-__weak struct serial_device *default_serial_console(void)
-{
-	return &serial0_device;
-}
-
-#ifdef CONFIG_PSC_CONSOLE2
-int serial1_init(void)
-{
-	return serial_init_dev(PSC_BASE2);
-}
-
-void serial1_setbrg(void)
-{
-	serial_setbrg_dev(PSC_BASE2);
-}
-
 void serial1_putc(const char c)
 {
 	serial_putc_dev(PSC_BASE2, c);
+}
+void serial0_puts(const char *s)
+{
+	serial_puts_dev(PSC_BASE, s);
 }
 
 void serial1_puts(const char *s)
@@ -239,27 +317,53 @@ void serial1_puts(const char *s)
 	serial_puts_dev(PSC_BASE2, s);
 }
 
+int serial0_getc(void)
+{
+	return(serial_getc_dev(PSC_BASE));
+}
+
 int serial1_getc(void)
 {
-	return serial_getc_dev(PSC_BASE2);
+	return(serial_getc_dev(PSC_BASE2));
+}
+int serial0_tstc(void)
+{
+	return (serial_tstc_dev(PSC_BASE));
 }
 
 int serial1_tstc(void)
 {
-	return serial_tstc_dev(PSC_BASE2);
+	return (serial_tstc_dev(PSC_BASE2));
+}
+
+struct serial_device serial0_device =
+{
+	"serial0",
+	serial0_init,
+	NULL,
+	serial0_setbrg,
+	serial0_getc,
+	serial0_tstc,
+	serial0_putc,
+	serial0_puts,
+};
+
+__weak struct serial_device *default_serial_console(void)
+{
+	return &serial0_device;
 }
 
 struct serial_device serial1_device =
 {
-	.name	= "serial1",
-	.start	= serial1_init,
-	.stop	= NULL,
-	.setbrg	= serial1_setbrg,
-	.getc	= serial1_getc,
-	.tstc	= serial1_tstc,
-	.putc	= serial1_putc,
-	.puts	= serial1_puts,
+	"serial1",
+	serial1_init,
+	NULL,
+	serial1_setbrg,
+	serial1_getc,
+	serial1_tstc,
+	serial1_putc,
+	serial1_puts,
 };
-#endif /* CONFIG_PSC_CONSOLE2 */
+#endif /* CONFIG_SERIAL_MULTI */
 
 #endif /* CONFIG_PSC_CONSOLE */

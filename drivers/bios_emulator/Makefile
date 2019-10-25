@@ -1,10 +1,12 @@
-#
-# SPDX-License-Identifier:	GPL-2.0+
-#
+include $(TOPDIR)/config.mk
+
+LIB := $(obj)libatibiosemu.o
 
 X86DIR  = x86emu
 
-obj-y = atibios.o biosemu.o besys.o bios.o \
+$(shell mkdir -p $(obj)$(X86DIR))
+
+COBJS-$(CONFIG_BIOSEMU)	= atibios.o biosemu.o besys.o bios.o \
 	$(X86DIR)/decode.o \
 	$(X86DIR)/ops2.o \
 	$(X86DIR)/ops.o \
@@ -12,5 +14,26 @@ obj-y = atibios.o biosemu.o besys.o bios.o \
 	$(X86DIR)/sys.o \
 	$(X86DIR)/debug.o
 
-ccflags-y := -I$(srctree)/$(src) -I$(srctree)/$(src)/include \
-	$(if $(CONFIG_PPC),-D__PPC__  -D__BIG_ENDIAN__)
+COBJS	:= $(COBJS-y)
+SRCS	:= $(COBJS:.o=.c)
+OBJS	:= $(addprefix $(obj),$(COBJS))
+
+EXTRA_CFLAGS += -I. -I./include -I$(TOPDIR)/include \
+	-D__PPC__  -D__BIG_ENDIAN__
+
+CFLAGS += $(EXTRA_CFLAGS)
+HOSTCFLAGS += $(EXTRA_CFLAGS)
+CPPFLAGS += $(EXTRA_CFLAGS)
+
+all:	$(LIB)
+
+$(LIB): $(obj).depend $(OBJS)
+	$(call cmd_link_o_target, $(OBJS))
+
+#########################################################################
+
+include $(SRCTREE)/rules.mk
+
+sinclude $(obj).depend
+
+#########################################################################

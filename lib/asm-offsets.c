@@ -9,7 +9,10 @@
  * compile this file to assembler, and then extract the
  * #defines from the assembly-language output.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version
+ * 2 of the License, or (at your option) any later version.
  */
 
 #include <common.h>
@@ -24,19 +27,6 @@ int main(void)
 
 	DEFINE(GENERATED_BD_INFO_SIZE,
 		(sizeof(struct bd_info) + 15) & ~15);
-
-	DEFINE(GD_SIZE, sizeof(struct global_data));
-
-	DEFINE(GD_BD, offsetof(struct global_data, bd));
-#ifdef CONFIG_SYS_MALLOC_F_LEN
-	DEFINE(GD_MALLOC_BASE, offsetof(struct global_data, malloc_base));
-#endif
-
-	DEFINE(GD_RELOCADDR, offsetof(struct global_data, relocaddr));
-
-	DEFINE(GD_RELOC_OFF, offsetof(struct global_data, reloc_off));
-
-	DEFINE(GD_START_ADDR_SP, offsetof(struct global_data, start_addr_sp));
 
 	return 0;
 }

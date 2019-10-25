@@ -12,7 +12,20 @@
  *	Tom Rushworth <tbr@lineo.com>,
  *	Bruce Balden <balden@lineo.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ *
  */
 
 #ifndef __USBDCORE_H__
@@ -196,10 +209,7 @@ struct usb_bus_instance;
 #define USB_DT_STRING			0x03
 #define USB_DT_INTERFACE		0x04
 #define USB_DT_ENDPOINT			0x05
-
-#if defined(CONFIG_USBD_HS)
-#define USB_DT_QUAL			0x06
-#endif
+#define USB_DT_DEVICE_QUALIFIER		0x06
 
 #define USB_DT_HID			(USB_TYPE_CLASS | 0x01)
 #define USB_DT_REPORT			(USB_TYPE_CLASS | 0x02)
@@ -282,11 +292,7 @@ struct usb_bus_instance;
  * USB Spec Release number
  */
 
-#if defined(CONFIG_USBD_HS)
-#define USB_BCD_VERSION			0x0200
-#else
 #define USB_BCD_VERSION			0x0110
-#endif
 
 
 /*
@@ -438,7 +444,7 @@ typedef enum usb_device_event {
 	DEVICE_HUB_RESET,	/* bi  - bus has been unplugged */
 	DEVICE_DESTROY,		/* bi  - device instance should be destroyed */
 
-	DEVICE_HOTPLUG,		/* bi  - a hotplug event has occurred */
+	DEVICE_HOTPLUG,		/* bi  - a hotplug event has occured */
 
 	DEVICE_FUNCTION_PRIVATE,	/* function - private */
 
@@ -462,9 +468,7 @@ typedef struct urb_link {
  * function driver to inform it that data has arrived.
  */
 
-/* in linux we'd malloc this, but in u-boot we prefer static data */
-#define URB_BUF_SIZE 512
-
+#define URB_BUF_SIZE 128 /* in linux we'd malloc this, but in u-boot we prefer static data */
 struct urb {
 
 	struct usb_endpoint_instance *endpoint;
@@ -562,9 +566,6 @@ struct usb_device_instance {
 	/* generic */
 	char *name;
 	struct usb_device_descriptor *device_descriptor;	/* per device descriptor */
-#if defined(CONFIG_USBD_HS)
-	struct usb_qualifier_descriptor *qualifier_descriptor;
-#endif
 
 	void (*event) (struct usb_device_instance *device, usb_device_event_t event, int data);
 
@@ -657,17 +658,8 @@ struct usb_class_report_descriptor *usbd_device_class_report_descriptor_index( s
 struct usb_endpoint_descriptor *usbd_device_endpoint_descriptor (struct usb_device_instance *, int, int, int, int, int);
 int				usbd_device_endpoint_transfersize (struct usb_device_instance *, int, int, int, int, int);
 struct usb_string_descriptor *usbd_get_string (u8);
-struct usb_device_descriptor *usbd_device_device_descriptor(struct
-		usb_device_instance *, int);
+struct usb_device_descriptor *usbd_device_device_descriptor (struct usb_device_instance *, int);
 
-#if defined(CONFIG_USBD_HS)
-/*
- * is_usbd_high_speed routine needs to be defined by specific gadget driver
- * It returns true if device enumerates at High speed
- * Retuns false otherwise
- */
-int is_usbd_high_speed(void);
-#endif
 int usbd_endpoint_halted (struct usb_device_instance *device, int endpoint);
 void usbd_rcv_complete(struct usb_endpoint_instance *endpoint, int len, int urb_bad);
 void usbd_tx_complete (struct usb_endpoint_instance *endpoint);

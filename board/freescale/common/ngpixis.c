@@ -2,7 +2,10 @@
  * Copyright 2010-2011 Freescale Semiconductor
  * Author: Timur Tabi <timur@freescale.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the Free
+ * Software Foundation; either version 2 of the License, or (at your option)
+ * any later version.
  *
  * This file provides support for the ngPIXIS, a board-specific FPGA used on
  * some Freescale reference boards.
@@ -153,29 +156,9 @@ static void pixis_dump_regs(void)
 }
 #endif
 
-void pixis_sysclk_set(unsigned long sysclk)
-{
-	unsigned long freq_word;
-	u8 sclk0, sclk1, sclk2;
-
-	freq_word = ics307_sysclk_calculator(sysclk);
-	sclk2 = freq_word & 0xff;
-	sclk1 = (freq_word >> 8) & 0xff;
-	sclk0 = (freq_word >> 16) & 0xff;
-
-	/* set SYSCLK enable bit */
-	PIXIS_WRITE(vcfgen0, 0x01);
-
-	/* SYSCLK to required frequency */
-	PIXIS_WRITE(sclk[0], sclk0);
-	PIXIS_WRITE(sclk[1], sclk1);
-	PIXIS_WRITE(sclk[2], sclk2);
-}
-
 int pixis_reset_cmd(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 {
 	unsigned int i;
-	unsigned long sysclk;
 	char *p_altbank = NULL;
 #ifdef DEBUG
 	char *p_dump = NULL;
@@ -199,12 +182,6 @@ int pixis_reset_cmd(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 			continue;
 		}
 #endif
-		if (strcmp(argv[i], "sysclk") == 0) {
-			sysclk = simple_strtoul(argv[i + 1], NULL, 0);
-			i += 1;
-			pixis_sysclk_set(sysclk);
-			continue;
-		}
 
 		unknown_param = argv[i];
 	}
@@ -234,17 +211,12 @@ int pixis_reset_cmd(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
 	return 0;
 }
 
-#ifdef CONFIG_SYS_LONGHELP
-static char pixis_help_text[] =
+U_BOOT_CMD(
+	pixis_reset, CONFIG_SYS_MAXARGS, 1, pixis_reset_cmd,
+	"Reset the board using the FPGA sequencer",
 	"- hard reset to default bank\n"
 	"pixis_reset altbank - reset to alternate bank\n"
 #ifdef DEBUG
 	"pixis_reset dump - display the PIXIS registers\n"
 #endif
-	"pixis_reset sysclk <SYSCLK_freq> - reset with SYSCLK frequency(KHz)\n";
-#endif
-
-U_BOOT_CMD(
-	pixis_reset, CONFIG_SYS_MAXARGS, 1, pixis_reset_cmd,
-	"Reset the board using the FPGA sequencer", pixis_help_text
 	);

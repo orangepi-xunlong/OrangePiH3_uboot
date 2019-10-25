@@ -17,10 +17,6 @@
 #include <linux/types.h>
 #include <stdio_dev.h>
 
-#include <lzma/LzmaTypes.h>
-#include <lzma/LzmaDec.h>
-#include <lzma/LzmaTools.h>
-
 #include <asm/mach-common/bits/ppi.h>
 #include <asm/mach-common/bits/timer.h>
 
@@ -28,9 +24,12 @@
 #define LCD_Y_RES		240	/* Vertical Resolution */
 #define DMA_BUS_SIZE		16
 
-#include EASYLOGO_HEADER
-
 #ifdef CONFIG_BF527_EZKIT_REV_2_1 /* lq035q1 */
+
+#if !defined(CONFIG_LQ035Q1_USE_RGB888_8_BIT_PPI) && \
+    !defined(CONFIG_LQ035Q1_USE_RGB565_8_BIT_PPI)
+# define CONFIG_LQ035Q1_USE_RGB565_8_BIT_PPI
+#endif
 
 /* Interface 16/18-bit TFT over an 8-bit wide PPI using a
  * small Programmable Logic Device (CPLD)
@@ -38,12 +37,14 @@
  */
 
 #ifdef CONFIG_LQ035Q1_USE_RGB565_8_BIT_PPI
+#include <asm/bfin_logo_rgb565_230x230.h>
 #define LCD_BPP		16	/* Bit Per Pixel */
 #define CLOCKS_PPIX	2	/* Clocks per pixel */
 #define CPLD_DELAY	3	/* RGB565 pipeline delay */
 #endif
 
 #ifdef CONFIG_LQ035Q1_USE_RGB888_8_BIT_PPI
+#include <asm/bfin_logo_230x230.h>
 #define LCD_BPP		24	/* Bit Per Pixel */
 #define CLOCKS_PPIX	3	/* Clocks per pixel */
 #define CPLD_DELAY	5	/* RGB888 pipeline delay */
@@ -95,6 +96,7 @@
 #endif
 
 #else /* t350mcqb */
+#include <asm/bfin_logo_230x230.h>
 
 #define LCD_BPP		24	/* Bit Per Pixel */
 #define CLOCKS_PPIX	3	/* Clocks per pixel */
@@ -391,6 +393,14 @@ void video_stop(void)
 #endif
 }
 
+void video_putc(const char c)
+{
+}
+
+void video_puts(const char *s)
+{
+}
+
 int drv_video_init(void)
 {
 	int error, devices = 1;
@@ -409,23 +419,13 @@ int drv_video_init(void)
 #ifdef EASYLOGO_ENABLE_GZIP
 	unsigned char *data = EASYLOGO_DECOMP_BUFFER;
 	unsigned long src_len = EASYLOGO_ENABLE_GZIP;
-	error = gunzip(data, bfin_logo.size, bfin_logo.data, &src_len);
-	bfin_logo.data = data;
-#elif defined(EASYLOGO_ENABLE_LZMA)
-	unsigned char *data = EASYLOGO_DECOMP_BUFFER;
-	SizeT lzma_len = bfin_logo.size;
-	error = lzmaBuffToBuffDecompress(data, &lzma_len,
-		bfin_logo.data, EASYLOGO_ENABLE_LZMA);
-	bfin_logo.data = data;
-#else
-	error = 0;
-#endif
-
-	if (error) {
+	if (gunzip(data, bfin_logo.size, bfin_logo.data, &src_len)) {
 		puts("Failed to decompress logo\n");
 		free(dst);
 		return -1;
 	}
+	bfin_logo.data = data;
+#endif
 
 	memset(dst + ACTIVE_VIDEO_MEM_OFFSET, bfin_logo.data[0], fbmem_size - ACTIVE_VIDEO_MEM_OFFSET);
 
@@ -438,6 +438,10 @@ int drv_video_init(void)
 	memset(&videodev, 0, sizeof(videodev));
 
 	strcpy(videodev.name, "video");
+	videodev.ext = DEV_EXT_VIDEO;	/* Video extensions */
+	videodev.flags = DEV_FLAGS_SYSTEM;	/* No Output */
+	videodev.putc = video_putc;	/* 'putc' function */
+	videodev.puts = video_puts;	/* 'puts' function */
 
 	error = stdio_register(&videodev);
 

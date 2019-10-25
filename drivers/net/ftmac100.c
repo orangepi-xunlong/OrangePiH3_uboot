@@ -4,7 +4,19 @@
  * (C) Copyright 2009 Faraday Technology
  * Po-Yu Chuang <ratbert@faraday-tech.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
 #include <config.h>
@@ -102,7 +114,7 @@ static int ftmac100_init (struct eth_device *dev, bd_t *bd)
 
 	for (i = 0; i < PKTBUFSRX; i++) {
 		/* RXBUF_BADR */
-		rxdes[i].rxdes2 = (unsigned int)net_rx_packets[i];
+		rxdes[i].rxdes2 = (unsigned int)NetRxPackets[i];
 		rxdes[i].rxdes1 |= FTMAC100_RXDES1_RXBUF_SIZE (PKTSIZE_ALIGN);
 		rxdes[i].rxdes0 = FTMAC100_RXDES0_RXDMA_OWN;
 	}
@@ -164,7 +176,7 @@ static int ftmac100_recv (struct eth_device *dev)
 
 	/* pass the packet up to the protocol layers. */
 
-	net_process_received_packet((void *)curr_des->rxdes2, rxlen);
+	NetReceive ((void *)curr_des->rxdes2, rxlen);
 
 	/* release buffer to DMA */
 
@@ -178,7 +190,8 @@ static int ftmac100_recv (struct eth_device *dev)
 /*
  * Send a data block via Ethernet
  */
-static int ftmac100_send(struct eth_device *dev, void *packet, int length)
+static int
+ftmac100_send (struct eth_device *dev, volatile void *packet, int length)
 {
 	struct ftmac100 *ftmac100 = (struct ftmac100 *)dev->iobase;
 	struct ftmac100_data *priv = dev->priv;
@@ -246,7 +259,7 @@ int ftmac100_initialize (bd_t *bd)
 	memset (dev, 0, sizeof (*dev));
 	memset (priv, 0, sizeof (*priv));
 
-	strcpy(dev->name, "FTMAC100");
+	sprintf (dev->name, "FTMAC100");
 	dev->iobase	= CONFIG_FTMAC100_BASE;
 	dev->init	= ftmac100_init;
 	dev->halt	= ftmac100_halt;

@@ -4,10 +4,11 @@
 #ifndef __ARCH_PPC_CACHE_H
 #define __ARCH_PPC_CACHE_H
 
+#include <linux/config.h>
 #include <asm/processor.h>
 
 /* bytes per L1 cache line */
-#if defined(CONFIG_8xx)
+#if defined(CONFIG_8xx) || defined(CONFIG_IOP480)
 #define	L1_CACHE_SHIFT	4
 #elif defined(CONFIG_PPC64BRIDGE)
 #define L1_CACHE_SHIFT	7
@@ -18,12 +19,6 @@
 #endif
 
 #define L1_CACHE_BYTES          (1 << L1_CACHE_SHIFT)
-
-/*
- * Use the L1 data cache line size value for the minimum DMA buffer alignment
- * on PowerPC.
- */
-#define ARCH_DMA_MINALIGN	L1_CACHE_BYTES
 
 /*
  * For compatibility reasons support the CONFIG_SYS_CACHELINE_SIZE too
@@ -56,12 +51,6 @@ extern void invalidate_icache(void);
 extern void unlock_ram_in_cache(void);
 #endif /* CONFIG_SYS_INIT_RAM_LOCK */
 #endif /* __ASSEMBLY__ */
-
-#if defined(__KERNEL__) && !defined(__ASSEMBLY__)
-int l2cache_init(void);
-void enable_cpc(void);
-void disable_cpc_sram(void);
-#endif
 
 /* prep registers for L2 */
 #define CACHECRBA       0x80000823      /* Cache configuration register address */

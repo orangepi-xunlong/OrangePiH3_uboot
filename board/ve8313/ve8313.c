@@ -6,7 +6,23 @@
  * (C) Copyright 2010
  * Heiko Schocher, DENX Software Engineering, hs@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS for A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -49,14 +65,8 @@ static long fixed_sdram(void)
 	 */
 	__udelay(50000);
 
-#if ((CONFIG_SYS_DDR_SDRAM_BASE & 0x00FFFFFF) != 0)
-#warning Chip select bounds is only configurable in 16MB increments
-#endif
-	out_be32(&im->ddr.csbnds[0].csbnds,
-		((CONFIG_SYS_DDR_SDRAM_BASE >> CSBNDS_SA_SHIFT) & CSBNDS_SA) |
-		(((CONFIG_SYS_DDR_SDRAM_BASE + msize - 1) >> CSBNDS_EA_SHIFT) &
-			CSBNDS_EA));
-	out_be32(&im->ddr.cs_config[0], CONFIG_SYS_DDR_CS0_CONFIG);
+	out_be32(&im->ddr.csbnds[0].csbnds, (msize - 1) >> 24);
+	out_be32(&im->ddr.cs_config[0], CONFIG_SYS_DDR_CONFIG);
 
 	/* Currently we use only one CS, so disable the other bank. */
 	out_be32(&im->ddr.cs_config[1], 0);
@@ -192,13 +202,11 @@ void pci_init_board(void)
 #endif
 
 #if defined(CONFIG_OF_BOARD_SETUP)
-int ft_board_setup(void *blob, bd_t *bd)
+void ft_board_setup(void *blob, bd_t *bd)
 {
 	ft_cpu_setup(blob, bd);
 #ifdef CONFIG_PCI
 	ft_pci_setup(blob, bd);
 #endif
-
-	return 0;
 }
 #endif

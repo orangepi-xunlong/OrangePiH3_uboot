@@ -6,7 +6,23 @@
  *
  * Configuation settings for the SAMSUNG SMDKC100 board.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef __CONFIG_H
@@ -34,9 +50,6 @@
 /* DRAM Base */
 #define CONFIG_SYS_SDRAM_BASE		0x30000000
 
-/* Text Base */
-#define CONFIG_SYS_TEXT_BASE		0x34800000
-
 #define CONFIG_SETUP_MEMORY_TAGS
 #define CONFIG_CMDLINE_TAG
 #define CONFIG_INITRD_TAG
@@ -47,11 +60,11 @@
  * 1MB = 0x100000, 0x100000 = 1024 * 1024
  */
 #define CONFIG_SYS_MALLOC_LEN		(CONFIG_ENV_SIZE + (1 << 20))
-
 /*
  * select serial console configuration
  */
 #define CONFIG_SERIAL0			1	/* use SERIAL 0 on SMDKC100 */
+#define CONFIG_SERIAL_MULTI		1
 
 /* PWM */
 #define CONFIG_PWM			1
@@ -63,11 +76,22 @@
 /***********************************************************
  * Command definition
  ***********************************************************/
+#include <config_cmd_default.h>
+
+#undef CONFIG_CMD_FLASH
+#undef CONFIG_CMD_IMLS
 #undef CONFIG_CMD_NAND
 
+#define CONFIG_CMD_CACHE
 #define CONFIG_CMD_REGINFO
 #define CONFIG_CMD_ONENAND
+#define CONFIG_CMD_ELF
+#define CONFIG_CMD_FAT
 #define CONFIG_CMD_MTDPARTS
+
+#define CONFIG_BOOTDELAY	3
+
+#define CONFIG_ZERO_BOOTDELAY_CHECK
 
 #define CONFIG_MTD_DEVICE
 #define CONFIG_MTD_PARTITIONS
@@ -144,6 +168,9 @@
  * Miscellaneous configurable options
  */
 #define CONFIG_SYS_LONGHELP		/* undef to save memory */
+#define CONFIG_SYS_HUSH_PARSER		/* use "hush" command parser	*/
+#define CONFIG_SYS_PROMPT_HUSH_PS2	"> "
+#define CONFIG_SYS_PROMPT		"SMDKC100 # "
 #define CONFIG_SYS_CBSIZE	256	/* Console I/O Buffer Size */
 #define CONFIG_SYS_PBSIZE	384	/* Print Buffer Size */
 #define CONFIG_SYS_MAXARGS	16	/* max number of command args */
@@ -153,6 +180,18 @@
 #define CONFIG_SYS_MEMTEST_START	CONFIG_SYS_SDRAM_BASE
 #define CONFIG_SYS_MEMTEST_END		(CONFIG_SYS_SDRAM_BASE + 0x5e00000)
 #define CONFIG_SYS_LOAD_ADDR		CONFIG_SYS_SDRAM_BASE
+
+#define CONFIG_SYS_HZ			1000
+
+/* valid baudrates */
+#define CONFIG_SYS_BAUDRATE_TABLE	{ 9600, 19200, 38400, 57600, 115200 }
+
+/*-----------------------------------------------------------------------
+ * Stack sizes
+ *
+ * The stack sizes are set up in start.S using the settings below
+ */
+#define CONFIG_STACKSIZE	(256 << 10)	/* 256 KiB */
 
 /* SMDKC100 has 1 banks of DRAM, we use only one in U-Boot */
 #define CONFIG_NR_DRAM_BANKS	1
@@ -199,6 +238,7 @@
  * Ethernet Contoller driver
  */
 #ifdef CONFIG_CMD_NET
+#define CONFIG_NET_MULTI
 #define CONFIG_SMC911X         1       /* we have a SMC9115 on-board   */
 #define CONFIG_SMC911X_16_BIT  1       /* SMC911X_16_BIT Mode          */
 #define CONFIG_SMC911X_BASE    0x98800300      /* SMC911X Drive Base   */

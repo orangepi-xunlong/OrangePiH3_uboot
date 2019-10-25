@@ -14,7 +14,24 @@
  *
  * COPYRIGHT   AMCC   CORPORATION 2004
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
+ *
  */
 
 /* define DEBUG for debugging output (obviously ;-)) */
@@ -26,6 +43,12 @@
 #include <asm/processor.h>
 
 #include "ecc.h"
+
+/*
+ * Only compile the DDR auto-calibration code for NOR boot and
+ * not for NAND boot (NAND SPL and NAND U-Boot - NUB)
+ */
+#if !defined(CONFIG_NAND_U_BOOT) && !defined(CONFIG_NAND_SPL)
 
 #define MAXBXCF			4
 #define SDRAM_RXBAS_SHIFT_1M	20
@@ -131,20 +154,18 @@ u32 ddr_rdss_opt(ulong) __attribute__((weak, alias("__ddr_rdss_opt")));
 
 static u32 *get_membase(int bxcr_num)
 {
+	ulong bxcf;
 	u32 *membase;
 
 #if defined(SDRAM_R0BAS)
 	/* BAS from Memory Queue rank reg. */
 	membase =
 	    (u32 *)(SDRAM_RXBAS_SDBA_DECODE(mfdcr_any(SDRAM_R0BAS+bxcr_num)));
+	bxcf = 0;	/* just to satisfy the compiler */
 #else
-	{
-		ulong bxcf;
-
-		/* BAS from SDRAM_MBxCF mem rank reg. */
-		mfsdram(SDRAM_MB0CF + (bxcr_num<<2), bxcf);
-		membase = (u32 *)((bxcf & 0xfff80000) << 3);
-	}
+	/* BAS from SDRAM_MBxCF mem rank reg. */
+	mfsdram(SDRAM_MB0CF + (bxcr_num<<2), bxcf);
+	membase = (u32 *)((bxcf & 0xfff80000) << 3);
 #endif
 
 	return membase;
@@ -698,9 +719,7 @@ static u32 program_DQS_calibration_methodB(struct ddrautocal *ddrcal)
 static u32 DQS_calibration_methodB(struct ddrautocal *cal)
 {
 	ulong rfdc_reg;
-#ifndef CONFIG_DDR_RFDC_FIXED
 	ulong rffd;
-#endif
 
 	ulong rqdc_reg;
 	ulong rqfd;
@@ -818,6 +837,7 @@ static u32 DQS_calibration_methodB(struct ddrautocal *cal)
 	mtsdram(SDRAM_RFDC, rfdc_reg | SDRAM_RFDC_RFFD_ENCODE(rffd_average));
 #endif /* CONFIG_DDR_RFDC_FIXED */
 
+	rffd = rffd_average;
 	in_window = 0;
 
 	curr_win_min = curr_win_max = 0;
@@ -887,8 +907,8 @@ static u32 DQS_calibration_methodB(struct ddrautocal *cal)
 	mtsdram(SDRAM_RQDC, rqdc_reg);
 	mtsdram(SDRAM_RFDC, rfdc_reg);
 
-	debug("RQDC: 0x%08lX\n", rqdc_reg);
-	debug("RFDC: 0x%08lX\n", rfdc_reg);
+	debug("RQDC: 0x%08X\n", rqdc_reg);
+	debug("RFDC: 0x%08X\n", rfdc_reg);
 
 	/* if something passed, then return the size of the largest window */
 	if (passed != 0) {
@@ -1194,7 +1214,7 @@ u32 DQS_autocalibration(void)
 				SDRAM_RQDC_RQFD_ENCODE(tcal.autocal.rqfd));
 
 		mfsdram(SDRAM_RQDC, rqdc_reg);
-		debug("*** best_result: read value SDRAM_RQDC 0x%08lx\n",
+		debug("*** best_result: read value SDRAM_RQDC 0x%08x\n",
 				rqdc_reg);
 
 #if defined(CONFIG_DDR_RFDC_FIXED)
@@ -1207,7 +1227,7 @@ u32 DQS_autocalibration(void)
 #endif /* CONFIG_DDR_RFDC_FIXED */
 
 		mfsdram(SDRAM_RFDC, rfdc_reg);
-		debug("*** best_result: read value SDRAM_RFDC 0x%08lx\n",
+		debug("*** best_result: read value SDRAM_RFDC 0x%08x\n",
 				rfdc_reg);
 		mfsdram(SDRAM_RDCC, val);
 		debug("***  SDRAM_RDCC 0x%08x\n", val);
@@ -1225,3 +1245,9 @@ u32 DQS_autocalibration(void)
 
 	return 0;
 }
+#else /* defined(CONFIG_NAND_U_BOOT) || defined(CONFIG_NAND_SPL) */
+u32 DQS_autocalibration(void)
+{
+	return 0;
+}
+#endif /* !defined(CONFIG_NAND_U_BOOT) && !defined(CONFIG_NAND_SPL) */

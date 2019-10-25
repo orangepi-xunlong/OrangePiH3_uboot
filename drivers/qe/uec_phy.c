@@ -7,20 +7,24 @@
  *		Driver for UEC on QE
  *		Based on 8260_io/fcc_enet.c
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute	it and/or modify it
+ * under  the terms of	the GNU General	 Public License as published by the
+ * Free Software Foundation;  either version 2 of the  License, or (at your
+ * option) any later version.
+ *
  */
 
 #include "common.h"
 #include "net.h"
 #include "malloc.h"
 #include "asm/errno.h"
-#include "linux/immap_qe.h"
+#include "asm/immap_qe.h"
 #include "asm/io.h"
+#include "qe.h"
 #include "uccf.h"
 #include "uec.h"
 #include "uec_phy.h"
 #include "miiphy.h"
-#include <fsl_qe.h>
 #include <phy.h>
 
 #define ugphy_printk(format, arg...)  \
@@ -81,7 +85,7 @@
 #endif
 
 struct fixed_phy_port {
-	char name[16];	/* ethernet port name */
+	char name[NAMESIZE];	/* ethernet port name */
 	unsigned int speed;	/* specified speed 10,100 or 1000 */
 	unsigned int duplex;	/* specified duplex FULL or HALF */
 };

@@ -3,19 +3,33 @@
  * Copyright (C) 2010 Ilya Yanok, Emcraft Systems, yanok@emcraft.com
  *
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef __CONFIG_H
 #define __CONFIG_H
 
-#define CONFIG_DISPLAY_BOARDINFO
-
 /*
  * High Level Configuration Options
  */
 #define CONFIG_E300		1 /* E300 family */
-#define CONFIG_MPC830x		1 /* MPC830x family */
+#define CONFIG_MPC83xx		1 /* MPC83xx family */
 #define CONFIG_MPC8308		1 /* MPC8308 CPU specific */
 #define CONFIG_MPC8308_P1M	1 /* mpc8308_p1m board specific */
 
@@ -143,11 +157,9 @@
 
 #define CONFIG_SYS_DDR_CS0_BNDS	0x00000007
 #define CONFIG_SYS_DDR_CS0_CONFIG	(CSCONFIG_EN \
-					| CSCONFIG_ODT_RD_NEVER \
-					| CSCONFIG_ODT_WR_ONLY_CURRENT \
-					| CSCONFIG_ROW_BIT_13 \
-					| CSCONFIG_COL_BIT_10)
-					/* 0x80010102 */
+				| 0x00010000  /* ODT_WR to CSn */ \
+				| CSCONFIG_ROW_BIT_13 | CSCONFIG_COL_BIT_10)
+				/* 0x80010102 */
 #define CONFIG_SYS_DDR_TIMING_3	0x00000000
 #define CONFIG_SYS_DDR_TIMING_0	((0 << TIMING_CFG0_RWT_SHIFT) \
 				| (0 << TIMING_CFG0_WRT_SHIFT) \
@@ -180,7 +192,7 @@
 				/* 0x03600100 */
 #define CONFIG_SYS_DDR_SDRAM_CFG	(SDRAM_CFG_SREN \
 				| SDRAM_CFG_SDRAM_TYPE_DDR2 \
-				| SDRAM_CFG_DBW_32)
+				| SDRAM_CFG_32_BE)
 				/* 0x43080000 */
 
 #define CONFIG_SYS_DDR_SDRAM_CFG2	0x00401000 /* 1 posted refresh */
@@ -208,7 +220,7 @@
  */
 #define CONFIG_SYS_INIT_RAM_LOCK	1
 #define CONFIG_SYS_INIT_RAM_ADDR	0xE6000000 /* Initial RAM address */
-#define CONFIG_SYS_INIT_RAM_SIZE	0x1000 /* Size of used area in RAM */
+#define CONFIG_SYS_INIT_RAM_SIZE		0x1000 /* Size of used area in RAM */
 #define CONFIG_SYS_GBL_DATA_OFFSET	\
 	(CONFIG_SYS_INIT_RAM_SIZE - GENERATED_GBL_DATA_SIZE)
 
@@ -234,18 +246,19 @@
 #define CONFIG_SYS_LBLAWBAR0_PRELIM	CONFIG_SYS_FLASH_BASE
 #define CONFIG_SYS_LBLAWAR0_PRELIM	(LBLAWAR_EN | LBLAWAR_64MB)
 
-#define CONFIG_SYS_BR0_PRELIM	(CONFIG_SYS_FLASH_BASE \
-				| BR_PS_16	/* 16 bit port */ \
-				| BR_MS_GPCM	/* MSEL = GPCM */ \
-				| BR_V)		/* valid */
-#define CONFIG_SYS_OR0_PRELIM	(MEG_TO_AM(CONFIG_SYS_FLASH_SIZE) \
+#define CONFIG_SYS_BR0_PRELIM	(\
+		CONFIG_SYS_FLASH_BASE	/* Flash Base address */	|\
+		(2 << BR_PS_SHIFT)	/* 16 bit port size */		|\
+		BR_V)			/* valid */
+#define CONFIG_SYS_OR0_PRELIM	((~(CONFIG_SYS_FLASH_SIZE - 1) << 20) \
 				| OR_UPM_XAM \
 				| OR_GPCM_CSNT \
 				| OR_GPCM_ACS_DIV2 \
 				| OR_GPCM_XACS \
 				| OR_GPCM_SCY_4 \
-				| OR_GPCM_TRLX_SET \
-				| OR_GPCM_EHTR_SET)
+				| OR_GPCM_TRLX \
+				| OR_GPCM_EHTR \
+				| OR_GPCM_EAD)
 
 #define CONFIG_SYS_MAX_FLASH_BANKS	1 /* number of banks */
 #define CONFIG_SYS_MAX_FLASH_SECT	512
@@ -258,14 +271,13 @@
 /*
  * SJA1000 CAN controller on Local Bus
  */
-#define CONFIG_SYS_SJA1000_BASE	0xFBFF0000
-#define CONFIG_SYS_BR1_PRELIM	(CONFIG_SYS_SJA1000_BASE \
-				| BR_PS_8	/* 8 bit port size */ \
-				| BR_MS_GPCM	/* MSEL = GPCM */ \
-				| BR_V)		/* valid */
-#define CONFIG_SYS_OR1_PRELIM	(OR_AM_32KB \
+#define CONFIG_SYS_SJA1000_BASE		0xFBFF0000
+#define CONFIG_SYS_BR1_PRELIM	( CONFIG_SYS_SJA1000_BASE \
+				| (1 << BR_PS_SHIFT)	/* 8 bit port size */ \
+				| BR_V )		/* valid */
+#define CONFIG_SYS_OR1_PRELIM	( 0xFFFF8000		/* length 32K */ \
 				| OR_GPCM_SCY_5 \
-				| OR_GPCM_EHTR_SET)
+				| OR_GPCM_EHTR)
 				/* 0xFFFF8052 */
 
 #define CONFIG_SYS_LBLAWBAR1_PRELIM	CONFIG_SYS_SJA1000_BASE
@@ -274,14 +286,13 @@
 /*
  * CPLD on Local Bus
  */
-#define CONFIG_SYS_CPLD_BASE	0xFBFF8000
-#define CONFIG_SYS_BR2_PRELIM	(CONFIG_SYS_CPLD_BASE \
-				| BR_PS_8	/* 8 bit port */ \
-				| BR_MS_GPCM	/* MSEL = GPCM */ \
-				| BR_V)		/* valid */
-#define CONFIG_SYS_OR2_PRELIM	(OR_AM_32KB \
+#define CONFIG_SYS_CPLD_BASE		0xFBFF8000
+#define CONFIG_SYS_BR2_PRELIM	( CONFIG_SYS_CPLD_BASE \
+				| (1 << BR_PS_SHIFT)	/* 8 bit port size */ \
+				| BR_V )		/* valid */
+#define CONFIG_SYS_OR2_PRELIM	( 0xFFFF8000		/* length 32K */ \
 				| OR_GPCM_SCY_4 \
-				| OR_GPCM_EHTR_SET)
+				| OR_GPCM_EHTR)
 				/* 0xFFFF8042 */
 
 #define CONFIG_SYS_LBLAWBAR2_PRELIM	CONFIG_SYS_CPLD_BASE
@@ -292,6 +303,7 @@
  */
 #define CONFIG_CONS_INDEX	1
 #undef CONFIG_SERIAL_SOFTWARE_FIFO
+#define CONFIG_SYS_NS16550
 #define CONFIG_SYS_NS16550_SERIAL
 #define CONFIG_SYS_NS16550_REG_SIZE	1
 #define CONFIG_SYS_NS16550_CLK		get_bus_freq(0)
@@ -302,15 +314,23 @@
 #define CONFIG_SYS_NS16550_COM1	(CONFIG_SYS_IMMR + 0x4500)
 #define CONFIG_SYS_NS16550_COM2	(CONFIG_SYS_IMMR + 0x4600)
 
+/* Use the HUSH parser */
+#define CONFIG_SYS_HUSH_PARSER
+#define CONFIG_SYS_PROMPT_HUSH_PS2 "> "
+
+/* Pass open firmware flat tree */
+#define CONFIG_OF_LIBFDT	1
+#define CONFIG_OF_BOARD_SETUP	1
+#define CONFIG_OF_STDOUT_VIA_ALIAS	1
+
 /* I2C */
-#define CONFIG_SYS_I2C
-#define CONFIG_SYS_I2C_FSL
-#define CONFIG_SYS_FSL_I2C_SPEED	400000
-#define CONFIG_SYS_FSL_I2C_SLAVE	0x7F
-#define CONFIG_SYS_FSL_I2C2_SPEED	400000
-#define CONFIG_SYS_FSL_I2C2_SLAVE	0x7F
-#define CONFIG_SYS_FSL_I2C_OFFSET	0x3000
-#define CONFIG_SYS_FSL_I2C2_OFFSET	0x3100
+#define CONFIG_HARD_I2C		/* I2C with hardware support */
+#define CONFIG_FSL_I2C
+#define CONFIG_I2C_MULTI_BUS
+#define CONFIG_SYS_I2C_SPEED	400000 /* I2C speed and slave address */
+#define CONFIG_SYS_I2C_SLAVE	0x7F
+#define CONFIG_SYS_I2C_OFFSET	0x3000
+#define CONFIG_SYS_I2C2_OFFSET	0x3100
 
 /*
  * General PCI
@@ -330,7 +350,6 @@
 #define CONFIG_SYS_SCCR_PCIEXP1CM	1
 
 #define CONFIG_PCI
-#define CONFIG_PCI_INDIRECT_BRIDGE
 #define CONFIG_PCIE
 
 #define CONFIG_PCI_PNP		/* do pci plug-and-play */
@@ -341,6 +360,7 @@
 /*
  * TSEC
  */
+#define CONFIG_NET_MULTI
 #define CONFIG_TSEC_ENET	/* TSEC ethernet support */
 #define CONFIG_SYS_TSEC1_OFFSET	0x24000
 #define CONFIG_SYS_TSEC1	(CONFIG_SYS_IMMR+CONFIG_SYS_TSEC1_OFFSET)
@@ -388,7 +408,14 @@
 /*
  * Command line configuration.
  */
+#include <config_cmd_default.h>
+
+#define CONFIG_CMD_DHCP
+#define CONFIG_CMD_I2C
+#define CONFIG_CMD_MII
+#define CONFIG_CMD_NET
 #define CONFIG_CMD_PCI
+#define CONFIG_CMD_PING
 
 #define CONFIG_CMDLINE_EDITING	1	/* add command line history */
 
@@ -397,6 +424,7 @@
  */
 #define CONFIG_SYS_LONGHELP		/* undef to save memory */
 #define CONFIG_SYS_LOAD_ADDR		0x2000000 /* default load address */
+#define CONFIG_SYS_PROMPT		"=> "	/* Monitor Command Prompt */
 
 #define CONFIG_SYS_CBSIZE	1024 /* Console I/O Buffer Size */
 
@@ -405,6 +433,7 @@
 #define CONFIG_SYS_MAXARGS	16	/* max number of command args */
 /* Boot Argument Buffer Size */
 #define CONFIG_SYS_BARGSIZE	CONFIG_SYS_CBSIZE
+#define CONFIG_SYS_HZ		1000	/* decrementer freq: 1ms ticks */
 
 /*
  * For booting Linux, the board info and command line data
@@ -427,7 +456,7 @@
  */
 
 /* DDR: cache cacheable */
-#define CONFIG_SYS_IBAT0L	(CONFIG_SYS_SDRAM_BASE | BATL_PP_RW | \
+#define CONFIG_SYS_IBAT0L	(CONFIG_SYS_SDRAM_BASE | BATL_PP_10 | \
 					BATL_MEMCOHERENCE)
 #define CONFIG_SYS_IBAT0U	(CONFIG_SYS_SDRAM_BASE | BATU_BL_128M | \
 					BATU_VS | BATU_VP)
@@ -435,7 +464,7 @@
 #define CONFIG_SYS_DBAT0U	CONFIG_SYS_IBAT0U
 
 /* IMMRBAR, PCI IO and NAND: cache-inhibit and guarded */
-#define CONFIG_SYS_IBAT1L	(CONFIG_SYS_IMMR | BATL_PP_RW | \
+#define CONFIG_SYS_IBAT1L	(CONFIG_SYS_IMMR | BATL_PP_10 | \
 			BATL_CACHEINHIBIT | BATL_GUARDEDSTORAGE)
 #define CONFIG_SYS_IBAT1U	(CONFIG_SYS_IMMR | BATU_BL_8M | BATU_VS | \
 					BATU_VP)
@@ -443,17 +472,17 @@
 #define CONFIG_SYS_DBAT1U	CONFIG_SYS_IBAT1U
 
 /* FLASH: icache cacheable, but dcache-inhibit and guarded */
-#define CONFIG_SYS_IBAT2L	(CONFIG_SYS_FLASH_BASE | BATL_PP_RW | \
+#define CONFIG_SYS_IBAT2L	(CONFIG_SYS_FLASH_BASE | BATL_PP_10 | \
 					BATL_MEMCOHERENCE)
 #define CONFIG_SYS_IBAT2U	(CONFIG_SYS_FLASH_BASE | BATU_BL_8M | \
 					BATU_VS | BATU_VP)
-#define CONFIG_SYS_DBAT2L	(CONFIG_SYS_FLASH_BASE | BATL_PP_RW | \
+#define CONFIG_SYS_DBAT2L	(CONFIG_SYS_FLASH_BASE | BATL_PP_10 | \
 					BATL_CACHEINHIBIT | \
 					BATL_GUARDEDSTORAGE)
 #define CONFIG_SYS_DBAT2U	CONFIG_SYS_IBAT2U
 
 /* Stack in dcache: cacheable, no memory coherence */
-#define CONFIG_SYS_IBAT3L	(CONFIG_SYS_INIT_RAM_ADDR | BATL_PP_RW)
+#define CONFIG_SYS_IBAT3L	(CONFIG_SYS_INIT_RAM_ADDR | BATL_PP_10)
 #define CONFIG_SYS_IBAT3U	(CONFIG_SYS_INIT_RAM_ADDR | BATU_BL_128K | \
 					BATU_VS | BATU_VP)
 #define CONFIG_SYS_DBAT3L	CONFIG_SYS_IBAT3L
@@ -474,6 +503,10 @@
 
 #define CONFIG_LOADADDR	800000	/* default location for tftp and bootm */
 
+#define CONFIG_BOOTDELAY	5	/* -1 disables auto-boot */
+
+#define xstr(s)	str(s)
+#define str(s)	#s
 
 #define	CONFIG_EXTRA_ENV_SETTINGS					\
 	"netdev=eth0\0"							\
@@ -508,10 +541,10 @@
 		"bootm ${kernel_addr_r} - ${fdt_addr_r}\0"		\
 	"bootcmd=run flash_self\0"					\
 	"load=tftp ${loadaddr} ${u-boot}\0"				\
-	"update=protect off " __stringify(CONFIG_SYS_MONITOR_BASE)	\
-		" +${filesize};era " __stringify(CONFIG_SYS_MONITOR_BASE)\
+	"update=protect off " xstr(CONFIG_SYS_MONITOR_BASE)		\
+		" +${filesize};era " xstr(CONFIG_SYS_MONITOR_BASE)	\
 		" +${filesize};cp.b ${fileaddr} "			\
-		__stringify(CONFIG_SYS_MONITOR_BASE) " ${filesize}\0"	\
+		xstr(CONFIG_SYS_MONITOR_BASE) " ${filesize}\0"		\
 	"upd=run load update\0"						\
 
 #endif	/* __CONFIG_H */

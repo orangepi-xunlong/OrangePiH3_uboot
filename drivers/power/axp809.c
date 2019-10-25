@@ -1,238 +1,780 @@
 /*
- * AXP809 driver based on AXP221 driver
+ * (C) Copyright 2007-2013
+ * Allwinner Technology Co., Ltd. <www.allwinnertech.com>
+ * Jerry Wang <wangflord@allwinnertech.com>
  *
+ * See file CREDITS for list of people who contributed to this
+ * project.
  *
- * (C) Copyright 2016 Chen-Yu Tsai <wens@csie.org>
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
  *
- * Based on axp221.c
- * (C) Copyright 2014 Hans de Goede <hdegoede@redhat.com>
- * (C) Copyright 2013 Oliver Schinagl <oliver@schinagl.nl>
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
-
 #include <common.h>
-#include <errno.h>
-#include <asm/arch/gpio.h>
-#include <asm/arch/pmic_bus.h>
-#include <axp_pmic.h>
+#include <power/axp809_reg.h>
+#include "axp.h"
+#include <pmu.h>
 
-static u8 axp809_mvolt_to_cfg(int mvolt, int min, int max, int div)
+extern int axp809_set_supply_status(int vol_name, int vol_value, int onoff);
+extern int axp809_set_supply_status_byname(char *vol_name, int vol_value, int onoff);
+extern int axp809_probe_supply_status(int vol_name, int vol_value, int onoff);
+extern int axp809_probe_supply_status_byname(char *vol_name);
+/*
+************************************************************************************************************
+*
+*                                             function
+*
+*    函数名称：
+*
+*    参数列表：
+*
+*    返回值  ：
+*
+*    说明    ：
+*
+*
+************************************************************************************************************
+*/
+int axp809_probe(void)
 {
-	if (mvolt < min)
-		mvolt = min;
-	else if (mvolt > max)
-		mvolt = max;
+	u8    pmu_type;
 
-	return (mvolt - min) / div;
+    axp_i2c_config(SUNXI_AXP_809, AXP809_ADDR);
+	if(axp_i2c_read(AXP809_ADDR, BOOT_POWER809_VERSION, &pmu_type))
+	{
+		printf("axp read error\n");
+
+		return -1;
+	}
+
+    pmu_type &= 0xCF;
+	if(pmu_type == 0x42)
+	{
+		/* pmu type AXP809 */
+		tick_printf("PMU: AXP809\n");
+
+		return 0;
+	}
+
+	return -1;
+}
+/*
+************************************************************************************************************
+*
+*                                             function
+*
+*    函数名称：
+*
+*    参数列表：
+*
+*    返回值  ：
+*
+*    说明    ：
+*
+*
+************************************************************************************************************
+*/
+int axp809_set_coulombmeter_onoff(int onoff)
+{
+	u8 reg_value;
+
+	if(axp_i2c_read(AXP809_ADDR,BOOT_POWER809_FUEL_GAUGE_CTL, &reg_value))
+    {
+        return -1;
+    }
+    if(!onoff)
+    	reg_value &= ~(0x01 << 7);
+    else
+    	reg_value |= (0x01 << 7);
+
+    if(axp_i2c_write(AXP809_ADDR,BOOT_POWER809_FUEL_GAUGE_CTL,reg_value))
+    {
+        return -1;
+    }
+
+    return 0;
+}
+/*
+************************************************************************************************************
+*
+*                                             function
+*
+*    函数名称：
+*
+*    参数列表：
+*
+*    返回值  ：
+*
+*    说明    ：
+*
+*
+************************************************************************************************************
+*/
+int axp809_set_charge_control(void)
+{
+	u8 reg_value;
+	//disable ts adc, enable all other adc
+	if(axp_i2c_read(AXP809_ADDR, BOOT_POWER809_ADC_EN, &reg_value))
+    {
+        return -1;
+    }
+    reg_value |= 0xC0;
+    if(axp_i2c_write(AXP809_ADDR, BOOT_POWER809_ADC_EN, reg_value))
+    {
+        return -1;
+    }
+    //enable charge
+	if(axp_i2c_read(AXP809_ADDR, BOOT_POWER809_CHARGE1, &reg_value))
+    {
+        return -1;
+    }
+    reg_value |= 0x80;
+    if(axp_i2c_write(AXP809_ADDR, BOOT_POWER809_CHARGE1, reg_value))
+    {
+        return -1;
+    }
+
+    return 0;
+}
+/*
+************************************************************************************************************
+*
+*                                             function
+*
+*    函数名称：
+*
+*    参数列表：
+*
+*    返回值  ：
+*
+*    说明    ：
+*
+*
+************************************************************************************************************
+*/
+int axp809_probe_battery_ratio(void)
+{
+	u8 reg_value;
+
+	if(axp_i2c_read(AXP809_ADDR, BOOT_POWER809_BAT_PERCEN_CAL, &reg_value))
+    {
+        return -1;
+    }
+
+	return reg_value & 0x7f;
+}
+/*
+************************************************************************************************************
+*
+*                                             function
+*
+*    函数名称：
+*
+*    参数列表：
+*
+*    返回值  ：
+*
+*    说明    ：
+*
+*
+************************************************************************************************************
+*/
+int axp809_probe_power_status(void)
+{
+	u8 reg_value;
+
+	if(axp_i2c_read(AXP809_ADDR, BOOT_POWER809_STATUS, &reg_value))
+    {
+        return -1;
+    }
+	if(reg_value & 0x10)		//vbus exist
+	{
+		return AXP_VBUS_EXIST;
+	}
+	if(reg_value & 0x40)		//dc in exist
+	{
+		return AXP_DCIN_EXIST;
+	}
+	return 0;
 }
 
-int axp_set_dcdc1(unsigned int mvolt)
+/*
+************************************************************************************************************
+*
+*                                             function
+*
+*    函数名称：
+*
+*    参数列表：
+*
+*    返回值  ：
+*
+*    说明    ：
+*
+*
+************************************************************************************************************
+*/
+int axp809_probe_battery_exist(void)
 {
-	int ret;
-	u8 cfg = axp809_mvolt_to_cfg(mvolt, 1600, 3400, 100);
+	u8 reg_value;
 
-	if (mvolt == 0)
-		return pmic_bus_clrbits(AXP809_OUTPUT_CTRL1,
-					AXP809_OUTPUT_CTRL1_DCDC1_EN);
+	if(axp_i2c_read(AXP809_ADDR, BOOT_POWER809_MODE_CHGSTATUS, &reg_value))
+    {
+        return -1;
+    }
 
-	ret = pmic_bus_write(AXP809_DCDC1_CTRL, cfg);
-	if (ret)
-		return ret;
+	if(reg_value & 0x10)
+	{
+		return (reg_value & 0x20);
+	}
 
-	ret = pmic_bus_setbits(AXP809_OUTPUT_CTRL2,
-			       AXP809_OUTPUT_CTRL2_DC1SW_EN);
-	if (ret)
-		return ret;
+	return -1;
+}
+/*
+************************************************************************************************************
+*
+*                                             function
+*
+*    函数名称：
+*
+*    参数列表：
+*
+*    返回值  ：
+*
+*    说明    ：
+*
+*
+************************************************************************************************************
+*/
+int axp809_probe_battery_vol(void)
+{
+	u8  reg_value_h, reg_value_l;
+	int bat_vol, tmp_value;
 
-	return pmic_bus_setbits(AXP809_OUTPUT_CTRL1,
-				AXP809_OUTPUT_CTRL1_DCDC1_EN);
+	if(axp_i2c_read(AXP809_ADDR, BOOT_POWER809_BAT_AVERVOL_H8, &reg_value_h))
+    {
+        return -1;
+    }
+    if(axp_i2c_read(AXP809_ADDR, BOOT_POWER809_BAT_AVERVOL_L4, &reg_value_l))
+    {
+        return -1;
+    }
+    tmp_value = (reg_value_h << 4) | reg_value_l;
+    bat_vol = tmp_value * 11;
+    bat_vol /= 10;
+
+	return bat_vol;
+}
+/*
+************************************************************************************************************
+*
+*                                             function
+*
+*    函数名称：
+*
+*    参数列表：
+*
+*    返回值  ：
+*
+*    说明    ：
+*
+*
+************************************************************************************************************
+*/
+int axp809_probe_key(void)
+{
+	u8  reg_value;
+
+	if(axp_i2c_read(AXP809_ADDR, BOOT_POWER809_INTSTS5, &reg_value))
+    {
+        return -1;
+    }
+    reg_value &= (0x03<<3);
+	if(reg_value)
+	{
+		if(axp_i2c_write(AXP809_ADDR, BOOT_POWER809_INTSTS5, reg_value))
+	    {
+	        return -1;
+	    }
+	}
+
+	return (reg_value>>3)&3;
+}
+/*
+************************************************************************************************************
+*
+*                                             function
+*
+*    函数名称：
+*
+*    参数列表：
+*
+*    返回值  ：
+*
+*    说明    ：
+*
+*
+************************************************************************************************************
+*/
+int axp809_probe_pre_sys_mode(void)
+{
+	u8  reg_value;
+
+	if(axp_i2c_read(AXP809_ADDR, BOOT_POWER809_DATA_BUFFER11, &reg_value))
+    {
+        return -1;
+    }
+
+	return reg_value;
+}
+/*
+************************************************************************************************************
+*
+*                                             function
+*
+*    函数名称：
+*
+*    参数列表：
+*
+*    返回值  ：
+*
+*    说明    ：
+*
+*
+************************************************************************************************************
+*/
+int axp809_set_next_sys_mode(int data)
+{
+	if(axp_i2c_write(AXP809_ADDR, BOOT_POWER809_DATA_BUFFER11, (u8)data))
+    {
+        return -1;
+    }
+
+	return 0;
+}
+/*
+************************************************************************************************************
+*
+*                                             function
+*
+*    函数名称：
+*
+*    参数列表：
+*
+*    返回值  ：
+*
+*    说明    ：
+*
+*
+************************************************************************************************************
+*/
+int axp809_probe_this_poweron_cause(void)
+{
+    uchar   reg_value;
+
+	if(axp_i2c_read(AXP809_ADDR, BOOT_POWER809_STATUS, &reg_value))
+    {
+        return -1;
+    }
+
+    return reg_value & 0x01;
+}
+/*
+************************************************************************************************************
+*
+*                                             function
+*
+*    函数名称：
+*
+*    参数列表：
+*
+*    返回值  ：
+*
+*    说明    ：
+*
+*
+************************************************************************************************************
+*/
+int axp809_set_power_off(void)
+{
+    u8 reg_value;
+
+	if(axp_i2c_read(AXP809_ADDR, BOOT_POWER809_OFF_CTL, &reg_value))
+    {
+        return -1;
+    }
+    reg_value |= 1 << 7;
+	if(axp_i2c_write(AXP809_ADDR, BOOT_POWER809_OFF_CTL, reg_value))
+    {
+        return -1;
+    }
+
+    return 0;
+}
+/*
+************************************************************************************************************
+*
+*                                             function
+*
+*    函数名称：
+*
+*    参数列表：
+*
+*    返回值  ：
+*
+*    说明    ：
+*
+*
+************************************************************************************************************
+*/
+int axp809_set_power_onoff_vol(int set_vol, int stage)
+{
+	u8 reg_value;
+
+	if(!set_vol)
+	{
+		if(!stage)
+		{
+			set_vol = 3300;
+		}
+		else
+		{
+			set_vol = 2900;
+		}
+	}
+	if(axp_i2c_read(AXP809_ADDR, BOOT_POWER809_VOFF_SET, &reg_value))
+    {
+        return -1;
+    }
+	reg_value &= 0xf8;
+	if(set_vol >= 2600 && set_vol <= 3300)
+	{
+		reg_value |= (set_vol - 2600)/100;
+	}
+	else if(set_vol <= 2600)
+	{
+		reg_value |= 0x00;
+	}
+	else
+	{
+		reg_value |= 0x07;
+	}
+	if(axp_i2c_write(AXP809_ADDR, BOOT_POWER809_VOFF_SET, reg_value))
+    {
+        return -1;
+    }
+
+	return 0;
+}
+/*
+************************************************************************************************************
+*
+*                                             function
+*
+*    函数名称：
+*
+*    参数列表：
+*
+*    返回值  ：
+*
+*    说明    ：
+*
+*
+************************************************************************************************************
+*/
+int axp809_set_charge_current(int current)
+{
+	u8   reg_value;
+	int  step;
+
+	if(axp_i2c_read(AXP809_ADDR, BOOT_POWER809_CHARGE1, &reg_value))
+    {
+        return -1;
+    }
+	reg_value &= ~0x0f;
+	if(current > 2550)
+	{
+		current = 2550;
+	}
+	else if(current < 300)
+	{
+		current = 300;
+	}
+	step       = (current/150) - 2;
+	reg_value |= (step & 0x0f);
+
+	if(axp_i2c_write(AXP809_ADDR, BOOT_POWER809_CHARGE1, reg_value))
+    {
+        return -1;
+    }
+
+	return 0;
+}
+/*
+************************************************************************************************************
+*
+*                                             function
+*
+*    函数名称：
+*
+*    参数列表：
+*
+*    返回值  ：
+*
+*    说明    ：
+*
+*
+************************************************************************************************************
+*/
+int axp809_probe_charge_current(void)
+{
+	uchar  reg_value;
+	int	  current;
+
+	if(axp_i2c_read(AXP809_ADDR, BOOT_POWER809_CHARGE1, &reg_value))
+    {
+        return -1;
+    }
+	reg_value &= 0x0f;
+	current = (reg_value + 2) * 150;
+
+	return current;
+}
+/*
+************************************************************************************************************
+*
+*                                             function
+*
+*    函数名称：
+*
+*    参数列表：
+*
+*    返回值  ：
+*
+*    说明    ：
+*
+*
+************************************************************************************************************
+*/
+int axp809_set_vbus_cur_limit(int current)
+{
+	uchar reg_value;
+
+	//set bus current limit off
+	if(axp_i2c_read(AXP809_ADDR, BOOT_POWER809_VBUS_SET, &reg_value))
+    {
+        return -1;
+    }
+    reg_value &= 0xfC;
+	if(!current)
+	{
+	    reg_value |= 0x03;
+	}
+	else if(current <= 500)		//limit to 500
+	{
+		reg_value |= 0x01;
+	}
+	else						//limit to 900
+	{
+		reg_value |= 0;
+	}
+	if(axp_i2c_write(AXP809_ADDR, BOOT_POWER809_VBUS_SET, reg_value))
+    {
+        return -1;
+    }
+
+    return 0;
 }
 
-int axp_set_dcdc2(unsigned int mvolt)
+int axp809_probe_vbus_cur_limit(void)
 {
-	int ret;
-	u8 cfg = axp809_mvolt_to_cfg(mvolt, 600, 1540, 20);
+    uchar reg_value;
 
-	if (mvolt == 0)
-		return pmic_bus_clrbits(AXP809_OUTPUT_CTRL1,
-					AXP809_OUTPUT_CTRL1_DCDC2_EN);
-
-	ret = pmic_bus_write(AXP809_DCDC2_CTRL, cfg);
-	if (ret)
-		return ret;
-
-	return pmic_bus_setbits(AXP809_OUTPUT_CTRL1,
-				AXP809_OUTPUT_CTRL1_DCDC2_EN);
+    if(axp_i2c_read(AXP809_ADDR,BOOT_POWER809_VBUS_SET,&reg_value))
+    {
+        return -1;
+    }
+    reg_value &= 0x03;
+    if(reg_value == 0x01)
+    {
+        printf("limit to 500mA \n");
+        return 500;
+    }
+    else if(reg_value == 0x00)
+    {
+        printf("limit to 900 \n");
+        return 900;
+    }
+    else
+    {
+        printf("do not limit current \n");
+        return 0;
+    }
 }
-
-int axp_set_dcdc3(unsigned int mvolt)
+/*
+************************************************************************************************************
+*
+*                                             function
+*
+*    函数名称：
+*
+*    参数列表：
+*
+*    返回值  ：
+*
+*    说明    ：
+*
+*
+************************************************************************************************************
+*/
+int axp809_set_vbus_vol_limit(int vol)
 {
-	int ret;
-	u8 cfg = axp809_mvolt_to_cfg(mvolt, 600, 1860, 20);
+	uchar reg_value;
 
-	if (mvolt == 0)
-		return pmic_bus_clrbits(AXP809_OUTPUT_CTRL1,
-					AXP809_OUTPUT_CTRL1_DCDC3_EN);
+	//set bus vol limit off
+	if(axp_i2c_read(AXP809_ADDR, BOOT_POWER809_VBUS_SET, &reg_value))
+    {
+        return -1;
+    }
+    reg_value &= ~(7 << 3);
+	if(!vol)
+	{
+	    reg_value &= ~(1 << 6);
+	}
+	else
+	{
+		if(vol < 4000)
+		{
+			vol = 4000;
+		}
+		else if(vol > 4700)
+		{
+			vol = 4700;
+		}
+		reg_value |= ((vol-4000)/100) << 3;
+	}
+	if(axp_i2c_write(AXP809_ADDR, BOOT_POWER809_VBUS_SET, reg_value))
+    {
+        return -1;
+    }
 
-	ret = pmic_bus_write(AXP809_DCDC3_CTRL, cfg);
-	if (ret)
-		return ret;
-
-	return pmic_bus_setbits(AXP809_OUTPUT_CTRL1,
-				AXP809_OUTPUT_CTRL1_DCDC3_EN);
+    return 0;
 }
-
-int axp_set_dcdc4(unsigned int mvolt)
+/*
+************************************************************************************************************
+*
+*                                             function
+*
+*    函数名称：
+*
+*    参数列表：
+*
+*    返回值  ：
+*
+*    说明    ：
+*
+*
+************************************************************************************************************
+*/
+int axp809_probe_int_pending(uchar *addr)
 {
-	int ret;
-	u8 cfg = axp809_mvolt_to_cfg(mvolt, 600, 1540, 20);
+	int   i;
 
-	if (mvolt >= 1540)
-		cfg = 0x30 + axp809_mvolt_to_cfg(mvolt, 1800, 2600, 100);
+	for(i=0;i<5;i++)
+	{
+	    if(axp_i2c_read(AXP809_ADDR, BOOT_POWER809_INTSTS1 + i, addr + i))
+	    {
+	        return -1;
+	    }
+	}
 
-	if (mvolt == 0)
-		return pmic_bus_clrbits(AXP809_OUTPUT_CTRL1,
-					AXP809_OUTPUT_CTRL1_DCDC4_EN);
+	for(i=0;i<5;i++)
+	{
+	    if(axp_i2c_write(AXP809_ADDR, BOOT_POWER809_INTSTS1 + i, 0xff))
+	    {
+	        return -1;
+	    }
+	}
 
-	ret = pmic_bus_write(AXP809_DCDC5_CTRL, cfg);
-	if (ret)
-		return ret;
-
-	return pmic_bus_setbits(AXP809_OUTPUT_CTRL1,
-				AXP809_OUTPUT_CTRL1_DCDC4_EN);
+	return 0;
 }
-
-int axp_set_dcdc5(unsigned int mvolt)
+/*
+************************************************************************************************************
+*
+*                                             function
+*
+*    函数名称：
+*
+*    参数列表：
+*
+*    返回值  ：
+*
+*    说明    ：
+*
+*
+************************************************************************************************************
+*/
+int axp809_probe_int_enable(uchar *addr)
 {
-	int ret;
-	u8 cfg = axp809_mvolt_to_cfg(mvolt, 1000, 2550, 50);
+	int   i;
+	uchar  int_reg = BOOT_POWER809_INTEN1;
 
-	if (mvolt == 0)
-		return pmic_bus_clrbits(AXP809_OUTPUT_CTRL1,
-					AXP809_OUTPUT_CTRL1_DCDC5_EN);
+	for(i=0;i<5;i++)
+	{
+		if(axp_i2c_read(AXP809_ADDR, int_reg, addr + i))
+	    {
+	        return -1;
+	    }
+	    int_reg ++;
+	}
 
-	ret = pmic_bus_write(AXP809_DCDC5_CTRL, cfg);
-	if (ret)
-		return ret;
-
-	return pmic_bus_setbits(AXP809_OUTPUT_CTRL1,
-				AXP809_OUTPUT_CTRL1_DCDC5_EN);
+	return 0;
 }
-
-int axp_set_aldo(int aldo_num, unsigned int mvolt)
+/*
+************************************************************************************************************
+*
+*                                             function
+*
+*    函数名称：
+*
+*    参数列表：
+*
+*    返回值  ：
+*
+*    说明    ：
+*
+*
+************************************************************************************************************
+*/
+int axp809_set_int_enable(uchar *addr)
 {
-	int ret;
-	u8 cfg;
+	int   i;
+	uchar  int_reg = BOOT_POWER809_INTEN1;
 
-	if (aldo_num < 1 || aldo_num > 3)
-		return -EINVAL;
-
-	if (mvolt == 0 && aldo_num == 3)
-		return pmic_bus_clrbits(AXP809_OUTPUT_CTRL2,
-					AXP809_OUTPUT_CTRL2_ALDO3_EN);
-	if (mvolt == 0)
-		return pmic_bus_clrbits(AXP809_OUTPUT_CTRL1,
-				AXP809_OUTPUT_CTRL1_ALDO1_EN << (aldo_num - 1));
-
-	cfg = axp809_mvolt_to_cfg(mvolt, 700, 3300, 100);
-	ret = pmic_bus_write(AXP809_ALDO1_CTRL + (aldo_num - 1), cfg);
-	if (ret)
-		return ret;
-
-	if (aldo_num == 3)
-		return pmic_bus_setbits(AXP809_OUTPUT_CTRL2,
-					AXP809_OUTPUT_CTRL2_ALDO3_EN);
-	return pmic_bus_clrbits(AXP809_OUTPUT_CTRL1,
-				AXP809_OUTPUT_CTRL1_ALDO1_EN << (aldo_num - 1));
-}
-
-/* TODO: re-work other AXP drivers to consolidate ALDO functions. */
-int axp_set_aldo1(unsigned int mvolt)
-{
-	return axp_set_aldo(1, mvolt);
-}
-
-int axp_set_aldo2(unsigned int mvolt)
-{
-	return axp_set_aldo(2, mvolt);
-}
-
-int axp_set_aldo3(unsigned int mvolt)
-{
-	return axp_set_aldo(3, mvolt);
-}
-
-int axp_set_dldo(int dldo_num, unsigned int mvolt)
-{
-	u8 cfg = axp809_mvolt_to_cfg(mvolt, 700, 3300, 100);
-	int ret;
-
-	if (dldo_num < 1 || dldo_num > 2)
-		return -EINVAL;
-
-	if (mvolt == 0)
-		return pmic_bus_clrbits(AXP809_OUTPUT_CTRL2,
-				AXP809_OUTPUT_CTRL2_DLDO1_EN << (dldo_num - 1));
-
-	if (dldo_num == 1 && mvolt > 3300)
-		cfg += 1 + axp809_mvolt_to_cfg(mvolt, 3400, 4200, 200);
-	ret = pmic_bus_write(AXP809_DLDO1_CTRL + (dldo_num - 1), cfg);
-	if (ret)
-		return ret;
-
-	return pmic_bus_setbits(AXP809_OUTPUT_CTRL2,
-				AXP809_OUTPUT_CTRL2_DLDO1_EN << (dldo_num - 1));
-}
-
-int axp_set_eldo(int eldo_num, unsigned int mvolt)
-{
-	int ret;
-	u8 cfg = axp809_mvolt_to_cfg(mvolt, 700, 3300, 100);
-
-	if (eldo_num < 1 || eldo_num > 3)
-		return -EINVAL;
-
-	if (mvolt == 0)
-		return pmic_bus_clrbits(AXP809_OUTPUT_CTRL2,
-				AXP809_OUTPUT_CTRL2_ELDO1_EN << (eldo_num - 1));
-
-	ret = pmic_bus_write(AXP809_ELDO1_CTRL + (eldo_num - 1), cfg);
-	if (ret)
-		return ret;
-
-	return pmic_bus_setbits(AXP809_OUTPUT_CTRL2,
-				AXP809_OUTPUT_CTRL2_ELDO1_EN << (eldo_num - 1));
-}
-
-int axp_set_sw(bool on)
-{
-	if (on)
-		return pmic_bus_setbits(AXP809_OUTPUT_CTRL2,
-					AXP809_OUTPUT_CTRL2_SWOUT_EN);
-
-	return pmic_bus_clrbits(AXP809_OUTPUT_CTRL2,
-				AXP809_OUTPUT_CTRL2_SWOUT_EN);
-}
-
-int axp_init(void)
-{
-	int ret;
-
-	ret = pmic_bus_init();
-	if (ret)
-		return ret;
+	for(i=0;i<5;i++)
+	{
+		if(axp_i2c_write(AXP809_ADDR, int_reg, addr[i]))
+	    {
+	        return -1;
+	    }
+	    int_reg ++;
+	}
 
 	return 0;
 }
 
-int do_poweroff(cmd_tbl_t *cmdtp, int flag, int argc, char * const argv[])
-{
-	pmic_bus_write(AXP809_SHUTDOWN, AXP809_SHUTDOWN_POWEROFF);
 
-	/* infinite loop during shutdown */
-	while (1) {}
+sunxi_axp_module_init("axp809", SUNXI_AXP_809);
 
-	/* not reached */
-	return 0;
-}
+

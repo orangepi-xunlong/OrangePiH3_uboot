@@ -3,13 +3,36 @@
  * Marvell Semiconductor <www.marvell.com>
  * Written-by: Prafulla Wadaskar <prafulla@marvell.com>,
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+ * MA 02110-1301 USA
  */
 
 #include <common.h>
 #include <asm/io.h>
 #include <mvmfp.h>
 #include <asm/arch/mfp.h>
+#ifdef CONFIG_ARMADA100
+#include <asm/arch/armada100.h>
+#elif defined(CONFIG_PANTHEON)
+#include <asm/arch/pantheon.h>
+#else
+#error Unsupported SoC...
+#endif
 
 /*
  * mfp_config
@@ -43,8 +66,18 @@ void mfp_config(u32 *mfp_cfgs)
 
 		/* Write a mfg register as per configuration */
 		val = 0;
-		if (cfg_val & MFP_VALUE_MASK)
-			val |= cfg_val & MFP_VALUE_MASK;
+		if (cfg_val & MFP_AF_FLAG)
+			/* Abstract and program Afternate-Func Selection */
+			val |= cfg_val & MFP_AF_MASK;
+		if (cfg_val & MFP_EDGE_FLAG)
+			/* Abstract and program Edge configuration */
+			val |= cfg_val & MFP_LPM_EDGE_MASK;
+		if (cfg_val & MFP_DRIVE_FLAG)
+			/* Abstract and program Drive configuration */
+			val |= cfg_val & MFP_DRIVE_MASK;
+		if (cfg_val & MFP_PULL_FLAG)
+			/* Abstract and program Pullup/down configuration */
+			val |= cfg_val & MFP_PULL_MASK;
 
 		writel(val, p_mfpr);
 	} while (1);

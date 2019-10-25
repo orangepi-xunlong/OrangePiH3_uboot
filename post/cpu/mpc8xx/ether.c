@@ -2,7 +2,23 @@
  * (C) Copyright 2002
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -114,6 +130,19 @@ static void scc_init (int scc_index)
 	immr->im_cpm.cp_scc[scc_index].scc_gsmrl &=
 			~(SCC_GSMRL_ENR | SCC_GSMRL_ENT);
 
+#if defined(CONFIG_FADS)
+#if defined(CONFIG_MPC860T) || defined(CONFIG_MPC86xADS)
+	/* The FADS860T and MPC86xADS don't use the MODEM_EN or DATA_VOICE signals. */
+	*((uint *) BCSR4) &= ~BCSR4_ETHLOOP;
+	*((uint *) BCSR4) |= BCSR4_TFPLDL | BCSR4_TPSQEL;
+	*((uint *) BCSR1) &= ~BCSR1_ETHEN;
+#else
+	*((uint *) BCSR4) &= ~(BCSR4_ETHLOOP | BCSR4_MODEM_EN);
+	*((uint *) BCSR4) |= BCSR4_TFPLDL | BCSR4_TPSQEL | BCSR4_DATA_VOICE;
+	*((uint *) BCSR1) &= ~BCSR1_ETHEN;
+#endif
+#endif
+
 	pram_ptr = (scc_enet_t *) & (immr->im_cpm.cp_dparam[proff[scc_index]]);
 
 	rxIdx = 0;
@@ -212,7 +241,7 @@ static void scc_init (int scc_index)
 	for (i = 0; i < PKTBUFSRX; i++) {
 		rtx->rxbd[i].cbd_sc = BD_ENET_RX_EMPTY;
 		rtx->rxbd[i].cbd_datlen = 0;	/* Reset */
-		rtx->rxbd[i].cbd_bufaddr = (uint) net_rx_packets[i];
+		rtx->rxbd[i].cbd_bufaddr = (uint) NetRxPackets[i];
 	}
 
 	rtx->rxbd[PKTBUFSRX - 1].cbd_sc |= BD_ENET_RX_WRAP;
@@ -352,12 +381,77 @@ static void scc_init (int scc_index)
 	immr->im_cpm.cp_scc[scc_index].scc_psmr = SCC_PSMR_ENCRC |
 			SCC_PSMR_NIB22 | SCC_PSMR_LPB;
 
+#if 0
+	/*
+	 * Configure Ethernet TENA Signal
+	 */
+
+#if (defined(PC_ENET_TENA) && !defined(PB_ENET_TENA))
+	immr->im_ioport.iop_pcpar |= PC_ENET_TENA;
+	immr->im_ioport.iop_pcdir &= ~PC_ENET_TENA;
+#elif (defined(PB_ENET_TENA) && !defined(PC_ENET_TENA))
+	immr->im_cpm.cp_pbpar |= PB_ENET_TENA;
+	immr->im_cpm.cp_pbdir |= PB_ENET_TENA;
+#else
+#error Configuration Error: exactly ONE of PB_ENET_TENA, PC_ENET_TENA must be defined
+#endif
+
+#if defined(CONFIG_ADS) && defined(CONFIG_MPC860)
+	/*
+	 * Port C is used to control the PHY,MC68160.
+	 */
+	immr->im_ioport.iop_pcdir |=
+			(PC_ENET_ETHLOOP | PC_ENET_TPFLDL | PC_ENET_TPSQEL);
+
+	immr->im_ioport.iop_pcdat |= PC_ENET_TPFLDL;
+	immr->im_ioport.iop_pcdat &= ~(PC_ENET_ETHLOOP | PC_ENET_TPSQEL);
+	*((uint *) BCSR1) &= ~BCSR1_ETHEN;
+#endif /* MPC860ADS */
+
+#if defined(CONFIG_AMX860)
+	/*
+	 * Port B is used to control the PHY,MC68160.
+	 */
+	immr->im_cpm.cp_pbdir |=
+			(PB_ENET_ETHLOOP | PB_ENET_TPFLDL | PB_ENET_TPSQEL);
+
+	immr->im_cpm.cp_pbdat |= PB_ENET_TPFLDL;
+	immr->im_cpm.cp_pbdat &= ~(PB_ENET_ETHLOOP | PB_ENET_TPSQEL);
+
+	immr->im_ioport.iop_pddir |= PD_ENET_ETH_EN;
+	immr->im_ioport.iop_pddat &= ~PD_ENET_ETH_EN;
+#endif /* AMX860 */
+
+#endif /* 0 */
+
+#ifdef CONFIG_RPXCLASSIC
+	*((uchar *) BCSR0) &= ~BCSR0_ETHLPBK;
+	*((uchar *) BCSR0) |= (BCSR0_ETHEN | BCSR0_COLTEST | BCSR0_FULLDPLX);
+#endif
+
+#ifdef CONFIG_RPXLITE
+	*((uchar *) BCSR0) |= BCSR0_ETHEN;
+#endif
+
+#ifdef CONFIG_MBX
+	board_ether_init ();
+#endif
+
 	/*
 	 * Set the ENT/ENR bits in the GSMR Low -- Enable Transmit/Receive
 	 */
 
 	immr->im_cpm.cp_scc[scc_index].scc_gsmrl |=
 			(SCC_GSMRL_ENR | SCC_GSMRL_ENT);
+
+	/*
+	 * Work around transmit problem with first eth packet
+	 */
+#if defined (CONFIG_FADS)
+	udelay (10000);				/* wait 10 ms */
+#elif defined (CONFIG_AMX860) || defined(CONFIG_RPXCLASSIC)
+	udelay (100000);			/* wait 100 ms */
+#endif
 }
 
 static void scc_halt (int scc_index)
@@ -405,8 +499,8 @@ static int scc_recv (int index, void *packet, int max_length)
 	if (!(rtx->rxbd[rxIdx].cbd_sc & 0x003f)) {
 		length = rtx->rxbd[rxIdx].cbd_datlen - 4;
 		memcpy (packet,
-			(void *)(net_rx_packets[rxIdx]),
-			length < max_length ? length : max_length);
+				(void *) (NetRxPackets[rxIdx]),
+				length < max_length ? length : max_length);
 	}
 
 	/* Give the buffer back to the SCC. */

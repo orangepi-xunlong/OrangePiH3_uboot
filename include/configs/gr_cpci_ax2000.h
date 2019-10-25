@@ -8,19 +8,35 @@
  * (C) Copyright 2008
  * Daniel Hellstrom, Gaisler Research, daniel@gaisler.com.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef __CONFIG_H__
 #define __CONFIG_H__
-
-#define CONFIG_DISPLAY_BOARDINFO
 
 /*
  * High Level Configuration Options
  * (easy to change)
  */
 
+#define CONFIG_LEON3		/* This is an LEON3 CPU */
+#define CONFIG_LEON		1	/* This is an LEON CPU */
 #define CONFIG_CPCI_AX2000	1	/* ... on GR-CPCI-AX2000 board */
 
 #define CONFIG_LEON_RAM_SRAM 1
@@ -44,6 +60,9 @@
 /* CPU / AMBA BUS configuration */
 #define CONFIG_SYS_CLK_FREQ	20000000	/* 20MHz */
 
+/* Number of SPARC register windows */
+#define CONFIG_SYS_SPARC_NWINDOWS 8
+
 /*
  * Serial console configuration
  */
@@ -58,13 +77,18 @@
 /*
  * Supported commands
  */
+#include <config_cmd_default.h>
+
 #define CONFIG_CMD_REGINFO
+#define CONFIG_CMD_AMBAPP
+#define CONFIG_CMD_PING
 #define CONFIG_CMD_DIAG
 #define CONFIG_CMD_IRQ
 
 /*
  * Autobooting
  */
+#define CONFIG_BOOTDELAY	5	/* autoboot after 5 seconds */
 
 #define CONFIG_PREBOOT	"echo;"	\
 	"echo Type \"run flash_nfs\" to mount root filesystem over NFS;" \
@@ -84,7 +108,7 @@
 		"bootm ${kernel_addr}\0"				\
 	"flash_self=run ramargs addip;"					\
 		"bootm ${kernel_addr} ${ramdisk_addr}\0"		\
-	"getkernel=tftpboot $(scratch) $(bootfile)\0" \
+	"getkernel=tftpboot \$\(scratch\)\ \$\(bootfile\)\0" \
 	"bootargs=console=ttyS0,38400 root=/dev/nfs rw nfsroot=192.168.0.20:/export/rootfs ip=192.168.0.206:192.168.0.20:192.168.0.1:255.255.255.0:ax2000:eth0\0"
 
 #if CONFIG_LEON_RAM_SELECT == CONFIG_LEON_RAM_SRAM
@@ -111,9 +135,9 @@
 #define CONFIG_GATEWAYIP 192.168.0.1
 #define CONFIG_SERVERIP 192.168.0.20
 #define CONFIG_IPADDR 192.168.0.206
-#define CONFIG_ROOTPATH "/export/rootfs"
+#define CONFIG_ROOTPATH /export/rootfs
 #define CONFIG_HOSTNAME  ax2000
-#define CONFIG_BOOTFILE "/uImage"
+#define CONFIG_BOOTFILE  /uImage
 
 #define CONFIG_BOOTCOMMAND	"run flash_self"
 
@@ -267,6 +291,7 @@
 /*
  * Ethernet configuration uses on board SMC91C111
  */
+#define CONFIG_NET_MULTI
 #define CONFIG_SMC91111          1
 #define CONFIG_SMC91111_BASE		0x20000300	/* chip select 3         */
 #define CONFIG_SMC_USE_32_BIT		1	/* 32 bit bus  */
@@ -274,12 +299,14 @@
 /*#define CONFIG_SHOW_ACTIVITY*/
 #define CONFIG_NET_RETRY_COUNT		10	/* # of retries          */
 
+#define CONFIG_ETHADDR   00:00:7a:cc:00:13
 #define CONFIG_PHY_ADDR	 0x00
 
 /*
  * Miscellaneous configurable options
  */
 #define CONFIG_SYS_LONGHELP		/* undef to save memory     */
+#define CONFIG_SYS_PROMPT		"=> "	/* Monitor Command Prompt   */
 #if defined(CONFIG_CMD_KGDB)
 #define CONFIG_SYS_CBSIZE		1024	/* Console I/O Buffer Size  */
 #else
@@ -294,6 +321,8 @@
 
 #define CONFIG_SYS_LOAD_ADDR		0x100000	/* default load address */
 
+#define CONFIG_SYS_HZ			1000	/* decrementer freq: 1 ms ticks */
+
 /*
  * Various low-level settings
  */
@@ -307,41 +336,43 @@
 
 /***** Gaisler GRLIB IP-Cores Config ********/
 
-#define CONFIG_SYS_GRLIB_SDRAM    0
+/* AMBA Plug & Play info display on startup */
+/*#define CONFIG_SYS_AMBAPP_PRINT_ON_STARTUP*/
 
-/* No SDRAM Configuration */
-#undef CONFIG_SYS_GRLIB_GAISLER_SDCTRL1
+#define CONFIG_SYS_GRLIB_SDRAM    0
 
 /* See, GRLIB Docs (grip.pdf) on how to set up
  * These the memory controller registers.
  */
-#define CONFIG_SYS_GRLIB_ESA_MCTRL1
-#define CONFIG_SYS_GRLIB_ESA_MCTRL1_CFG1   (0x10f800ff | (1<<11))
+#define CONFIG_SYS_GRLIB_MEMCFG1   (0x10f800ff | (1<<11))
 #if CONFIG_LEON_RAM_SELECT == CONFIG_LEON_RAM_SDRAM_NOSRAM
-#define CONFIG_SYS_GRLIB_ESA_MCTRL1_CFG2   0x82206000
+#define CONFIG_SYS_GRLIB_MEMCFG2   0x82206000
 #else
-#define CONFIG_SYS_GRLIB_ESA_MCTRL1_CFG2   0x82205260
+#define CONFIG_SYS_GRLIB_MEMCFG2   0x82205260
 #endif
-#define CONFIG_SYS_GRLIB_ESA_MCTRL1_CFG3   0x0809a000
+#define CONFIG_SYS_GRLIB_MEMCFG3   0x0809a000
 
-/* GRLIB FT-MCTRL configuration */
-#define CONFIG_SYS_GRLIB_GAISLER_FTMCTRL1
-#define CONFIG_SYS_GRLIB_GAISLER_FTMCTRL1_CFG1   (0x10f800ff | (1<<11))
+#define CONFIG_SYS_GRLIB_FT_MEMCFG1   (0x10f800ff | (1<<11))
 #if CONFIG_LEON_RAM_SELECT == CONFIG_LEON_RAM_SDRAM_NOSRAM
-#define CONFIG_SYS_GRLIB_GAISLER_FTMCTRL1_CFG2   0x82206000
+#define CONFIG_SYS_GRLIB_FT_MEMCFG2   0x82206000
 #else
-#define CONFIG_SYS_GRLIB_GAISLER_FTMCTRL1_CFG2   0x82205260
+#define CONFIG_SYS_GRLIB_FT_MEMCFG2   0x82205260
 #endif
-#define CONFIG_SYS_GRLIB_GAISLER_FTMCTRL1_CFG3   0x0809a000
+#define CONFIG_SYS_GRLIB_FT_MEMCFG3   0x0809a000
 
 /* no DDR controller */
-#undef CONFIG_SYS_GRLIB_GAISLER_DDRSPA1
+#define CONFIG_SYS_GRLIB_DDR_CFG   0x00000000
 
 /* no DDR2 Controller */
-#undef CONFIG_SYS_GRLIB_GAISLER_DDR2SPA1
+#define CONFIG_SYS_GRLIB_DDR2_CFG1 0x00000000
+#define CONFIG_SYS_GRLIB_DDR2_CFG3 0x00000000
+
+/* Calculate scaler register value from default baudrate */
+#define CONFIG_SYS_GRLIB_APBUART_SCALER \
+ ((((CONFIG_SYS_CLK_FREQ*10)/(CONFIG_BAUDRATE*8))-5)/10)
 
 /* Identification string */
-#define CONFIG_IDENT_STRING " Gaisler LEON3 GR-CPCI-AX2000"
+#define CONFIG_IDENT_STRING "GAISLER LEON3 GR-CPCI-AX2000"
 
 /* default kernel command line */
 #define CONFIG_DEFAULT_KERNEL_COMMAND_LINE "console=ttyS0,38400\0\0"

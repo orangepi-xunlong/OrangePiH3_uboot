@@ -2,7 +2,20 @@
  * Copyright (c) 2009 Wind River Systems, Inc.
  * Tom Rix <Tom.Rix@windriver.com>
  *
- * SPDX-License-Identifier:	GPL-2.0
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  *
  * This work is derived from the linux 2.6.27 kernel source
  * To fetch, use the kernel repository
@@ -17,36 +30,36 @@
  *
  * Copyright (C) 2003-2005 Nokia Corporation
  * Written by Juha Yrjölä <juha.yrjola@nokia.com>
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
  */
 #ifndef _GPIO_H
 #define _GPIO_H
 
 #include <asm/arch/cpu.h>
 
-#ifdef CONFIG_DM_GPIO
-
-/* Information about a GPIO bank */
-struct omap_gpio_platdata {
-	int bank_index;
-	ulong base;	/* address of registers in physical memory */
-	const char *port_name;
-};
-
-#else
-
 struct gpio_bank {
 	void *base;
+	int method;
 };
 
 extern const struct gpio_bank *const omap_gpio_bank;
 
-/**
- * Check if gpio is valid.
- *
- * @param gpio	GPIO number
- * @return 1 if ok, 0 on error
- */
-int gpio_is_valid(int gpio);
-#endif
+#define METHOD_GPIO_24XX	4
+
+/* This is the interface */
+
+/* Request a gpio before using it */
+int omap_request_gpio(int gpio);
+/* Reset and free a gpio after using it */
+void omap_free_gpio(int gpio);
+/* Sets the gpio as input or output */
+void omap_set_gpio_direction(int gpio, int is_input);
+/* Set or clear a gpio output */
+void omap_set_gpio_dataout(int gpio, int enable);
+/* Get the value of a gpio input */
+int omap_get_gpio_datain(int gpio);
 
 #endif /* _GPIO_H_ */

@@ -5,7 +5,19 @@
  *
  *  Copyright (C) 2003-2006  Christophe Devine
  *
- * SPDX-License-Identifier:	LGPL-2.1
+ *  This library is free software; you can redistribute it and/or
+ *  modify it under the terms of the GNU Lesser General Public
+ *  License, version 2.1 as published by the Free Software Foundation.
+ *
+ *  This library is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ *  Lesser General Public License for more details.
+ *
+ *  You should have received a copy of the GNU Lesser General Public
+ *  License along with this library; if not, write to the Free Software
+ *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+ *  MA  02110-1301  USA
  */
 /*
  *  The SHA-1 standard was published by NIST in 1993.
@@ -24,7 +36,7 @@
 #include <string.h>
 #endif /* USE_HOSTCC */
 #include <watchdog.h>
-#include <u-boot/sha1.h>
+#include "sha1.h"
 
 /*
  * 32-bit integer manipulation macros (big endian)
@@ -61,7 +73,7 @@ void sha1_starts (sha1_context * ctx)
 	ctx->state[4] = 0xC3D2E1F0;
 }
 
-static void sha1_process(sha1_context *ctx, const unsigned char data[64])
+static void sha1_process (sha1_context * ctx, unsigned char data[64])
 {
 	unsigned long temp, W[16], A, B, C, D, E;
 
@@ -218,8 +230,7 @@ static void sha1_process(sha1_context *ctx, const unsigned char data[64])
 /*
  * SHA-1 process buffer
  */
-void sha1_update(sha1_context *ctx, const unsigned char *input,
-		 unsigned int ilen)
+void sha1_update (sha1_context * ctx, unsigned char *input, int ilen)
 {
 	int fill;
 	unsigned long left;
@@ -294,8 +305,7 @@ void sha1_finish (sha1_context * ctx, unsigned char output[20])
 /*
  * Output = SHA-1( input buffer )
  */
-void sha1_csum(const unsigned char *input, unsigned int ilen,
-	       unsigned char *output)
+void sha1_csum (unsigned char *input, int ilen, unsigned char output[20])
 {
 	sha1_context ctx;
 
@@ -308,12 +318,12 @@ void sha1_csum(const unsigned char *input, unsigned int ilen,
  * Output = SHA-1( input buffer ). Trigger the watchdog every 'chunk_sz'
  * bytes of input processed.
  */
-void sha1_csum_wd(const unsigned char *input, unsigned int ilen,
-		  unsigned char *output, unsigned int chunk_sz)
+void sha1_csum_wd (unsigned char *input, int ilen, unsigned char output[20],
+			unsigned int chunk_sz)
 {
 	sha1_context ctx;
 #if defined(CONFIG_HW_WATCHDOG) || defined(CONFIG_WATCHDOG)
-	const unsigned char *end, *curr;
+	unsigned char *end, *curr;
 	int chunk;
 #endif
 
@@ -340,9 +350,8 @@ void sha1_csum_wd(const unsigned char *input, unsigned int ilen,
 /*
  * Output = HMAC-SHA-1( input buffer, hmac key )
  */
-void sha1_hmac(const unsigned char *key, int keylen,
-	       const unsigned char *input, unsigned int ilen,
-	       unsigned char *output)
+void sha1_hmac (unsigned char *key, int keylen,
+		unsigned char *input, int ilen, unsigned char output[20])
 {
 	int i;
 	sha1_context ctx;
@@ -376,6 +385,8 @@ void sha1_hmac(const unsigned char *key, int keylen,
 	memset (tmpbuf, 0, 20);
 	memset (&ctx, 0, sizeof (sha1_context));
 }
+
+static const char _sha1_src[] = "_sha1_src";
 
 #ifdef SELF_TEST
 /*

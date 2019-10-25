@@ -2,13 +2,30 @@
  * (C) Copyright 2010
  * Dirk Eibach,  Guntermann & Drunck GmbH, eibach@gdsys.de
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	 See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef __CONFIG_H
 #define __CONFIG_H
 
 #define CONFIG_405EP		1	/* this is a PPC405 CPU */
+#define CONFIG_4xx		1	/*  member of PPC4xx family */
 #define CONFIG_DLVISION_10G	1	/*  on a DLVision-10G board */
 
 #define	CONFIG_SYS_TEXT_BASE	0xFFFC0000
@@ -17,15 +34,17 @@
  * Include common defines/options for all AMCC eval boards
  */
 #define CONFIG_HOSTNAME		dlvsion-10g
-#define CONFIG_IDENT_STRING	" dlvision-10g 0.06"
+#define CONFIG_IDENT_STRING	" dlvision-10g 0.01"
 #include "amcc-common.h"
 
-#define CONFIG_BOARD_EARLY_INIT_F
-#define CONFIG_BOARD_EARLY_INIT_R
-#define CONFIG_MISC_INIT_R
+#define CONFIG_BOARD_EARLY_INIT_F	/* call board_early_init_f */
 #define CONFIG_LAST_STAGE_INIT
 
 #define CONFIG_SYS_CLK_FREQ	33333333 /* external frequency to pll   */
+
+#undef CONFIG_ZERO_BOOTDELAY_CHECK     /* ignore keypress on bootdelay==0 */
+#define CONFIG_AUTOBOOT_KEYED          /* use key strings to stop autoboot */
+#define CONFIG_AUTOBOOT_STOP_STR " "
 
 /*
  * Configure PLL
@@ -34,7 +53,8 @@
 #define PLLMR1_DEFAULT PLLMR1_266_133_66
 
 /* new uImage format support */
-#define CONFIG_FIT_DISABLE_SHA256
+#define CONFIG_FIT
+#define CONFIG_FIT_VERBOSE	/* enable fit_format_{error,warning}() */
 
 #define CONFIG_ENV_IS_IN_FLASH	/* use FLASH for environment vars */
 
@@ -59,10 +79,8 @@
 /*
  * Commands additional to the ones defined in amcc-common.h
  */
-#define CONFIG_CMD_DTT
-#undef CONFIG_CMD_DIAG
+#define CONFIG_CMD_CACHE
 #undef CONFIG_CMD_EEPROM
-#undef CONFIG_CMD_IRQ
 
 /*
  * SDRAM configuration (please see cpu/ppc/sdram.[ch])
@@ -93,38 +111,15 @@
 /*
  * I2C stuff
  */
-#define CONFIG_SYS_I2C_PPC4XX
-#define CONFIG_SYS_I2C_PPC4XX_CH0
-#define CONFIG_SYS_I2C_PPC4XX_SPEED_0		100000
-#define CONFIG_SYS_I2C_PPC4XX_SLAVE_0		0x7F
-
-#define CONFIG_SYS_I2C_IHS
-#define CONFIG_SYS_I2C_IHS_DUAL
-#define CONFIG_SYS_I2C_IHS_CH0
-#define CONFIG_SYS_I2C_IHS_SPEED_0		50000
-#define CONFIG_SYS_I2C_IHS_SLAVE_0		0x7F
-#define CONFIG_SYS_I2C_IHS_SPEED_0_1		50000
-#define CONFIG_SYS_I2C_IHS_SLAVE_0_1		0x7F
-#define CONFIG_SYS_I2C_IHS_CH1
-#define CONFIG_SYS_I2C_IHS_SPEED_1		50000
-#define CONFIG_SYS_I2C_IHS_SLAVE_1		0x7F
-#define CONFIG_SYS_I2C_IHS_SPEED_1_1		50000
-#define CONFIG_SYS_I2C_IHS_SLAVE_1_1		0x7F
-
-#define CONFIG_SYS_SPD_BUS_NUM		4
+#define CONFIG_SYS_I2C_SPEED		100000
 
 /* Temp sensor/hwmon/dtt */
-#define CONFIG_SYS_DTT_BUS_NUM	4
 #define CONFIG_DTT_LM63		1	/* National LM63	*/
-#define CONFIG_DTT_SENSORS	{ 0x4c, 0x4e, 0x18 } /* Sensor addresses */
+#define CONFIG_DTT_SENSORS	{ 0x4c, 0x4e }	/* Sensor addresses	*/
 #define CONFIG_DTT_PWM_LOOKUPTABLE	\
-		{ { 46, 10 }, { 48, 14 }, { 50, 19 }, { 52, 23 },\
-		  { 54, 27 }, { 56, 31 }, { 58, 36 }, { 60, 40 } }
+		{ { 40, 10 }, { 43, 13 }, { 46, 16 },  \
+		  { 50, 20 }, { 53, 27 }, { 56, 34 }, { 60, 40 } }
 #define CONFIG_DTT_TACH_LIMIT	0xa10
-
-#define CONFIG_SYS_ICS8N3QV01_I2C	{1, 3}
-#define CONFIG_SYS_SIL1178_I2C		{0, 2}
-#define CONFIG_SYS_DP501_I2C		{0, 2}
 
 /* EBC peripherals */
 
@@ -141,15 +136,9 @@
 
 #define CONFIG_SYS_FPGA_COUNT		2
 
-#define CONFIG_SYS_FPGA_PTR { \
-	(struct ihs_fpga *)CONFIG_SYS_FPGA0_BASE, \
-	(struct ihs_fpga *)CONFIG_SYS_FPGA1_BASE }
-
-#define CONFIG_SYS_FPGA_COMMON
-
 #define CONFIG_SYS_LATCH0_RESET		0xffff
 #define CONFIG_SYS_LATCH0_BOOT		0xffff
-#define CONFIG_SYS_LATCH1_RESET		0xffbf
+#define CONFIG_SYS_LATCH1_RESET		0xffcf
 #define CONFIG_SYS_LATCH1_BOOT		0xffff
 
 #define CONFIG_SYS_FPGA_NO_RFL_HI
@@ -169,6 +158,7 @@
 #define CONFIG_SYS_FLASH_WRITE_TOUT	500	/* Timeout for Flash Write/ms */
 
 #define CONFIG_SYS_FLASH_USE_BUFFER_WRITE 1	/* use buff'd writes */
+#define CONFIG_SYS_FLASH_PROTECTION	1	/* use hardware flash protect */
 
 #define CONFIG_SYS_FLASH_EMPTY_INFO	/* 'E' for empty sector on flinfo */
 #define CONFIG_SYS_FLASH_QUIET_TEST	1	/* no warn upon unknown flash */
@@ -234,10 +224,11 @@
 #define CONFIG_SYS_OCM_DATA_ADDR	0xF8000000
 #define CONFIG_SYS_OCM_DATA_SIZE	0x1000
 #define CONFIG_SYS_INIT_RAM_ADDR	CONFIG_SYS_OCM_DATA_ADDR /* in SDRAM */
-#define CONFIG_SYS_INIT_RAM_SIZE	CONFIG_SYS_OCM_DATA_SIZE
+#define CONFIG_SYS_INIT_RAM_END	CONFIG_SYS_OCM_DATA_SIZE /* End of used area */
 
+#define CONFIG_SYS_GBL_DATA_SIZE	128  /* size/bytes res'd for init data*/
 #define CONFIG_SYS_GBL_DATA_OFFSET \
-	(CONFIG_SYS_INIT_RAM_SIZE - GENERATED_GBL_DATA_SIZE)
+	(CONFIG_SYS_INIT_RAM_END - CONFIG_SYS_GBL_DATA_SIZE)
 #define CONFIG_SYS_INIT_SP_OFFSET	CONFIG_SYS_GBL_DATA_OFFSET
 
 /*
@@ -325,9 +316,9 @@
 /*
  * OSD Setup
  */
+#define CONFIG_SYS_ICS8N3QV01
 #define CONFIG_SYS_MPC92469AC
+#define CONFIG_SYS_SIL1178
 #define CONFIG_SYS_OSD_SCREENS		CONFIG_SYS_FPGA_COUNT
-#define CONFIG_SYS_DP501_DIFFERENTIAL
-#define CONFIG_SYS_DP501_VCAPCTRL0	0x01 /* DDR mode 0, DE for H/VSYNC */
 
 #endif	/* __CONFIG_H */

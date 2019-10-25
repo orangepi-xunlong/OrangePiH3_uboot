@@ -40,14 +40,12 @@ Buffer Requirements:
 - If the buffer is not cache-line aligned invalidation will be restricted
   to the aligned part. That is, one cache-line at the respective boundary
   may be left out while doing invalidation.
-- A suitable buffer can be alloced on the stack using the
-  ALLOC_CACHE_ALIGN_BUFFER macro.
 
 Cleanup Before Linux:
 - cleanup_before_linux() should flush the D-cache, invalidate I-cache, and
   disable MMU and caches.
 - The following sequence is advisable while disabling d-cache:
-  1. dcache_disable() - flushes and disables d-cache
+  1. disable_dcache() - flushes and disables d-cache
   2. invalidate_dcache_all() - invalid any entry that came to the cache
 	in the short period after the cache was flushed but before the
 	cache got disabled.

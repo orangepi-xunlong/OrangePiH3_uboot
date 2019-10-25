@@ -11,7 +11,6 @@
 #include <usb.h>
 
 #include <asm/blackfin.h>
-#include <asm/clock.h>
 #include <asm/mach-common/bits/usb.h>
 
 #include "musb_core.h"

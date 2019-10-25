@@ -2,7 +2,23 @@
  * (C) Copyright 2000-2010
  * Wolfgang Denk, DENX Software Engineering, wd@denx.de.
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 /*
@@ -20,6 +36,7 @@
 
 #if defined(CONFIG_OF_LIBFDT)
 #include <libfdt.h>
+#include <libfdt_env.h>
 #include <fdt_support.h>
 #endif
 
@@ -96,7 +113,7 @@ unsigned long get_tbclk (void)
 
 /* ------------------------------------------------------------------------- */
 
-#ifdef CONFIG_OF_BOARD_SETUP
+#if defined(CONFIG_OF_LIBFDT) && defined (CONFIG_OF_BOARD_SETUP)
 void ft_cpu_setup(void *blob, bd_t *bd)
 {
 	int div = in_8((void*)CONFIG_SYS_MBAR + 0x204) & 0x0020 ? 8 : 4;
@@ -117,7 +134,7 @@ void ft_cpu_setup(void *blob, bd_t *bd)
 	do_fixup_by_path(blob, eth_path, "mac-address", enetaddr, 6, 0);
 	do_fixup_by_path(blob, eth_path, "local-mac-address", enetaddr, 6, 0);
 #endif
-#ifdef CONFIG_OF_IDE_FIXUP
+#if defined(CONFIG_OF_IDE_FIXUP)
 	if (!ide_device_present(0)) {
 		/* NO CF card detected -> delete ata node in DTS */
 		int nodeoffset = 0;
@@ -132,10 +149,10 @@ void ft_cpu_setup(void *blob, bd_t *bd)
 		}
 	}
 
-#endif /* CONFIG_OF_IDE_FIXUP */
+#endif
 	fdt_fixup_memory(blob, (u64)bd->bi_memstart, (u64)bd->bi_memsize);
 }
-#endif /* CONFIG_OF_BOARD_SETUP */
+#endif
 
 #ifdef CONFIG_MPC5xxx_FEC
 /* Default initializations for FEC controllers.  To override,

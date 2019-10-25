@@ -76,8 +76,8 @@ Add SNMP
 #include <command.h>
 #include <net.h>
 #include <malloc.h>
-#include <linux/compiler.h>
 
+#define mdelay(n)	udelay((n)*1000)
 /* forward definition of function used for the uboot interface */
 void uboot_push_packet_len(int len);
 void uboot_push_tx_done(int key, int val);
@@ -95,12 +95,8 @@ void uboot_push_tx_done(int key, int val);
 
 static dp83902a_priv_data_t nic; /* just one instance of the card supported */
 
-/**
- * This function reads the MAC address from the serial EEPROM,
- * used if PROM read fails. Does nothing for ax88796 chips (sh boards)
- */
 static bool
-dp83902a_init(unsigned char *enetaddr)
+dp83902a_init(void)
 {
 	dp83902a_priv_data_t *dp = &nic;
 	u8* base;
@@ -134,7 +130,6 @@ dp83902a_init(unsigned char *enetaddr)
 		dp->esa[4],
 		dp->esa[5] );
 
-	memcpy(enetaddr, dp->esa, 6); /* Use MAC from serial EEPROM */
 #endif	/* NE2000_BASIC_INIT */
 	return true;
 }
@@ -166,8 +161,6 @@ dp83902a_start(u8 * enaddr)
 	dp83902a_priv_data_t *dp = &nic;
 	u8 *base = dp->base;
 	int i;
-
-	debug("The MAC is %pM\n", enaddr);
 
 	DEBUG_FUNCTION();
 
@@ -280,7 +273,7 @@ dp83902a_send(u8 *data, int total_len, u32 key)
 		 * does (i.e., also read data).
 		 */
 
-		__maybe_unused u16 tmp;
+		u16 tmp;
 		int len = 1;
 
 		DP_OUT(base, DP_RSAL, 0x100 - len);
@@ -374,7 +367,7 @@ dp83902a_RxEvent(void)
 {
 	struct dp83902a_priv_data *dp = (struct dp83902a_priv_data *) &nic;
 	u8 *base = dp->base;
-	__maybe_unused u8 rsr;
+	u8 rsr;
 	u8 rcv_hdr[4];
 	int i, len, pkt, cur;
 
@@ -511,7 +504,7 @@ dp83902a_TxEvent(void)
 {
 	struct dp83902a_priv_data *dp = (struct dp83902a_priv_data *) &nic;
 	u8 *base = dp->base;
-	__maybe_unused u8 tsr;
+	u8 tsr;
 	u32 key;
 
 	DEBUG_FUNCTION();
@@ -548,7 +541,7 @@ dp83902a_ClearCounters(void)
 {
 	struct dp83902a_priv_data *dp = (struct dp83902a_priv_data *) &nic;
 	u8 *base = dp->base;
-	__maybe_unused u8 cnt1, cnt2, cnt3;
+	u8 cnt1, cnt2, cnt3;
 
 	DP_IN(base, DP_FER, cnt1);
 	DP_IN(base, DP_CER, cnt2);
@@ -582,7 +575,7 @@ dp83902a_Overflow(void)
 	/*
 	 * Read in as many packets as we can and acknowledge any and receive
 	 * interrupts. Since the buffer has overflowed, a receive event of
-	 * some kind will have occurred.
+	 * some kind will have occured.
 	 */
 	dp83902a_RxEvent();
 	DP_OUT(base, DP_ISR, DP_ISR_RxP|DP_ISR_RxE);
@@ -592,7 +585,7 @@ dp83902a_Overflow(void)
 	DP_OUT(base, DP_TCR, DP_TCR_NORMAL);
 
 	/*
-	 * If a transmit command was issued, but no transmit event has occurred,
+	 * If a transmit command was issued, but no transmit event has occured,
 	 * restart it here.
 	 */
 	DP_IN(base, DP_ISR, isr);
@@ -650,7 +643,7 @@ dp83902a_poll(void)
 }
 
 
-/* U-Boot specific routines */
+/* U-boot specific routines */
 static u8 *pbuf = NULL;
 
 static int pkey = -1;
@@ -665,7 +658,7 @@ void uboot_push_packet_len(int len) {
 	dp83902a_recv(&pbuf[0], len);
 
 	/*Just pass it to the upper layer*/
-	net_process_received_packet(&pbuf[0], len);
+	NetReceive(&pbuf[0], len);
 }
 
 void uboot_push_tx_done(int key, int val) {
@@ -673,16 +666,12 @@ void uboot_push_tx_done(int key, int val) {
 	pkey = key;
 }
 
-/**
- * Setup the driver and init MAC address according to doc/README.enetaddr
- * Called by ne2k_register() before registering the driver @eth layer
- *
- * @param struct ethdevice of this instance of the driver for dev->enetaddr
- * @return 0 on success, -1 on error (causing caller to print error msg)
- */
-static int ne2k_setup_driver(struct eth_device *dev)
-{
-	PRINTK("### ne2k_setup_driver\n");
+int eth_init(bd_t *bd) {
+	int r;
+	u8 dev_addr[6];
+	char ethaddr[20];
+
+	PRINTK("### eth_init\n");
 
 	if (!pbuf) {
 		pbuf = malloc(2000);
@@ -704,56 +693,49 @@ static int ne2k_setup_driver(struct eth_device *dev)
 
 	nic.base = (u8 *) CONFIG_DRIVER_NE2000_BASE;
 
+	r = get_prom(dev_addr, nic.base);
+	if (!r)
+		return -1;
+
+	sprintf (ethaddr, "%02X:%02X:%02X:%02X:%02X:%02X",
+		 dev_addr[0], dev_addr[1],
+		 dev_addr[2], dev_addr[3],
+		 dev_addr[4], dev_addr[5]) ;
+	PRINTK("Set environment from HW MAC addr = \"%s\"\n", ethaddr);
+	setenv ("ethaddr", ethaddr);
+
 	nic.data = nic.base + DP_DATA;
 	nic.tx_buf1 = START_PG;
 	nic.tx_buf2 = START_PG2;
 	nic.rx_buf_start = RX_START;
 	nic.rx_buf_end = RX_END;
 
-	/*
-	 * According to doc/README.enetaddr, drivers shall give priority
-	 * to the MAC address value in the environment, so we do not read
-	 * it from the prom or eeprom if it is specified in the environment.
-	 */
-	if (!eth_getenv_enetaddr("ethaddr", dev->enetaddr)) {
-		/* If the MAC address is not in the environment, get it: */
-		if (!get_prom(dev->enetaddr, nic.base)) /* get MAC from prom */
-			dp83902a_init(dev->enetaddr);   /* fallback: seeprom */
-		/* And write it into the environment otherwise eth_write_hwaddr
-		 * returns -1 due to eth_getenv_enetaddr_by_index() failing,
-		 * and this causes "Warning: failed to set MAC address", and
-		 * cmd_bdinfo has no ethaddr value which it can show: */
-		eth_setenv_enetaddr("ethaddr", dev->enetaddr);
-	}
-	return 0;
-}
+	if (dp83902a_init() == false)
+		return -1;
 
-static int ne2k_init(struct eth_device *dev, bd_t *bd)
-{
-	dp83902a_start(dev->enetaddr);
+	dp83902a_start(dev_addr);
 	initialized = 1;
+
 	return 0;
 }
 
-static void ne2k_halt(struct eth_device *dev)
-{
-	debug("### ne2k_halt\n");
+void eth_halt() {
+
+	PRINTK("### eth_halt\n");
 	if(initialized)
 		dp83902a_stop();
 	initialized = 0;
 }
 
-static int ne2k_recv(struct eth_device *dev)
-{
+int eth_rx() {
 	dp83902a_poll();
 	return 1;
 }
 
-static int ne2k_send(struct eth_device *dev, void *packet, int length)
-{
+int eth_send(volatile void *packet, int length) {
 	int tmo;
 
-	debug("### ne2k_send\n");
+	PRINTK("### eth_send\n");
 
 	pkey = -1;
 
@@ -772,29 +754,4 @@ static int ne2k_send(struct eth_device *dev, void *packet, int length)
 
 	}
 	return 0;
-}
-
-/**
- * Setup the driver for use and register it with the eth layer
- * @return 0 on success, -1 on error (causing caller to print error msg)
- */
-int ne2k_register(void)
-{
-	struct eth_device *dev;
-
-	dev = calloc(sizeof(*dev), 1);
-	if (dev == NULL)
-		return -1;
-
-	if (ne2k_setup_driver(dev))
-		return -1;
-
-	dev->init = ne2k_init;
-	dev->halt = ne2k_halt;
-	dev->send = ne2k_send;
-	dev->recv = ne2k_recv;
-
-	strcpy(dev->name, "NE2000");
-
-	return eth_register(dev);
 }

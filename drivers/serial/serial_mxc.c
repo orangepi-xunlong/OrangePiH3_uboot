@@ -1,18 +1,84 @@
 /*
  * (c) 2007 Sascha Hauer <s.hauer@pengutronix.de>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
  */
 
 #include <common.h>
-#include <dm.h>
-#include <errno.h>
 #include <watchdog.h>
 #include <asm/arch/imx-regs.h>
 #include <asm/arch/clock.h>
-#include <dm/platform_data/serial_mxc.h>
-#include <serial.h>
-#include <linux/compiler.h>
+
+#define __REG(x)     (*((volatile u32 *)(x)))
+
+#if defined(CONFIG_SYS_MX31_UART1) || defined(CONFIG_SYS_MX25_UART1)
+#define UART_PHYS 0x43f90000
+#elif defined(CONFIG_SYS_MX31_UART2) || defined(CONFIG_SYS_MX25_UART2)
+#define UART_PHYS 0x43f94000
+#elif defined(CONFIG_SYS_MX31_UART3) || defined(CONFIG_SYS_MX25_UART3)
+#define UART_PHYS 0x5000c000
+#elif defined(CONFIG_SYS_MX31_UART4) || defined(CONFIG_SYS_MX25_UART4)
+#define UART_PHYS 0x43fb0000
+#elif defined(CONFIG_SYS_MX31_UART5) || defined(CONFIG_SYS_MX25_UART5)
+#define UART_PHYS 0x43fb4000
+#elif defined(CONFIG_SYS_MX27_UART1)
+#define UART_PHYS 0x1000a000
+#elif defined(CONFIG_SYS_MX27_UART2)
+#define UART_PHYS 0x1000b000
+#elif defined(CONFIG_SYS_MX27_UART3)
+#define UART_PHYS 0x1000c000
+#elif defined(CONFIG_SYS_MX27_UART4)
+#define UART_PHYS 0x1000d000
+#elif defined(CONFIG_SYS_MX27_UART5)
+#define UART_PHYS 0x1001b000
+#elif defined(CONFIG_SYS_MX27_UART6)
+#define UART_PHYS 0x1001c000
+#elif defined(CONFIG_SYS_MX35_UART1) || defined(CONFIG_SYS_MX51_UART1) || \
+	defined(CONFIG_SYS_MX53_UART1)
+#define UART_PHYS UART1_BASE_ADDR
+#elif defined(CONFIG_SYS_MX35_UART2) || defined(CONFIG_SYS_MX51_UART2) || \
+	defined(CONFIG_SYS_MX53_UART2)
+#define UART_PHYS UART2_BASE_ADDR
+#elif defined(CONFIG_SYS_MX35_UART3) || defined(CONFIG_SYS_MX51_UART3) || \
+	defined(CONFIG_SYS_MX53_UART3)
+#define UART_PHYS UART3_BASE_ADDR
+#else
+#error "define CONFIG_SYS_MXxx_UARTx to use the MXC UART driver"
+#endif
+
+#ifdef CONFIG_SERIAL_MULTI
+#warning "MXC driver does not support MULTI serials."
+#endif
+
+/* Register definitions */
+#define URXD  0x0  /* Receiver Register */
+#define UTXD  0x40 /* Transmitter Register */
+#define UCR1  0x80 /* Control Register 1 */
+#define UCR2  0x84 /* Control Register 2 */
+#define UCR3  0x88 /* Control Register 3 */
+#define UCR4  0x8c /* Control Register 4 */
+#define UFCR  0x90 /* FIFO Control Register */
+#define USR1  0x94 /* Status Register 1 */
+#define USR2  0x98 /* Status Register 2 */
+#define UESC  0x9c /* Escape Character Register */
+#define UTIM  0xa0 /* Escape Timer Register */
+#define UBIR  0xa4 /* BRM Incremental Register */
+#define UBMR  0xa8 /* BRM Modulator Register */
+#define UBRC  0xac /* Baud Rate Count Register */
+#define UTS   0xb4 /* UART Test Register (mx31) */
 
 /* UART Control Register Bit Fields.*/
 #define  URXD_CHARRDY    (1<<15)
@@ -55,7 +121,7 @@
 #define  UCR3_DSR        (1<<10) /* Data set ready */
 #define  UCR3_DCD        (1<<9)  /* Data carrier detect */
 #define  UCR3_RI         (1<<8)  /* Ring indicator */
-#define  UCR3_ADNIMP     (1<<7)  /* Autobaud Detection Not Improved */
+#define  UCR3_TIMEOUTEN  (1<<7)  /* Timeout interrupt enable */
 #define  UCR3_RXDSEN	 (1<<6)  /* Receive status interrupt enable */
 #define  UCR3_AIRINTEN   (1<<5)  /* Async IR wake interrupt enable */
 #define  UCR3_AWAKEN	 (1<<4)  /* Async wake interrupt enable */
@@ -75,8 +141,6 @@
 #define  UCR4_DREN	 (1<<0)  /* Recv data ready interrupt enable */
 #define  UFCR_RXTL_SHF   0       /* Receiver trigger level shift */
 #define  UFCR_RFDIV      (7<<7)  /* Reference freq divider mask */
-#define  UFCR_RFDIV_SHF  7      /* Reference freq divider shift */
-#define  UFCR_DCEDTE	 (1<<6)  /* DTE mode select */
 #define  UFCR_TXTL_SHF   10      /* Transmitter trigger level shift */
 #define  USR1_PARITYERR  (1<<15) /* Parity error interrupt flag */
 #define  USR1_RTSS	 (1<<14) /* RTS pin status */
@@ -108,78 +172,45 @@
 #define  UTS_RXFULL	 (1<<3)	 /* RxFIFO full */
 #define  UTS_SOFTRST	 (1<<0)	 /* Software reset */
 
-#ifndef CONFIG_DM_SERIAL
-
-#ifndef CONFIG_MXC_UART_BASE
-#error "define CONFIG_MXC_UART_BASE to use the MXC UART driver"
-#endif
-
-#define UART_PHYS	CONFIG_MXC_UART_BASE
-
-#define __REG(x)     (*((volatile u32 *)(x)))
-
-/* Register definitions */
-#define URXD  0x0  /* Receiver Register */
-#define UTXD  0x40 /* Transmitter Register */
-#define UCR1  0x80 /* Control Register 1 */
-#define UCR2  0x84 /* Control Register 2 */
-#define UCR3  0x88 /* Control Register 3 */
-#define UCR4  0x8c /* Control Register 4 */
-#define UFCR  0x90 /* FIFO Control Register */
-#define USR1  0x94 /* Status Register 1 */
-#define USR2  0x98 /* Status Register 2 */
-#define UESC  0x9c /* Escape Character Register */
-#define UTIM  0xa0 /* Escape Timer Register */
-#define UBIR  0xa4 /* BRM Incremental Register */
-#define UBMR  0xa8 /* BRM Modulator Register */
-#define UBRC  0xac /* Baud Rate Count Register */
-#define UTS   0xb4 /* UART Test Register (mx31) */
-
 DECLARE_GLOBAL_DATA_PTR;
 
-#define TXTL  2 /* reset default */
-#define RXTL  1 /* reset default */
-#define RFDIV 4 /* divide input clock by 2 */
-
-static void mxc_serial_setbrg(void)
+void serial_setbrg (void)
 {
 	u32 clk = imx_get_uartclk();
 
 	if (!gd->baudrate)
 		gd->baudrate = CONFIG_BAUDRATE;
 
-	__REG(UART_PHYS + UFCR) = (RFDIV << UFCR_RFDIV_SHF)
-		| (TXTL << UFCR_TXTL_SHF)
-		| (RXTL << UFCR_RXTL_SHF);
+	__REG(UART_PHYS + UFCR) = 4 << 7; /* divide input clock by 2 */
 	__REG(UART_PHYS + UBIR) = 0xf;
 	__REG(UART_PHYS + UBMR) = clk / (2 * gd->baudrate);
 
 }
 
-static int mxc_serial_getc(void)
+int serial_getc (void)
 {
 	while (__REG(UART_PHYS + UTS) & UTS_RXEMPTY)
 		WATCHDOG_RESET();
 	return (__REG(UART_PHYS + URXD) & URXD_RX_DATA); /* mask out status from upper word */
 }
 
-static void mxc_serial_putc(const char c)
+void serial_putc (const char c)
 {
-	/* If \n, also do \r */
-	if (c == '\n')
-		serial_putc('\r');
-
 	__REG(UART_PHYS + UTXD) = c;
 
 	/* wait for transmitter to be ready */
 	while (!(__REG(UART_PHYS + UTS) & UTS_TXEMPTY))
 		WATCHDOG_RESET();
+
+	/* If \n, also do \r */
+	if (c == '\n')
+		serial_putc ('\r');
 }
 
 /*
  * Test whether a character is in the RX buffer
  */
-static int mxc_serial_tstc(void)
+int serial_tstc (void)
 {
 	/* If receive fifo is empty, return false */
 	if (__REG(UART_PHYS + UTS) & UTS_RXEMPTY)
@@ -187,19 +218,27 @@ static int mxc_serial_tstc(void)
 	return 1;
 }
 
+void
+serial_puts (const char *s)
+{
+	while (*s) {
+		serial_putc (*s++);
+	}
+}
+
 /*
  * Initialise the serial port with the given baudrate. The settings
  * are always 8 data bits, no parity, 1 stop bit, no start bits.
  *
  */
-static int mxc_serial_init(void)
+int serial_init (void)
 {
 	__REG(UART_PHYS + UCR1) = 0x0;
 	__REG(UART_PHYS + UCR2) = 0x0;
 
 	while (!(__REG(UART_PHYS + UCR2) & UCR2_SRST));
 
-	__REG(UART_PHYS + UCR3) = 0x0704 | UCR3_ADNIMP;
+	__REG(UART_PHYS + UCR3) = 0x0704;
 	__REG(UART_PHYS + UCR4) = 0x8000;
 	__REG(UART_PHYS + UESC) = 0x002b;
 	__REG(UART_PHYS + UTIM) = 0x0;
@@ -214,144 +253,3 @@ static int mxc_serial_init(void)
 
 	return 0;
 }
-
-static struct serial_device mxc_serial_drv = {
-	.name	= "mxc_serial",
-	.start	= mxc_serial_init,
-	.stop	= NULL,
-	.setbrg	= mxc_serial_setbrg,
-	.putc	= mxc_serial_putc,
-	.puts	= default_serial_puts,
-	.getc	= mxc_serial_getc,
-	.tstc	= mxc_serial_tstc,
-};
-
-void mxc_serial_initialize(void)
-{
-	serial_register(&mxc_serial_drv);
-}
-
-__weak struct serial_device *default_serial_console(void)
-{
-	return &mxc_serial_drv;
-}
-#endif
-
-#ifdef CONFIG_DM_SERIAL
-
-struct mxc_uart {
-	u32 rxd;
-	u32 spare0[15];
-
-	u32 txd;
-	u32 spare1[15];
-
-	u32 cr1;
-	u32 cr2;
-	u32 cr3;
-	u32 cr4;
-
-	u32 fcr;
-	u32 sr1;
-	u32 sr2;
-	u32 esc;
-
-	u32 tim;
-	u32 bir;
-	u32 bmr;
-	u32 brc;
-
-	u32 onems;
-	u32 ts;
-};
-
-int mxc_serial_setbrg(struct udevice *dev, int baudrate)
-{
-	struct mxc_serial_platdata *plat = dev->platdata;
-	struct mxc_uart *const uart = plat->reg;
-	u32 clk = imx_get_uartclk();
-	u32 tmp;
-
-	tmp = 4 << UFCR_RFDIV_SHF;
-	if (plat->use_dte)
-		tmp |= UFCR_DCEDTE;
-	writel(tmp, &uart->fcr);
-
-	writel(0xf, &uart->bir);
-	writel(clk / (2 * baudrate), &uart->bmr);
-
-	writel(UCR2_WS | UCR2_IRTS | UCR2_RXEN | UCR2_TXEN | UCR2_SRST,
-	       &uart->cr2);
-	writel(UCR1_UARTEN, &uart->cr1);
-
-	return 0;
-}
-
-static int mxc_serial_probe(struct udevice *dev)
-{
-	struct mxc_serial_platdata *plat = dev->platdata;
-	struct mxc_uart *const uart = plat->reg;
-
-	writel(0, &uart->cr1);
-	writel(0, &uart->cr2);
-	while (!(readl(&uart->cr2) & UCR2_SRST));
-	writel(0x704 | UCR3_ADNIMP, &uart->cr3);
-	writel(0x8000, &uart->cr4);
-	writel(0x2b, &uart->esc);
-	writel(0, &uart->tim);
-	writel(0, &uart->ts);
-
-	return 0;
-}
-
-static int mxc_serial_getc(struct udevice *dev)
-{
-	struct mxc_serial_platdata *plat = dev->platdata;
-	struct mxc_uart *const uart = plat->reg;
-
-	if (readl(&uart->ts) & UTS_RXEMPTY)
-		return -EAGAIN;
-
-	return readl(&uart->rxd) & URXD_RX_DATA;
-}
-
-static int mxc_serial_putc(struct udevice *dev, const char ch)
-{
-	struct mxc_serial_platdata *plat = dev->platdata;
-	struct mxc_uart *const uart = plat->reg;
-
-	if (!(readl(&uart->ts) & UTS_TXEMPTY))
-		return -EAGAIN;
-
-	writel(ch, &uart->txd);
-
-	return 0;
-}
-
-static int mxc_serial_pending(struct udevice *dev, bool input)
-{
-	struct mxc_serial_platdata *plat = dev->platdata;
-	struct mxc_uart *const uart = plat->reg;
-	uint32_t sr2 = readl(&uart->sr2);
-
-	if (input)
-		return sr2 & USR2_RDR ? 1 : 0;
-	else
-		return sr2 & USR2_TXDC ? 0 : 1;
-}
-
-static const struct dm_serial_ops mxc_serial_ops = {
-	.putc = mxc_serial_putc,
-	.pending = mxc_serial_pending,
-	.getc = mxc_serial_getc,
-	.setbrg = mxc_serial_setbrg,
-};
-
-U_BOOT_DRIVER(serial_mxc) = {
-	.name	= "serial_mxc",
-	.id	= UCLASS_SERIAL,
-	.probe = mxc_serial_probe,
-	.ops	= &mxc_serial_ops,
-	.flags = DM_FLAG_PRE_RELOC,
-};
-#endif

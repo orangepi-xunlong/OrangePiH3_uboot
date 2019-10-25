@@ -10,7 +10,7 @@
 #define __BOOTP_H__
 
 #ifndef __NET_H__
-#include <net.h>
+#include	<net.h>
 #endif /* __NET_H__ */
 
 /**********************************************************************/
@@ -19,39 +19,36 @@
  *	BOOTP header.
  */
 #if defined(CONFIG_CMD_DHCP)
-/* Minimum DHCP Options size per RFC2131 - results in 576 byte pkt */
-#define OPT_FIELD_SIZE 312
-#if defined(CONFIG_BOOTP_VENDOREX)
-extern u8 *dhcp_vendorex_prep(u8 *e); /*rtn new e after add own opts. */
-extern u8 *dhcp_vendorex_proc(u8 *e); /*rtn next e if mine,else NULL  */
-#endif
+#define OPT_SIZE 312	/* Minimum DHCP Options size per RFC2131 - results in 576 byte pkt */
 #else
-#define OPT_FIELD_SIZE 64
+#define OPT_SIZE 64
 #endif
 
-struct bootp_hdr {
-	u8		bp_op;		/* Operation			*/
+typedef struct
+{
+	uchar		bp_op;		/* Operation				*/
 # define OP_BOOTREQUEST	1
 # define OP_BOOTREPLY	2
-	u8		bp_htype;	/* Hardware type		*/
+	uchar		bp_htype;	/* Hardware type			*/
 # define HWT_ETHER	1
-	u8		bp_hlen;	/* Hardware address length	*/
+	uchar		bp_hlen;	/* Hardware address length		*/
 # define HWL_ETHER	6
-	u8		bp_hops;	/* Hop count (gateway thing)	*/
-	u32		bp_id;		/* Transaction ID		*/
-	u16		bp_secs;	/* Seconds since boot		*/
-	u16		bp_spare1;	/* Alignment			*/
-	struct in_addr	bp_ciaddr;	/* Client IP address		*/
-	struct in_addr	bp_yiaddr;	/* Your (client) IP address	*/
-	struct in_addr	bp_siaddr;	/* Server IP address		*/
-	struct in_addr	bp_giaddr;	/* Gateway IP address		*/
-	u8		bp_chaddr[16];	/* Client hardware address	*/
-	char		bp_sname[64];	/* Server host name		*/
-	char		bp_file[128];	/* Boot file name		*/
-	char		bp_vend[OPT_FIELD_SIZE]; /* Vendor information	*/
-};
+	uchar		bp_hops;	/* Hop count (gateway thing)		*/
+	ulong		bp_id;		/* Transaction ID			*/
+	ushort		bp_secs;	/* Seconds since boot			*/
+	ushort		bp_spare1;	/* Alignment				*/
+	IPaddr_t	bp_ciaddr;	/* Client IP address			*/
+	IPaddr_t	bp_yiaddr;	/* Your (client) IP address		*/
+	IPaddr_t	bp_siaddr;	/* Server IP address			*/
+	IPaddr_t	bp_giaddr;	/* Gateway IP address			*/
+	uchar		bp_chaddr[16];	/* Client hardware address		*/
+	char		bp_sname[64];	/* Server host name			*/
+	char		bp_file[128];	/* Boot file name			*/
+	char		bp_vend[OPT_SIZE];	/* Vendor information			*/
+}	Bootp_t;
 
-#define BOOTP_HDR_SIZE	sizeof(struct bootp_hdr)
+#define BOOTP_HDR_SIZE	sizeof (Bootp_t)
+#define BOOTP_SIZE	(ETHER_HDR_SIZE + IP_HDR_SIZE + BOOTP_HDR_SIZE)
 
 /**********************************************************************/
 /*
@@ -59,16 +56,19 @@ struct bootp_hdr {
  */
 
 /* bootp.c */
-extern u32	bootp_id;		/* ID of cur BOOTP request	*/
-extern int	bootp_try;
+extern ulong	BootpID;		/* ID of cur BOOTP request		*/
+extern char	BootFile[128];		/* Boot file name			*/
+extern int	BootpTry;
+#ifdef CONFIG_BOOTP_RANDOM_DELAY
+extern ulong	seed1, seed2;		/* seed for random BOOTP delay		*/
+#endif
 
 
 /* Send a BOOTP request */
-void bootp_reset(void);
-void bootp_request(void);
+extern void	BootpRequest (void);
 
 /****************** DHCP Support *********************/
-void dhcp_request(void);
+extern void DhcpRequest(void);
 
 /* DHCP States */
 typedef enum { INIT,
@@ -87,6 +87,8 @@ typedef enum { INIT,
 #define DHCP_ACK      5
 #define DHCP_NAK      6
 #define DHCP_RELEASE  7
+
+#define SELECT_TIMEOUT 3000UL	/* Milliseconds to wait for offers */
 
 /**********************************************************************/
 

@@ -6,7 +6,23 @@
  *      (C) Copyright 1999, Greg Ungerer (gerg@snapgear.com)
  *      (C) Copyright 2000, Lineo Inc. (www.lineo.com)
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #ifndef	_MCF5271_H_
@@ -154,32 +170,6 @@
 #define MCF_GPIO_PAR_UART_U0RXD			0x0008
 #define MCF_GPIO_PAR_UART_U1RXD_UART1		0x0C00
 #define MCF_GPIO_PAR_UART_U1TXD_UART1		0x0300
-
-/* Bit definitions and macros for PAR_QSPI */
-#define MCF_GPIO_PAR_QSPI_PCS1_UNMASK		0x3F
-#define MCF_GPIO_PAR_QSPI_PCS1_PCS1		0xC0
-#define MCF_GPIO_PAR_QSPI_PCS1_SDRAM_SCKE	0x80
-#define MCF_GPIO_PAR_QSPI_PCS1_GPIO		0x00
-#define MCF_GPIO_PAR_QSPI_PCS0_UNMASK		0xDF
-#define MCF_GPIO_PAR_QSPI_PCS0_PCS0		0x20
-#define MCF_GPIO_PAR_QSPI_PCS0_GPIO		0x00
-#define MCF_GPIO_PAR_QSPI_SIN_UNMASK		0xE7
-#define MCF_GPIO_PAR_QSPI_SIN_SIN		0x18
-#define MCF_GPIO_PAR_QSPI_SIN_I2C_SDA		0x10
-#define MCF_GPIO_PAR_QSPI_SIN_GPIO		0x00
-#define MCF_GPIO_PAR_QSPI_SOUT_UNMASK		0xFB
-#define MCF_GPIO_PAR_QSPI_SOUT_SOUT		0x04
-#define MCF_GPIO_PAR_QSPI_SOUT_GPIO		0x00
-#define MCF_GPIO_PAR_QSPI_SCK_UNMASK		0xFC
-#define MCF_GPIO_PAR_QSPI_SCK_SCK		0x03
-#define MCF_GPIO_PAR_QSPI_SCK_I2C_SCL		0x02
-#define MCF_GPIO_PAR_QSPI_SCK_GPIO		0x00
-
-/* Bit definitions and macros for PAR_TIMER for QSPI */
-#define MCF_GPIO_PAR_TIMER_T3IN_UNMASK		0x3FFF
-#define MCF_GPIO_PAR_TIMER_T3IN_QSPI_PCS2	0x4000
-#define MCF_GPIO_PAR_TIMER_T3OUT_UNMASK		0xFF3F
-#define MCF_GPIO_PAR_TIMER_T3OUT_QSPI_PCS3	0x0040
 
 #define MCF_GPIO_PAR_SDRAM_PAR_CSSDCS(x)	(((x)&0x03)<<6)
 

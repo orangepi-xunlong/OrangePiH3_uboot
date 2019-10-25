@@ -2,8 +2,41 @@
 # (C) Copyright 2000-2006
 # Wolfgang Denk, DENX Software Engineering, wd@denx.de.
 #
-# SPDX-License-Identifier:	GPL-2.0+
+# See file CREDITS for list of people who contributed to this
+# project.
 #
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License as
+# published by the Free Software Foundation; either version 2 of
+# the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+# MA 02111-1307 USA
+#
+
+TOOLSUBDIRS =
+
+#
+# Include this after HOSTOS HOSTARCH check
+# so that we can act intelligently.
+#
+include $(TOPDIR)/config.mk
+
+#
+# toolchains targeting win32 generate .exe files
+#
+ifneq (,$(findstring WIN32 ,$(shell $(HOSTCC) -E -dM -xc /dev/null)))
+SFX = .exe
+else
+SFX =
+endif
 
 # Enable all the config-independent tools
 ifneq ($(HOST_TOOLS_ALL),)
@@ -14,9 +47,6 @@ CONFIG_XWAY_SWAP_BYTES = y
 CONFIG_NETCONSOLE = y
 CONFIG_SHA1_CHECK_UB_IMG = y
 endif
-
-subdir-$(HOST_TOOLS_ALL) += easylogo
-subdir-$(HOST_TOOLS_ALL) += gdb
 
 # Merge all the different vars for envcrc into one
 ENVCRC-$(CONFIG_ENV_IS_EMBEDDED) = y
@@ -29,244 +59,194 @@ ENVCRC-$(CONFIG_ENV_IS_IN_NVRAM) = y
 ENVCRC-$(CONFIG_ENV_IS_IN_SPI_FLASH) = y
 CONFIG_BUILD_ENVCRC ?= $(ENVCRC-y)
 
-hostprogs-$(CONFIG_SPL_GENERATE_ATMEL_PMECC_HEADER) += atmel_pmecc_params
+# Generated executable files
+BIN_FILES-$(CONFIG_LCD_LOGO) += bmp_logo$(SFX)
+BIN_FILES-$(CONFIG_VIDEO_LOGO) += bmp_logo$(SFX)
+BIN_FILES-$(CONFIG_BUILD_ENVCRC) += envcrc$(SFX)
+BIN_FILES-$(CONFIG_CMD_NET) += gen_eth_addr$(SFX)
+BIN_FILES-$(CONFIG_CMD_LOADS) += img2srec$(SFX)
+BIN_FILES-y += sunxi_env_gen$(SFX)
+BIN_FILES-$(CONFIG_XWAY_SWAP_BYTES) += xway-swap-bytes$(SFX)
+BIN_FILES-y += mkimage$(SFX)
+BIN_FILES-$(CONFIG_NETCONSOLE) += ncb$(SFX)
+BIN_FILES-$(CONFIG_SHA1_CHECK_UB_IMG) += ubsha1$(SFX)
 
-hostprogs-$(CONFIG_CMD_LICENSE) += bin2header
-hostprogs-$(CONFIG_LCD_LOGO) += bmp_logo
-hostprogs-$(CONFIG_VIDEO_LOGO) += bmp_logo
-HOSTCFLAGS_bmp_logo.o := -pedantic
+# Source files which exist outside the tools directory
+EXT_OBJ_FILES-$(CONFIG_BUILD_ENVCRC) += common/env_embedded.o
+EXT_OBJ_FILES-y += common/image.o
+EXT_OBJ_FILES-y += lib/crc32.o
+EXT_OBJ_FILES-y += lib/md5.o
+EXT_OBJ_FILES-y += lib/sha1.o
 
-hostprogs-$(CONFIG_BUILD_ENVCRC) += envcrc
-envcrc-objs := envcrc.o lib/crc32.o common/env_embedded.o lib/sha1.o
+# Source files located in the tools directory
+OBJ_FILES-$(CONFIG_LCD_LOGO) += bmp_logo.o
+OBJ_FILES-$(CONFIG_VIDEO_LOGO) += bmp_logo.o
+NOPED_OBJ_FILES-y += default_image.o
+OBJ_FILES-$(CONFIG_BUILD_ENVCRC) += envcrc.o
+NOPED_OBJ_FILES-y += fit_image.o
+OBJ_FILES-$(CONFIG_CMD_NET) += gen_eth_addr.o
+OBJ_FILES-$(CONFIG_CMD_LOADS) += img2srec.o
+NOPED_OBJ_FILES-y += sunxi_env_gen.o
+OBJ_FILES-$(CONFIG_XWAY_SWAP_BYTES) += xway-swap-bytes.o
+NOPED_OBJ_FILES-y += kwbimage.o
+NOPED_OBJ_FILES-y += imximage.o
+NOPED_OBJ_FILES-y += omapimage.o
+NOPED_OBJ_FILES-y += mkimage.o
+OBJ_FILES-$(CONFIG_NETCONSOLE) += ncb.o
+NOPED_OBJ_FILES-y += os_support.o
+OBJ_FILES-$(CONFIG_SHA1_CHECK_UB_IMG) += ubsha1.o
+NOPED_OBJ_FILES-y += ublimage.o
 
-hostprogs-$(CONFIG_CMD_NET) += gen_eth_addr
-HOSTCFLAGS_gen_eth_addr.o := -pedantic
+# Don't build by default
+#ifeq ($(ARCH),ppc)
+#BIN_FILES-y += mpc86x_clk$(SFX)
+#OBJ_FILES-y += mpc86x_clk.o
+#endif
 
-hostprogs-$(CONFIG_CMD_LOADS) += img2srec
-HOSTCFLAGS_img2srec.o := -pedantic
-
-hostprogs-$(CONFIG_XWAY_SWAP_BYTES) += xway-swap-bytes
-HOSTCFLAGS_xway-swap-bytes.o := -pedantic
-
-hostprogs-y += mkenvimage
-mkenvimage-objs := mkenvimage.o os_support.o lib/crc32.o
-
-hostprogs-y += dumpimage mkimage
-hostprogs-$(CONFIG_FIT_SIGNATURE) += fit_info fit_check_sign
-
-FIT_SIG_OBJS-$(CONFIG_FIT_SIGNATURE) := common/image-sig.o
 # Flattened device tree objects
-LIBFDT_OBJS := $(addprefix lib/libfdt/, \
-			fdt.o fdt_ro.o fdt_rw.o fdt_strerror.o fdt_wip.o \
-			fdt_region.o fdt_sw.o)
-RSA_OBJS-$(CONFIG_FIT_SIGNATURE) := $(addprefix lib/rsa/, \
-					rsa-sign.o rsa-verify.o rsa-checksum.o \
-					rsa-mod-exp.o)
-
-ROCKCHIP_OBS = lib/rc4.o rkcommon.o rkimage.o rksd.o rkspi.o
-
-# common objs for dumpimage and mkimage
-dumpimage-mkimage-objs := aisimage.o \
-			atmelimage.o \
-			$(FIT_SIG_OBJS-y) \
-			common/bootm.o \
-			lib/crc32.o \
-			default_image.o \
-			lib/fdtdec_common.o \
-			lib/fdtdec.o \
-			fit_common.o \
-			fit_image.o \
-			common/image-fit.o \
-			image-host.o \
-			common/image.o \
-			imagetool.o \
-			imximage.o \
-			kwbimage.o \
-			lib/md5.o \
-			lpc32xximage.o \
-			mxsimage.o \
-			omapimage.o \
-			os_support.o \
-			pblimage.o \
-			pbl_crc32.o \
-			$(ROCKCHIP_OBS) \
-			socfpgaimage.o \
-			lib/sha1.o \
-			lib/sha256.o \
-			common/hash.o \
-			ublimage.o \
-			zynqimage.o \
-			zynqmpimage.o \
-			$(LIBFDT_OBJS) \
-			gpimage.o \
-			gpimage-common.o \
-			$(RSA_OBJS-y)
-
-dumpimage-objs := $(dumpimage-mkimage-objs) dumpimage.o
-mkimage-objs   := $(dumpimage-mkimage-objs) mkimage.o
-fit_info-objs   := $(dumpimage-mkimage-objs) fit_info.o
-fit_check_sign-objs   := $(dumpimage-mkimage-objs) fit_check_sign.o
-
-# Build a libfdt Python module if swig is available
-# Use 'sudo apt-get install swig libpython-dev' to enable this
-hostprogs-$(CONFIG_SPL_OF_PLATDATA) += \
-	$(if $(shell which swig),_libfdt.so)
-_libfdt.so-sharedobjs += $(LIBFDT_OBJS)
-libfdt:
-
-tools/_libfdt.so: $(patsubst %.o,%.c,$(LIBFDT_OBJS)) tools/libfdt_wrap.c
-	python $(srctree)/lib/libfdt/setup.py "$(_hostc_flags)" $^
-	mv _libfdt.so $@
-
-tools/libfdt_wrap.c: $(srctree)/lib/libfdt/libfdt.swig
-	swig -python -o $@ $<
-
-# TODO(sjg@chromium.org): Is this correct on Mac OS?
-
-ifneq ($(CONFIG_MX23)$(CONFIG_MX28),)
-# Add CONFIG_MXS into host CFLAGS, so we can check whether or not register
-# the mxsimage support within tools/mxsimage.c .
-HOSTCFLAGS_mxsimage.o += -DCONFIG_MXS
-endif
-
-ifdef CONFIG_FIT_SIGNATURE
-# This affects include/image.h, but including the board config file
-# is tricky, so manually define this options here.
-HOST_EXTRACFLAGS	+= -DCONFIG_FIT_SIGNATURE
-endif
-
-ifdef CONFIG_SYS_U_BOOT_OFFS
-HOSTCFLAGS_kwbimage.o += -DCONFIG_SYS_U_BOOT_OFFS=$(CONFIG_SYS_U_BOOT_OFFS)
-endif
-
-# MXSImage needs LibSSL
-ifneq ($(CONFIG_MX23)$(CONFIG_MX28)$(CONFIG_FIT_SIGNATURE),)
-HOSTLOADLIBES_mkimage += \
-	$(shell pkg-config --libs libssl libcrypto 2> /dev/null || echo "-lssl -lcrypto")
-
-# OS X deprecate openssl in favour of CommonCrypto, supress deprecation
-# warnings on those systems
-ifeq ($(HOSTOS),darwin)
-HOSTCFLAGS_mxsimage.o += -Wno-deprecated-declarations
-HOSTCFLAGS_image-sig.o += -Wno-deprecated-declarations
-HOSTCFLAGS_rsa-sign.o += -Wno-deprecated-declarations
-endif
-endif
-
-HOSTLOADLIBES_dumpimage := $(HOSTLOADLIBES_mkimage)
-HOSTLOADLIBES_fit_info := $(HOSTLOADLIBES_mkimage)
-HOSTLOADLIBES_fit_check_sign := $(HOSTLOADLIBES_mkimage)
-
-hostprogs-$(CONFIG_EXYNOS5250) += mkexynosspl
-hostprogs-$(CONFIG_EXYNOS5420) += mkexynosspl
-HOSTCFLAGS_mkexynosspl.o := -pedantic
-
-ifdtool-objs := $(LIBFDT_OBJS) ifdtool.o
-hostprogs-$(CONFIG_X86) += ifdtool
-
-hostprogs-$(CONFIG_MX23) += mxsboot
-hostprogs-$(CONFIG_MX28) += mxsboot
-HOSTCFLAGS_mxsboot.o := -pedantic
-
-hostprogs-$(CONFIG_SUNXI) += mksunxiboot
-
-hostprogs-$(CONFIG_NETCONSOLE) += ncb
-hostprogs-$(CONFIG_SHA1_CHECK_UB_IMG) += ubsha1
-
-ubsha1-objs := os_support.o ubsha1.o lib/sha1.o
-
-HOSTCFLAGS_ubsha1.o := -pedantic
-
-hostprogs-$(CONFIG_KIRKWOOD) += kwboot
-hostprogs-$(CONFIG_ARCH_MVEBU) += kwboot
-hostprogs-y += proftool
-hostprogs-$(CONFIG_STATIC_RELA) += relocate-rela
-
-hostprogs-y += fdtgrep
-fdtgrep-objs += $(LIBFDT_OBJS) fdtgrep.o
-
-# We build some files with extra pedantic flags to try to minimize things
-# that won't build on some weird host compiler -- though there are lots of
-# exceptions for files that aren't complaint.
-HOSTCFLAGS_crc32.o := -pedantic
-HOSTCFLAGS_md5.o := -pedantic
-HOSTCFLAGS_sha1.o := -pedantic
-HOSTCFLAGS_sha256.o := -pedantic
-
-quiet_cmd_wrap = WRAP    $@
-cmd_wrap = echo "\#include <../$(patsubst $(obj)/%,%,$@)>" >$@
-
-$(obj)/lib/%.c $(obj)/common/%.c:
-	$(call cmd,wrap)
-
-clean-dirs := lib common
-
-always := $(hostprogs-y)
+LIBFDT_OBJ_FILES-y += fdt.o
+LIBFDT_OBJ_FILES-y += fdt_ro.o
+LIBFDT_OBJ_FILES-y += fdt_rw.o
+LIBFDT_OBJ_FILES-y += fdt_strerror.o
+LIBFDT_OBJ_FILES-y += fdt_wip.o
 
 # Generated LCD/video logo
-LOGO_H = $(objtree)/include/bmp_logo.h
-LOGO_DATA_H = $(objtree)/include/bmp_logo_data.h
+LOGO_H = $(OBJTREE)/include/bmp_logo.h
 LOGO-$(CONFIG_LCD_LOGO) += $(LOGO_H)
-LOGO-$(CONFIG_LCD_LOGO) += $(LOGO_DATA_H)
 LOGO-$(CONFIG_VIDEO_LOGO) += $(LOGO_H)
-LOGO-$(CONFIG_VIDEO_LOGO) += $(LOGO_DATA_H)
 
-# Generic logo
 ifeq ($(LOGO_BMP),)
-LOGO_BMP= $(srctree)/$(src)/logos/denx.bmp
-
-# Use board logo and fallback to vendor
-ifneq ($(wildcard $(srctree)/$(src)/logos/$(BOARD).bmp),)
-LOGO_BMP= $(srctree)/$(src)/logos/$(BOARD).bmp
-else
-ifneq ($(wildcard $(srctree)/$(src)/logos/$(VENDOR).bmp),)
-LOGO_BMP= $(srctree)/$(src)/logos/$(VENDOR).bmp
+LOGO_BMP= logos/denx.bmp
 endif
+ifeq ($(VENDOR),atmel)
+LOGO_BMP= logos/atmel.bmp
+endif
+ifeq ($(VENDOR),esd)
+LOGO_BMP= logos/esd.bmp
+endif
+ifeq ($(VENDOR),freescale)
+LOGO_BMP= logos/freescale.bmp
+endif
+ifeq ($(VENDOR),ronetix)
+LOGO_BMP= logos/ronetix.bmp
+endif
+ifeq ($(VENDOR),syteco)
+LOGO_BMP= logos/syteco.bmp
+endif
+ifeq ($(VENDOR),intercontrol)
+LOGO_BMP= logos/intercontrol.bmp
 endif
 
-endif # !LOGO_BMP
+# now $(obj) is defined
+HOSTSRCS += $(addprefix $(SRCTREE)/,$(EXT_OBJ_FILES-y:.o=.c))
+HOSTSRCS += $(addprefix $(SRCTREE)/tools/,$(OBJ_FILES-y:.o=.c))
+HOSTSRCS += $(addprefix $(SRCTREE)/lib/libfdt/,$(LIBFDT_OBJ_FILES-y:.o=.c))
+BINS	:= $(addprefix $(obj),$(sort $(BIN_FILES-y)))
+LIBFDT_OBJS	:= $(addprefix $(obj),$(LIBFDT_OBJ_FILES-y))
 
-# Generated gziped GPL-2.0 license text
-LICENSE_H = $(objtree)/include/license.h
-LICENSE-$(CONFIG_CMD_LICENSE) += $(LICENSE_H)
+HOSTOBJS := $(addprefix $(obj),$(OBJ_FILES-y))
+NOPEDOBJS := $(addprefix $(obj),$(NOPED_OBJ_FILES-y))
 
 #
 # Use native tools and options
 # Define __KERNEL_STRICT_NAMES to prevent typedef overlaps
-# Define _GNU_SOURCE to obtain the getline prototype from stdio.h
 #
-HOST_EXTRACFLAGS += -include $(srctree)/include/libfdt_env.h \
-		$(patsubst -I%,-idirafter%, $(filter -I%, $(UBOOTINCLUDE))) \
-		-I$(srctree)/lib/libfdt \
-		-I$(srctree)/tools \
+HOSTCPPFLAGS =	-idirafter $(SRCTREE)/include \
+		-idirafter $(OBJTREE)/include2 \
+		-idirafter $(OBJTREE)/include \
+	        -I $(SRCTREE)/lib/libfdt \
+		-I $(SRCTREE)/tools \
 		-DCONFIG_SYS_TEXT_BASE=$(CONFIG_SYS_TEXT_BASE) \
 		-DUSE_HOSTCC \
-		-D__KERNEL_STRICT_NAMES \
-		-D_GNU_SOURCE
+		-D__KERNEL_STRICT_NAMES
 
-__build:	$(LOGO-y) $(LICENSE-y)
 
-$(LOGO_H):	$(obj)/bmp_logo $(LOGO_BMP)
-	$(obj)/bmp_logo --gen-info $(LOGO_BMP) > $@
+all:	$(obj).depend $(BINS) $(LOGO-y) subdirs
 
-$(LOGO_DATA_H):	$(obj)/bmp_logo $(LOGO_BMP)
-	$(obj)/bmp_logo --gen-data $(LOGO_BMP) > $@
+$(obj)bin2header$(SFX): $(obj)bin2header.o
+	$(HOSTCC) $(HOSTCFLAGS) $(HOSTLDFLAGS) -o $@ $^
+	$(HOSTSTRIP) $@
 
-$(LICENSE_H): $(obj)/bin2header $(srctree)/Licenses/gpl-2.0.txt
-	cat $(srctree)/Licenses/gpl-2.0.txt | gzip -9 -c | \
-		$(obj)/bin2header license_gzip > $(LICENSE_H)
+$(obj)bmp_logo$(SFX):	$(obj)bmp_logo.o
+	$(HOSTCC) $(HOSTCFLAGS) $(HOSTLDFLAGS) -o $@ $^
+	$(HOSTSTRIP) $@
 
-# Let clean descend into subdirs
-subdir- += env
+$(obj)envcrc$(SFX):	$(obj)crc32.o $(obj)env_embedded.o $(obj)envcrc.o $(obj)sha1.o
+	$(HOSTCC) $(HOSTCFLAGS) $(HOSTLDFLAGS) -o $@ $^
 
-ifneq ($(CROSS_BUILD_TOOLS),)
-HOSTCC = $(CC)
+$(obj)gen_eth_addr$(SFX):	$(obj)gen_eth_addr.o
+	$(HOSTCC) $(HOSTCFLAGS) $(HOSTLDFLAGS) -o $@ $^
+	$(HOSTSTRIP) $@
 
-quiet_cmd_crosstools_strip = STRIP   $^
-      cmd_crosstools_strip = $(STRIP) $^; touch $@
-$(obj)/.strip: $(call objectify,$(filter $(always),$(hostprogs-y)))
-	$(call cmd,crosstools_strip)
+$(obj)img2srec$(SFX):	$(obj)img2srec.o
+	$(HOSTCC) $(HOSTCFLAGS) $(HOSTLDFLAGS) -o $@ $^
+	$(HOSTSTRIP) $@
 
-always += .strip
+$(obj)sunxi_env_gen$(SFX):	$(obj)sunxi_env_gen.o $(obj)crc32.o
+	$(HOSTCC) $(HOSTCFLAGS) $(HOSTLDFLAGS) -o $@ $^
+	$(HOSTSTRIP) $@
+
+$(obj)xway-swap-bytes$(SFX):	$(obj)xway-swap-bytes.o
+	$(HOSTCC) $(HOSTCFLAGS) $(HOSTLDFLAGS) -o $@ $^
+	$(HOSTSTRIP) $@
+
+$(obj)mkimage$(SFX):	$(obj)crc32.o \
+			$(obj)default_image.o \
+			$(obj)fit_image.o \
+			$(obj)image.o \
+			$(obj)imximage.o \
+			$(obj)kwbimage.o \
+			$(obj)md5.o \
+			$(obj)mkimage.o \
+			$(obj)os_support.o \
+			$(obj)omapimage.o \
+			$(obj)sha1.o \
+			$(obj)ublimage.o \
+			$(LIBFDT_OBJS)
+	$(HOSTCC) $(HOSTCFLAGS) $(HOSTLDFLAGS) -o $@ $^
+	$(HOSTSTRIP) $@
+
+$(obj)mpc86x_clk$(SFX):	$(obj)mpc86x_clk.o
+	$(HOSTCC) $(HOSTCFLAGS) $(HOSTLDFLAGS) -o $@ $^
+	$(HOSTSTRIP) $@
+
+$(obj)ncb$(SFX):	$(obj)ncb.o
+	$(HOSTCC) $(HOSTCFLAGS) $(HOSTLDFLAGS) -o $@ $^
+	$(HOSTSTRIP) $@
+
+$(obj)ubsha1$(SFX):	$(obj)os_support.o $(obj)sha1.o $(obj)ubsha1.o
+	$(HOSTCC) $(HOSTCFLAGS) $(HOSTLDFLAGS) -o $@ $^
+
+# Some of the tool objects need to be accessed from outside the tools directory
+$(obj)%.o: $(SRCTREE)/common/%.c
+	$(HOSTCC) -g $(HOSTCFLAGS_NOPED) -c -o $@ $<
+
+$(obj)%.o: $(SRCTREE)/lib/%.c
+	$(HOSTCC) -g $(HOSTCFLAGS) -c -o $@ $<
+
+$(obj)%.o: $(SRCTREE)/lib/libfdt/%.c
+	$(HOSTCC) -g $(HOSTCFLAGS_NOPED) -c -o $@ $<
+
+subdirs:
+ifeq ($(TOOLSUBDIRS),)
+	@:
+else
+	@for dir in $(TOOLSUBDIRS) ; do \
+	    $(MAKE) \
+		HOSTOS=$(HOSTOS) \
+		HOSTARCH=$(HOSTARCH) \
+		-C $$dir || exit 1 ; \
+	done
 endif
-clean-files += .strip
+
+$(LOGO_H):	$(obj)bmp_logo $(LOGO_BMP)
+	$(obj)./bmp_logo $(LOGO_BMP) >$@
+
+#########################################################################
+
+# defines $(obj).depend target
+include $(SRCTREE)/rules.mk
+
+sinclude $(obj).depend
+
+#########################################################################

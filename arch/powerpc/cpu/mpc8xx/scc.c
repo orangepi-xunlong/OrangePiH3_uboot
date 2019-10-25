@@ -65,7 +65,7 @@ typedef volatile struct CommonBufferDescriptor {
 
 static RTXBD *rtx;
 
-static int scc_send(struct eth_device *dev, void *packet, int length);
+static int scc_send(struct eth_device* dev, volatile void *packet, int length);
 static int scc_recv(struct eth_device* dev);
 static int scc_init (struct eth_device* dev, bd_t * bd);
 static void scc_halt(struct eth_device* dev);
@@ -77,7 +77,7 @@ int scc_initialize(bd_t *bis)
 	dev = (struct eth_device*) malloc(sizeof *dev);
 	memset(dev, 0, sizeof *dev);
 
-	strcpy(dev->name, "SCC");
+	sprintf(dev->name, "SCC");
 	dev->iobase = 0;
 	dev->priv   = 0;
 	dev->init   = scc_init;
@@ -90,7 +90,7 @@ int scc_initialize(bd_t *bis)
 	return 1;
 }
 
-static int scc_send(struct eth_device *dev, void *packet, int length)
+static int scc_send(struct eth_device* dev, volatile void *packet, int length)
 {
 	int i, j=0;
 #if 0
@@ -159,8 +159,7 @@ static int scc_recv (struct eth_device *dev)
 #endif
 		} else {
 			/* Pass the packet up to the protocol layers. */
-			net_process_received_packet(net_rx_packets[rxIdx],
-						    length - 4);
+			NetReceive (NetRxPackets[rxIdx], length - 4);
 		}
 
 
@@ -193,6 +192,23 @@ static int scc_init (struct eth_device *dev, bd_t * bis)
 	scc_enet_t *pram_ptr;
 
 	volatile immap_t *immr = (immap_t *) CONFIG_SYS_IMMR;
+
+#if defined(CONFIG_LWMON)
+	reset_phy();
+#endif
+
+#ifdef CONFIG_FADS
+#if defined(CONFIG_MPC86xADS) || defined(CONFIG_MPC860T)
+	/* The MPC86xADS/FADS860T don't use the MODEM_EN or DATA_VOICE signals. */
+	*((uint *) BCSR4) &= ~BCSR4_ETHLOOP;
+	*((uint *) BCSR4) |= BCSR4_TFPLDL | BCSR4_TPSQEL;
+	*((uint *) BCSR1) &= ~BCSR1_ETHEN;
+#else
+	*((uint *) BCSR4) &= ~(BCSR4_ETHLOOP | BCSR4_MODEM_EN);
+	*((uint *) BCSR4) |= BCSR4_TFPLDL | BCSR4_TPSQEL | BCSR4_DATA_VOICE;
+	*((uint *) BCSR1) &= ~BCSR1_ETHEN;
+#endif
+#endif
 
 	pram_ptr = (scc_enet_t *) & (immr->im_cpm.cp_dparam[PROFF_ENET]);
 
@@ -281,7 +297,7 @@ static int scc_init (struct eth_device *dev, bd_t * bis)
 	for (i = 0; i < PKTBUFSRX; i++) {
 		rtx->rxbd[i].cbd_sc = BD_ENET_RX_EMPTY;
 		rtx->rxbd[i].cbd_datlen = 0;	/* Reset */
-		rtx->rxbd[i].cbd_bufaddr = (uint) net_rx_packets[i];
+		rtx->rxbd[i].cbd_bufaddr = (uint) NetRxPackets[i];
 	}
 
 	rtx->rxbd[PKTBUFSRX - 1].cbd_sc |= BD_ENET_RX_WRAP;
@@ -340,7 +356,7 @@ static int scc_init (struct eth_device *dev, bd_t * bis)
 	pram_ptr->sen_gaddr3 = 0x0;	/* Group Address Filter 3 (unused) */
 	pram_ptr->sen_gaddr4 = 0x0;	/* Group Address Filter 4 (unused) */
 
-#define ea eth_get_ethaddr()
+#define ea eth_get_dev()->enetaddr
 	pram_ptr->sen_paddrh = (ea[5] << 8) + ea[4];
 	pram_ptr->sen_paddrm = (ea[3] << 8) + ea[2];
 	pram_ptr->sen_paddrl = (ea[1] << 8) + ea[0];
@@ -445,12 +461,90 @@ static int scc_init (struct eth_device *dev, bd_t * bis)
 #error Configuration Error: exactly ONE of PB_ENET_TENA, PC_ENET_TENA must be defined
 #endif
 
+#if defined(CONFIG_ADS) && defined(CONFIG_MPC860)
+	/*
+	 * Port C is used to control the PHY,MC68160.
+	 */
+	immr->im_ioport.iop_pcdir |=
+		(PC_ENET_ETHLOOP | PC_ENET_TPFLDL | PC_ENET_TPSQEL);
+
+	immr->im_ioport.iop_pcdat |= PC_ENET_TPFLDL;
+	immr->im_ioport.iop_pcdat &= ~(PC_ENET_ETHLOOP | PC_ENET_TPSQEL);
+	*((uint *) BCSR1) &= ~BCSR1_ETHEN;
+#endif /* MPC860ADS */
+
+#if defined(CONFIG_AMX860)
+	/*
+	 * Port B is used to control the PHY,MC68160.
+	 */
+	immr->im_cpm.cp_pbdir |=
+		(PB_ENET_ETHLOOP | PB_ENET_TPFLDL | PB_ENET_TPSQEL);
+
+	immr->im_cpm.cp_pbdat |= PB_ENET_TPFLDL;
+	immr->im_cpm.cp_pbdat &= ~(PB_ENET_ETHLOOP | PB_ENET_TPSQEL);
+
+	immr->im_ioport.iop_pddir |= PD_ENET_ETH_EN;
+	immr->im_ioport.iop_pddat &= ~PD_ENET_ETH_EN;
+#endif /* AMX860 */
+
+#ifdef CONFIG_RPXCLASSIC
+	*((uchar *) BCSR0) &= ~BCSR0_ETHLPBK;
+	*((uchar *) BCSR0) |= (BCSR0_ETHEN | BCSR0_COLTEST | BCSR0_FULLDPLX);
+#endif
+
+#ifdef CONFIG_RPXLITE
+	*((uchar *) BCSR0) |= BCSR0_ETHEN;
+#endif
+
+#if defined(CONFIG_QS860T)
+	/*
+	 * PB27=FDE-, set output low for full duplex
+	 * PB26=Link Test Enable, normally high output
+	 */
+	immr->im_cpm.cp_pbdir |= 0x00000030;
+	immr->im_cpm.cp_pbdat |= 0x00000020;
+	immr->im_cpm.cp_pbdat &= ~0x00000010;
+#endif /* QS860T */
+
+#ifdef CONFIG_MBX
+	board_ether_init ();
+#endif
+
+#if defined(CONFIG_NETVIA)
+#if defined(PA_ENET_PDN)
+	immr->im_ioport.iop_papar &= ~PA_ENET_PDN;
+	immr->im_ioport.iop_padir |= PA_ENET_PDN;
+	immr->im_ioport.iop_padat |= PA_ENET_PDN;
+#elif defined(PB_ENET_PDN)
+	immr->im_cpm.cp_pbpar &= ~PB_ENET_PDN;
+	immr->im_cpm.cp_pbdir |= PB_ENET_PDN;
+	immr->im_cpm.cp_pbdat |= PB_ENET_PDN;
+#elif defined(PC_ENET_PDN)
+	immr->im_ioport.iop_pcpar &= ~PC_ENET_PDN;
+	immr->im_ioport.iop_pcdir |= PC_ENET_PDN;
+	immr->im_ioport.iop_pcdat |= PC_ENET_PDN;
+#elif defined(PD_ENET_PDN)
+	immr->im_ioport.iop_pdpar &= ~PD_ENET_PDN;
+	immr->im_ioport.iop_pddir |= PD_ENET_PDN;
+	immr->im_ioport.iop_pddat |= PD_ENET_PDN;
+#endif
+#endif
+
 	/*
 	 * Set the ENT/ENR bits in the GSMR Low -- Enable Transmit/Receive
 	 */
 
 	immr->im_cpm.cp_scc[SCC_ENET].scc_gsmrl |=
 		(SCC_GSMRL_ENR | SCC_GSMRL_ENT);
+
+	/*
+	 * Work around transmit problem with first eth packet
+	 */
+#if defined (CONFIG_FADS)
+	udelay (10000);		/* wait 10 ms */
+#elif defined (CONFIG_AMX860) || defined(CONFIG_RPXCLASSIC)
+	udelay (100000);	/* wait 100 ms */
+#endif
 
 	return 1;
 }

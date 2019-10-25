@@ -27,7 +27,7 @@
 #define NUM_SECS_IN_DAY   DAYS_TO_SECS(1)
 
 /* Enable the RTC prescaler enable register */
-void rtc_init(void)
+static void rtc_init(void)
 {
 	if (!(bfin_read_RTC_PREN() & 0x1))
 		bfin_write_RTC_PREN(0x1);
@@ -67,7 +67,8 @@ int rtc_set(struct rtc_time *tmp)
 	wait_for_complete();
 
 	/* Calculate number of seconds this incoming time represents */
-	remain = rtc_mktime(tmp);
+	remain = mktime(tmp->tm_year, tmp->tm_mon, tmp->tm_mday,
+	                tmp->tm_hour, tmp->tm_min, tmp->tm_sec);
 
 	/* Figure out how many days since epoch */
 	days = remain / NUM_SECS_IN_DAY;
@@ -113,7 +114,7 @@ int rtc_get(struct rtc_time *tmp)
 
 	/* Calculate the total number of seconds since epoch */
 	time_in_sec = (tm_sec) + MIN_TO_SECS(tm_min) + HRS_TO_SECS(tm_hr) + DAYS_TO_SECS(tm_day);
-	rtc_to_tm(time_in_sec, tmp);
+	to_tm(time_in_sec, tmp);
 
 	return 0;
 }

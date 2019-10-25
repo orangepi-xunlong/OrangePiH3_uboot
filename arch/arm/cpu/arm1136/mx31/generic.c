@@ -2,42 +2,55 @@
  * (C) Copyright 2007
  * Sascha Hauer, Pengutronix
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
-#include <div64.h>
 #include <asm/arch/imx-regs.h>
 #include <asm/arch/clock.h>
 #include <asm/io.h>
-#include <asm/arch/sys_proto.h>
 
 static u32 mx31_decode_pll(u32 reg, u32 infreq)
 {
-	u32 mfi = GET_PLL_MFI(reg);
-	s32 mfn = GET_PLL_MFN(reg);
-	u32 mfd = GET_PLL_MFD(reg);
-	u32 pd =  GET_PLL_PD(reg);
+	u32 mfi = (reg >> 10) & 0xf;
+	u32 mfn = reg & 0x3ff;
+	u32 mfd = (reg >> 16) & 0x3ff;
+	u32 pd =  (reg >> 26) & 0xf;
 
 	mfi = mfi <= 5 ? 5 : mfi;
-	mfn = mfn >= 512 ? mfn - 1024 : mfn;
 	mfd += 1;
 	pd += 1;
 
-	return lldiv(2 * (u64)infreq * (mfi * mfd + mfn),
-		mfd * pd);
+	return ((2 * (infreq >> 10) * (mfi * mfd + mfn)) /
+		(mfd * pd)) << 10;
 }
 
 static u32 mx31_get_mpl_dpdgck_clk(void)
 {
 	u32 infreq;
 
-	if ((readl(CCM_CCMR) & CCMR_PRCS_MASK) == CCMR_FPM)
-		infreq = MXC_CLK32 * 1024;
+	if ((__REG(CCM_CCMR) & CCMR_PRCS_MASK) == CCMR_FPM)
+		infreq = CONFIG_MX31_CLK32 * 1024;
 	else
-		infreq = MXC_HCLK;
+		infreq = CONFIG_MX31_HCLK_FREQ;
 
-	return mx31_decode_pll(readl(CCM_MPCTL), infreq);
+	return mx31_decode_pll(__REG(CCM_MPCTL), infreq);
 }
 
 static u32 mx31_get_mcu_main_clk(void)
@@ -51,21 +64,10 @@ static u32 mx31_get_mcu_main_clk(void)
 static u32 mx31_get_ipg_clk(void)
 {
 	u32 freq = mx31_get_mcu_main_clk();
-	u32 pdr0 = readl(CCM_PDR0);
+	u32 pdr0 = __REG(CCM_PDR0);
 
-	freq /= GET_PDR0_MAX_PODF(pdr0) + 1;
-	freq /= GET_PDR0_IPG_PODF(pdr0) + 1;
-
-	return freq;
-}
-
-/* hsp is the clock for the ipu */
-static u32 mx31_get_hsp_clk(void)
-{
-	u32 freq = mx31_get_mcu_main_clk();
-	u32 pdr0 = readl(CCM_PDR0);
-
-	freq /= GET_PDR0_HSP_PODF(pdr0) + 1;
+	freq /= ((pdr0 >> 3) & 0x7) + 1;
+	freq /= ((pdr0 >> 6) & 0x3) + 1;
 
 	return freq;
 }
@@ -73,9 +75,8 @@ static u32 mx31_get_hsp_clk(void)
 void mx31_dump_clocks(void)
 {
 	u32 cpufreq = mx31_get_mcu_main_clk();
-	printf("mx31 cpu clock: %dMHz\n", cpufreq / 1000000);
+	printf("mx31 cpu clock: %dMHz\n",cpufreq / 1000000);
 	printf("ipg clock     : %dHz\n", mx31_get_ipg_clk());
-	printf("hsp clock     : %dHz\n", mx31_get_hsp_clk());
 }
 
 unsigned int mxc_get_clock(enum mxc_clock clk)
@@ -87,11 +88,7 @@ unsigned int mxc_get_clock(enum mxc_clock clk)
 	case MXC_IPG_PERCLK:
 	case MXC_CSPI_CLK:
 	case MXC_UART_CLK:
-	case MXC_ESDHC_CLK:
-	case MXC_I2C_CLK:
 		return mx31_get_ipg_clk();
-	case MXC_IPU_CLK:
-		return mx31_get_hsp_clk();
 	}
 	return -1;
 }
@@ -108,10 +105,10 @@ void mx31_gpio_mux(unsigned long mode)
 	reg = IOMUXC_BASE + (mode & 0x1fc);
 	shift = (~mode & 0x3) * 8;
 
-	tmp = readl(reg);
+	tmp = __REG(reg);
 	tmp &= ~(0xff << shift);
 	tmp |= ((mode >> IOMUX_MODE_POS) & 0xff) << shift;
-	writel(tmp, reg);
+	__REG(reg) = tmp;
 }
 
 void mx31_set_pad(enum iomux_pins pin, u32 config)
@@ -122,35 +119,11 @@ void mx31_set_pad(enum iomux_pins pin, u32 config)
 	reg = (IOMUXC_BASE + 0x154) + (pin + 2) / 3 * 4;
 	field = (pin + 2) % 3;
 
-	l = readl(reg);
+	l = __REG(reg);
 	l &= ~(0x1ff << (field * 10));
 	l |= config << (field * 10);
-	writel(l, reg);
+	__REG(reg) = l;
 
-}
-
-void mx31_set_gpr(enum iomux_gp_func gp, char en)
-{
-	u32 l;
-	struct iomuxc_regs *iomuxc = (struct iomuxc_regs *)IOMUXC_BASE;
-
-	l = readl(&iomuxc->gpr);
-	if (en)
-		l |= gp;
-	else
-		l &= ~gp;
-
-	writel(l, &iomuxc->gpr);
-}
-
-void mxc_setup_weimcs(int cs, const struct mxc_weimcs *weimcs)
-{
-	struct mx31_weim *weim = (struct mx31_weim *) WEIM_BASE;
-	struct mx31_weim_cscr *cscr = &weim->cscr[cs];
-
-	writel(weimcs->upper, &cscr->upper);
-	writel(weimcs->lower, &cscr->lower);
-	writel(weimcs->additional, &cscr->additional);
 }
 
 struct mx3_cpu_type mx31_cpu_type[] = {
@@ -175,7 +148,7 @@ u32 get_cpu_rev(void)
 
 	for (i = 0; i < ARRAY_SIZE(mx31_cpu_type); i++)
 		if (srev == mx31_cpu_type[i].srev)
-			return mx31_cpu_type[i].v | (MXC_CPU_MX31 << 12);
+			return mx31_cpu_type[i].v;
 
 	return srev | 0x8000;
 }
@@ -197,19 +170,17 @@ static char *get_reset_cause(void)
 		return "WDOG";
 	case 0x0006:
 		return "JTAG";
-	case 0x0007:
-		return "ARM11P power gating";
 	default:
 		return "unknown reset";
 	}
 }
 
 #if defined(CONFIG_DISPLAY_CPUINFO)
-int print_cpuinfo(void)
+int print_cpuinfo (void)
 {
 	u32 srev = get_cpu_rev();
 
-	printf("CPU:   Freescale i.MX31 rev %d.%d%s at %d MHz.\n",
+	printf("CPU:   Freescale i.MX31 rev %d.%d%s at %d MHz.",
 			(srev & 0xF0) >> 4, (srev & 0x0F),
 			((srev & 0x8000) ? " unknown" : ""),
 			mx31_get_mcu_main_clk() / 1000000);

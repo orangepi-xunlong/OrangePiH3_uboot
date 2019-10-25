@@ -14,6 +14,7 @@
 
 #if 0	/* XXX###XXX */
 
+#include <linux/config.h>
 #include <asm/arch/memory.h>
 
 /*

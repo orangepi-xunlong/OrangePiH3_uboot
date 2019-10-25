@@ -157,7 +157,7 @@ static void ax88180_mac_reset (struct eth_device *dev)
 	OUTW (dev, MISC_RESET_MAC, MISC);
 	tmpval = INW (dev, MISC);
 
-	for (i = 0; i < ARRAY_SIZE(program_seq); i++)
+	for (i = 0; i < (sizeof (program_seq) / sizeof (program_seq[0])); i++)
 		OUTW (dev, program_seq[i].value, program_seq[i].offset);
 }
 
@@ -192,9 +192,9 @@ static void ax88180_rx_handler (struct eth_device *dev)
 	unsigned short rxcurt_ptr, rxbound_ptr, next_ptr;
 	int i;
 #if defined (CONFIG_DRIVER_AX88180_16BIT)
-	unsigned short *rxdata = (unsigned short *)net_rx_packets[0];
+	unsigned short *rxdata = (unsigned short *)NetRxPackets[0];
 #else
-	unsigned long *rxdata = (unsigned long *)net_rx_packets[0];
+	unsigned long *rxdata = (unsigned long *)NetRxPackets[0];
 #endif
 	unsigned short count;
 
@@ -237,7 +237,7 @@ static void ax88180_rx_handler (struct eth_device *dev)
 		OUTW (dev, RX_STOP_READ, RXINDICATOR);
 
 		/* Pass the packet up to the protocol layers. */
-		net_process_received_packet(net_rx_packets[0], data_size);
+		NetReceive (NetRxPackets[0], data_size);
 
 		OUTW (dev, rxbound_ptr, RXBOUND);
 
@@ -604,7 +604,8 @@ static int ax88180_recv (struct eth_device *dev)
 }
 
 /* Send a data block via Ethernet. */
-static int ax88180_send(struct eth_device *dev, void *packet, int length)
+static int
+ax88180_send (struct eth_device *dev, volatile void *packet, int length)
 {
 	struct ax88180_private *priv = (struct ax88180_private *)dev->priv;
 	unsigned short TXDES_addr;
@@ -722,7 +723,7 @@ int ax88180_initialize (bd_t * bis)
 
 	memset (priv, 0, sizeof *priv);
 
-	strcpy(dev->name, "ax88180");
+	sprintf (dev->name, "ax88180");
 	dev->iobase = AX88180_BASE;
 	dev->priv = priv;
 	dev->init = ax88180_init;

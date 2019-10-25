@@ -17,6 +17,8 @@
  * the PT_* values below.  This simplifies arch/powerpc/kernel/ptrace.c.
  */
 
+#include <linux/config.h>
+
 #ifndef __ASSEMBLY__
 #ifdef CONFIG_PPC64BRIDGE
 #define PPC_REG unsigned long /*long*/

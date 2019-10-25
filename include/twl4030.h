@@ -2,7 +2,20 @@
  * Copyright (c) 2009 Wind River Systems, Inc.
  * Tom Rix <Tom.Rix at windriver.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  *
  * Derived from code on omapzoom, git://git.omapzoom.com/repo/u-boot.git
  *
@@ -129,76 +142,6 @@
 #define TWL4030_PM_MASTER_BB_CFG			0x6D
 #define TWL4030_PM_MASTER_MISC_TST			0x6E
 #define TWL4030_PM_MASTER_TRIM1				0x6F
-
-/* Power bus message definitions */
-
-/* The TWL4030/5030 splits its power-management resources (the various
- * regulators, clock and reset lines) into 3 processor groups - P1, P2 and
- * P3. These groups can then be configured to transition between sleep, wait-on
- * and active states by sending messages to the power bus.  See Section 5.4.2
- * Power Resources of TWL4030 TRM
- */
-
-/* Processor groups */
-#define DEV_GRP_NULL		0x0
-#define DEV_GRP_P1		0x1	/* P1: all OMAP devices */
-#define DEV_GRP_P2		0x2	/* P2: all Modem devices */
-#define DEV_GRP_P3		0x4	/* P3: all peripheral devices */
-
-/* Resource groups */
-#define RES_GRP_RES		0x0	/* Reserved */
-#define RES_GRP_PP		0x1	/* Power providers */
-#define RES_GRP_RC		0x2	/* Reset and control */
-#define RES_GRP_PP_RC		0x3
-#define RES_GRP_PR		0x4	/* Power references */
-#define RES_GRP_PP_PR		0x5
-#define RES_GRP_RC_PR		0x6
-#define RES_GRP_ALL		0x7	/* All resource groups */
-
-#define RES_TYPE2_R0		0x0
-
-#define RES_TYPE_ALL		0x7
-
-/* Resource states */
-#define RES_STATE_WRST		0xF
-#define RES_STATE_ACTIVE	0xE
-#define RES_STATE_SLEEP		0x8
-#define RES_STATE_OFF		0x0
-
-/* Power resources */
-
-/* Power providers */
-#define RES_VAUX1               1
-#define RES_VAUX2               2
-#define RES_VAUX3               3
-#define RES_VAUX4               4
-#define RES_VMMC1               5
-#define RES_VMMC2               6
-#define RES_VPLL1               7
-#define RES_VPLL2               8
-#define RES_VSIM                9
-#define RES_VDAC                10
-#define RES_VINTANA1            11
-#define RES_VINTANA2            12
-#define RES_VINTDIG             13
-#define RES_VIO                 14
-#define RES_VDD1                15
-#define RES_VDD2                16
-#define RES_VUSB_1V5            17
-#define RES_VUSB_1V8            18
-#define RES_VUSB_3V1            19
-#define RES_VUSBCP              20
-#define RES_REGEN               21
-/* Reset and control */
-#define RES_NRES_PWRON          22
-#define RES_CLKEN               23
-#define RES_SYSEN               24
-#define RES_HFCLKOUT            25
-#define RES_32KCLKOUT           26
-#define RES_RESET               27
-/* Power Reference */
-#define RES_Main_Ref            28
-
 /* P[1-3]_SW_EVENTS */
 #define TWL4030_PM_MASTER_SW_EVENTS_STOPON_PWRON	(1 << 6)
 #define TWL4030_PM_MASTER_SW_EVENTS_STOPON_SYSEN	(1 << 5)
@@ -207,53 +150,6 @@
 #define TWL4030_PM_MASTER_SW_EVENTS_DEVACT		(1 << 2)
 #define TWL4030_PM_MASTER_SW_EVENTS_DEVSLP		(1 << 1)
 #define TWL4030_PM_MASTER_SW_EVENTS_DEVOFF		(1 << 0)
-
-/* HW conditions */
-#define TWL4030_PM_MASTER_STS_HW_CONDITIONS_PWON	(1 << 0)
-#define TWL4030_PM_MASTER_STS_HW_CONDITIONS_CHG		(1 << 1)
-#define TWL4030_PM_MASTER_STS_HW_CONDITIONS_USB		(1 << 2)
-#define TWL4030_PM_MASTER_STS_HW_CONDITIONS_VBUS	(1 << 7)
-
-/* Power transition */
-#define TWL4030_PM_MASTER_CFG_TRANSITION_STARTON_PWON	(1 << 0)
-#define TWL4030_PM_MASTER_CFG_TRANSITION_STARTON_CHG	(1 << 1)
-#define TWL4030_PM_MASTER_CFG_TRANSITION_STARTON_USB	(1 << 2)
-#define TWL4030_PM_MASTER_CFG_TRANSITION_STARTON_RTC	(1 << 3)
-#define TWL4030_PM_MASTER_CFG_TRANSITION_STARTON_VBAT	(1 << 4)
-#define TWL4030_PM_MASTER_CFG_TRANSITION_STARTON_VBUS	(1 << 5)
-#define TWL4030_PM_MASTER_CFG_TRANSITION_STARTON_SWBUG	(1 << 7)
-
-/* PWRANA2 */
-#define TWL4030_PM_MASTER_CFG_PWRANA2_LOJIT0_LOWV	(1 << 1)
-#define TWL4030_PM_MASTER_CFG_PWRANA2_LOJIT1_LOWV	(1 << 2)
-
-#define TOTAL_RESOURCES		28
-/*
- * Power Bus Message Format ... these can be sent individually by Linux,
- * but are usually part of downloaded scripts that are run when various
- * power events are triggered.
- *
- *  Broadcast Message (16 Bits):
- *    DEV_GRP[15:13] MT[12]  RES_GRP[11:9]  RES_TYPE2[8:7] RES_TYPE[6:4]
- *    RES_STATE[3:0]
- *
- *  Singular Message (16 Bits):
- *    DEV_GRP[15:13] MT[12]  RES_ID[11:4]  RES_STATE[3:0]
- */
-
-#define MSG_BROADCAST(devgrp, grp, type, type2, state) \
-	((devgrp) << 13 | 1 << 12 | (grp) << 9 | (type2) << 7 \
-	| (type) << 4 | (state))
-
-#define MSG_SINGULAR(devgrp, id, state) \
-	((devgrp) << 13 | 0 << 12 | (id) << 4 | (state))
-
-#define MSG_BROADCAST_ALL(devgrp, state) \
-	((devgrp) << 5 | (state))
-
-#define MSG_BROADCAST_REF MSG_BROADCAST_ALL
-#define MSG_BROADCAST_PROV MSG_BROADCAST_ALL
-#define MSG_BROADCAST__CLK_RST MSG_BROADCAST_ALL
 
 /* Power Managment Receiver */
 #define TWL4030_PM_RECEIVER_SC_CONFIG			0x5B
@@ -410,16 +306,10 @@
 
 /* Voltage Selection in PM Receiver Module */
 #define TWL4030_PM_RECEIVER_VAUX2_VSEL_18		0x05
-#define TWL4030_PM_RECEIVER_VAUX2_VSEL_28		0x09
-#define TWL4030_PM_RECEIVER_VAUX3_VSEL_18		0x01
 #define TWL4030_PM_RECEIVER_VAUX3_VSEL_28		0x03
 #define TWL4030_PM_RECEIVER_VPLL2_VSEL_18		0x05
 #define TWL4030_PM_RECEIVER_VDAC_VSEL_18		0x03
 #define TWL4030_PM_RECEIVER_VMMC1_VSEL_30		0x02
-#define TWL4030_PM_RECEIVER_VMMC1_VSEL_32		0x03
-#define TWL4030_PM_RECEIVER_VMMC2_VSEL_30		0x0B
-#define TWL4030_PM_RECEIVER_VMMC2_VSEL_32		0x0C
-#define TWL4030_PM_RECEIVER_VSIM_VSEL_18		0x03
 
 /* Device Selection in PM Receiver Module */
 #define TWL4030_PM_RECEIVER_DEV_GRP_P1			0x20
@@ -591,50 +481,6 @@
 #define TWL4030_USB_PHY_CLK_CTRL			0xFE
 #define TWL4030_USB_PHY_CLK_CTRL_STS			0xFF
 
-/* GPIO */
-#define TWL4030_GPIO_GPIODATAIN1			0x00
-#define TWL4030_GPIO_GPIODATAIN2			0x01
-#define TWL4030_GPIO_GPIODATAIN3			0x02
-#define TWL4030_GPIO_GPIODATADIR1			0x03
-#define TWL4030_GPIO_GPIODATADIR2			0x04
-#define TWL4030_GPIO_GPIODATADIR3			0x05
-#define TWL4030_GPIO_GPIODATAOUT1			0x06
-#define TWL4030_GPIO_GPIODATAOUT2			0x07
-#define TWL4030_GPIO_GPIODATAOUT3			0x08
-#define TWL4030_GPIO_CLEARGPIODATAOUT1			0x09
-#define TWL4030_GPIO_CLEARGPIODATAOUT2			0x0A
-#define TWL4030_GPIO_CLEARGPIODATAOUT3			0x0B
-#define TWL4030_GPIO_SETGPIODATAOUT1			0x0C
-#define TWL4030_GPIO_SETGPIODATAOUT2			0x0D
-#define TWL4030_GPIO_SETGPIODATAOUT3			0x0E
-#define TWL4030_GPIO_GPIO_DEBEN1			0x0F
-#define TWL4030_GPIO_GPIO_DEBEN2			0x10
-#define TWL4030_GPIO_GPIO_DEBEN3			0x11
-#define TWL4030_GPIO_GPIO_CTRL				0x12
-#define TWL4030_GPIO_GPIOPUPDCTR1			0x13
-#define TWL4030_GPIO_GPIOPUPDCTR2			0x14
-#define TWL4030_GPIO_GPIOPUPDCTR3			0x15
-#define TWL4030_GPIO_GPIOPUPDCTR4			0x16
-#define TWL4030_GPIO_GPIOPUPDCTR5			0x17
-#define TWL4030_GPIO_GPIO_ISR1A				0x19
-#define TWL4030_GPIO_GPIO_ISR2A				0x1A
-#define TWL4030_GPIO_GPIO_ISR3A				0x1B
-#define TWL4030_GPIO_GPIO_IMR1A				0x1C
-#define TWL4030_GPIO_GPIO_IMR2A				0x1D
-#define TWL4030_GPIO_GPIO_IMR3A				0x1E
-#define TWL4030_GPIO_GPIO_ISR1B				0x1F
-#define TWL4030_GPIO_GPIO_ISR2B				0x20
-#define TWL4030_GPIO_GPIO_ISR3B				0x21
-#define TWL4030_GPIO_GPIO_IMR1B				0x22
-#define TWL4030_GPIO_GPIO_IMR2B				0x23
-#define TWL4030_GPIO_GPIO_IMR3B				0x24
-#define TWL4030_GPIO_GPIO_EDR1				0x28
-#define TWL4030_GPIO_GPIO_EDR2				0x29
-#define TWL4030_GPIO_GPIO_EDR3				0x2A
-#define TWL4030_GPIO_GPIO_EDR4				0x2B
-#define TWL4030_GPIO_GPIO_EDR5				0x2C
-#define TWL4030_GPIO_GPIO_SIH_CTRL			0x2D
-
 /*
  * Convience functions to read and write from TWL4030
  *
@@ -649,12 +495,12 @@
  *   examples are TWL4030_PM_RECEIVER_VMMC1_DEV_GRP and
  *   TWL4030_LED_LEDEN.
  */
-static inline int twl4030_i2c_write_u8(u8 chip_no, u8 reg, u8 val)
+static inline int twl4030_i2c_write_u8(u8 chip_no, u8 val, u8 reg)
 {
 	return i2c_write(chip_no, reg, 1, &val, 1);
 }
 
-static inline int twl4030_i2c_read_u8(u8 chip_no, u8 reg, u8 *val)
+static inline int twl4030_i2c_read_u8(u8 chip_no, u8 *val, u8 reg)
 {
 	return i2c_read(chip_no, reg, 1, val, 1);
 }
@@ -665,26 +511,13 @@ static inline int twl4030_i2c_read_u8(u8 chip_no, u8 reg, u8 *val)
 
 /* For hardware resetting */
 void twl4030_power_reset_init(void);
-/* For power off */
-void twl4030_power_off(void);
 /* For setting device group and voltage */
 void twl4030_pmrecv_vsel_cfg(u8 vsel_reg, u8 vsel_val,
 			     u8 dev_grp, u8 dev_grp_sel);
 /* For initializing power device */
 void twl4030_power_init(void);
 /* For initializing mmc power */
-void twl4030_power_mmc_init(int dev_index);
-
-/*
- * Input
- */
-
-int twl4030_input_power_button(void);
-int twl4030_input_charger(void);
-int twl4030_input_usb(void);
-
-int twl4030_keypad_scan(unsigned char *matrix);
-int twl4030_keypad_key(unsigned char *matrix, u8 c, u8 r);
+void twl4030_power_mmc_init(void);
 
 /*
  * LED

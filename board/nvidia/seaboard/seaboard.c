@@ -2,48 +2,51 @@
  *  (C) Copyright 2010,2011
  *  NVIDIA Corporation <www.nvidia.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
 #include <asm/io.h>
-#include <asm/arch/tegra.h>
-#include <asm/arch-tegra/board.h>
-#include <asm/arch/clock.h>
-#include <asm/arch/funcmux.h>
+#include <asm/arch/tegra2.h>
 #include <asm/arch/gpio.h>
-#include <asm/arch/pinmux.h>
-#include <asm/gpio.h>
 
-/* TODO: Remove this code when the SPI switch is working */
-#if (CONFIG_MACH_TYPE != MACH_TYPE_VENTANA)
-void gpio_early_init_uart(void)
-{
-	/* Enable UART via GPIO_PI3 (port 8, bit 3) so serial console works */
-	gpio_request(TEGRA_GPIO(I, 3), "uart_en");
-	gpio_direction_output(TEGRA_GPIO(I, 3), 0);
-}
-#endif
-
-#ifdef CONFIG_TEGRA_MMC
 /*
- * Routine: pin_mux_mmc
- * Description: setup the pin muxes/tristate values for the SDMMC(s)
+ * Routine: gpio_config_uart
+ * Description: Force GPIO_PI3 low on Seaboard so UART4 works.
  */
-void pin_mux_mmc(void)
+void gpio_config_uart(void)
 {
-	funcmux_select(PERIPH_ID_SDMMC4, FUNCMUX_SDMMC4_ATB_GMA_GME_8_BIT);
-	funcmux_select(PERIPH_ID_SDMMC3, FUNCMUX_SDMMC3_SDB_4BIT);
+	int gp = GPIO_PI3;
+	struct gpio_ctlr *gpio = (struct gpio_ctlr *)NV_PA_GPIO_BASE;
+	struct gpio_ctlr_bank *bank = &gpio->gpio_bank[GPIO_BANK(gp)];
+	u32 val;
 
-	/* For power GPIO PI6 */
-	pinmux_tristate_disable(PMUX_PINGRP_ATA);
-	/* For CD GPIO PI5 */
-	pinmux_tristate_disable(PMUX_PINGRP_ATC);
-}
-#endif
+	/* Enable UART via GPIO_PI3 (port 8, bit 3) so serial console works */
+	val = readl(&bank->gpio_config[GPIO_PORT(gp)]);
+	val |= 1 << GPIO_BIT(gp);
+	writel(val, &bank->gpio_config[GPIO_PORT(gp)]);
 
-void pin_mux_usb(void)
-{
-	/* For USB's GPIO PD0. For now, since we have no pinmux in fdt */
-	pinmux_tristate_disable(PMUX_PINGRP_SLXK);
+	val = readl(&bank->gpio_out[GPIO_PORT(gp)]);
+	val &= ~(1 << GPIO_BIT(gp));
+	writel(val, &bank->gpio_out[GPIO_PORT(gp)]);
+
+	val = readl(&bank->gpio_dir_out[GPIO_PORT(gp)]);
+	val |= 1 << GPIO_BIT(gp);
+	writel(val, &bank->gpio_dir_out[GPIO_PORT(gp)]);
 }

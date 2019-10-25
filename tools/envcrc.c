@@ -2,7 +2,23 @@
  * (C) Copyright 2001
  * Paolo Scaffardi, AIRVENT SAM s.p.a - RIMINI(ITALY), arsenio@tin.it
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <errno.h>
@@ -37,15 +53,15 @@
 # endif
 # if (CONFIG_ENV_ADDR >= CONFIG_SYS_MONITOR_BASE) && \
      ((CONFIG_ENV_ADDR + CONFIG_ENV_SIZE) <= (CONFIG_SYS_MONITOR_BASE + CONFIG_SYS_MONITOR_LEN))
-#  define ENV_IS_EMBEDDED
+#  define ENV_IS_EMBEDDED	1
 # endif
 # if defined(CONFIG_ENV_ADDR_REDUND) || defined(CONFIG_ENV_OFFSET_REDUND)
-#  define CONFIG_SYS_REDUNDAND_ENVIRONMENT
+#  define CONFIG_SYS_REDUNDAND_ENVIRONMENT	1
 # endif
 #endif	/* CONFIG_ENV_IS_IN_FLASH */
 
 #if defined(ENV_IS_EMBEDDED) && !defined(CONFIG_BUILD_ENVCRC)
-# define CONFIG_BUILD_ENVCRC
+# define CONFIG_BUILD_ENVCRC 1
 #endif
 
 #ifdef CONFIG_SYS_REDUNDAND_ENVIRONMENT
@@ -57,20 +73,19 @@
 #define ENV_SIZE (CONFIG_ENV_SIZE - ENV_HEADER_SIZE)
 
 
-#ifdef CONFIG_BUILD_ENVCRC
-# include <environment.h>
-extern unsigned int env_size;
-extern env_t environment;
-#endif	/* CONFIG_BUILD_ENVCRC */
-
 extern uint32_t crc32 (uint32_t, const unsigned char *, unsigned int);
+
+#ifdef CONFIG_BUILD_ENVCRC
+extern unsigned int env_size;
+extern unsigned char environment;
+#endif	/* CONFIG_BUILD_ENVCRC */
 
 int main (int argc, char **argv)
 {
 #ifdef CONFIG_BUILD_ENVCRC
 	unsigned char pad = 0x00;
 	uint32_t crc;
-	unsigned char *envptr = (unsigned char *)&environment,
+	unsigned char *envptr = &environment,
 		*dataptr = envptr + ENV_HEADER_SIZE;
 	unsigned int datasize = ENV_SIZE;
 	unsigned int eoe;

@@ -3,10 +3,27 @@
  * Kyungmin Park <kyungmin.park@samsung.com>
  * Minkyu Kang <mk7.kang@samsung.com>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <config.h>
+#include <version.h>
 #include <asm/arch/cpu.h>
 #include <asm/arch/power.h>
 
@@ -15,6 +32,9 @@
  *
  * r5 has zero always
  */
+
+_TEXT_BASE:
+	.word	CONFIG_SYS_TEXT_BASE
 
 	.globl lowlevel_init
 lowlevel_init:
@@ -30,10 +50,12 @@ lowlevel_init:
 	orr	r0, r0, #0x0
 	str	r5, [r0]
 
+#ifndef CONFIG_ONENAND_IPL
 	/* setting SRAM */
 	ldr	r0, =S5PC100_SROMC_BASE
 	ldr	r1, =0x9
 	str	r1, [r0]
+#endif
 
 	/* S5PC100 has 3 groups of interrupt sources */
 	ldr	r0, =S5PC100_VIC0_BASE			@0xE4000000
@@ -46,6 +68,7 @@ lowlevel_init:
 	str	r3, [r1, #0x14]				@INTENCLEAR
 	str	r3, [r2, #0x14]				@INTENCLEAR
 
+#ifndef CONFIG_ONENAND_IPL
 	/* Set all interrupts as IRQ */
 	str	r5, [r0, #0xc]				@INTSELECT
 	str	r5, [r1, #0xc]				@INTSELECT
@@ -55,16 +78,53 @@ lowlevel_init:
 	str	r5, [r0, #0xf00]			@INTADDRESS
 	str	r5, [r1, #0xf00]			@INTADDRESS
 	str	r5, [r2, #0xf00]			@INTADDRESS
+#endif
 
+#ifndef CONFIG_ONENAND_IPL
 	/* for UART */
 	bl uart_asm_init
 
 	/* for TZPC */
 	bl tzpc_asm_init
+#endif
+
+#ifdef CONFIG_ONENAND_IPL
+	/* init system clock */
+	bl	system_clock_init
+
+	bl	mem_ctrl_asm_init
+
+	/* Wakeup support. Don't know if it's going to be used, untested. */
+	ldr	r0, =S5PC100_RST_STAT
+	ldr	r1, [r0]
+	bic	r1, r1, #0xfffffff7
+	cmp	r1, #0x8
+	beq	wakeup_reset
+#endif
 
 1:
 	mov	lr, r9
 	mov	pc, lr
+
+#ifdef CONFIG_ONENAND_IPL
+wakeup_reset:
+
+	/* Clear wakeup status register */
+	ldr	r0, =S5PC100_WAKEUP_STAT
+	ldr	r1, [r0]
+	str	r1, [r0]
+
+	/* Load return address and jump to kernel */
+	ldr	r0, =S5PC100_INFORM0
+
+	/* r1 = physical address of s5pc100_cpu_resume function */
+	ldr	r1, [r0]
+
+	/* Jump to kernel (sleep.S) */
+	mov	pc, r1
+	nop
+	nop
+#endif
 
 /*
  * system_clock_init: Initialize core clock and bus clock.
@@ -118,6 +178,7 @@ system_clock_init:
 
 	mov	pc, lr
 
+#ifndef CONFIG_ONENAND_IPL
 /*
  * uart_asm_init: Initialize UART's pins
  */
@@ -151,3 +212,4 @@ tzpc_asm_init:
 	str	r1, [r0, #0x810]
 
 	mov	pc, lr
+#endif

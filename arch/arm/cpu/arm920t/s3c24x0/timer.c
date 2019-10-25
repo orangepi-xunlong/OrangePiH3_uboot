@@ -10,7 +10,23 @@
  * (C) Copyright 2002
  * Gary Jennejohn, DENX Software Engineering, <garyj@denx.de>
  *
- * SPDX-License-Identifier:	GPL-2.0+
+ * See file CREDITS for list of people who contributed to this
+ * project.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation; either version 2 of
+ * the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston,
+ * MA 02111-1307 USA
  */
 
 #include <common.h>
@@ -19,7 +35,19 @@
 #include <asm/io.h>
 #include <asm/arch/s3c24x0_cpu.h>
 
-DECLARE_GLOBAL_DATA_PTR;
+int timer_load_val = 0;
+static ulong timer_clk;
+
+/* macro to read the 16 bit timer */
+static inline ulong READ_TIMER(void)
+{
+	struct s3c24x0_timers *timers = s3c24x0_get_base_timers();
+
+	return readl(&timers->tcnto4) & 0xffff;
+}
+
+static ulong timestamp;
+static ulong lastdec;
 
 int timer_init(void)
 {
@@ -29,27 +57,27 @@ int timer_init(void)
 	/* use PWM Timer 4 because it has no output */
 	/* prescaler for Timer 4 is 16 */
 	writel(0x0f00, &timers->tcfg0);
-	if (gd->arch.tbu == 0) {
+	if (timer_load_val == 0) {
 		/*
 		 * for 10 ms clock period @ PCLK with 4 bit divider = 1/2
 		 * (default) and prescaler = 16. Should be 10390
 		 * @33.25MHz and 15625 @ 50 MHz
 		 */
-		gd->arch.tbu = get_PCLK() / (2 * 16 * 100);
-		gd->arch.timer_rate_hz = get_PCLK() / (2 * 16);
+		timer_load_val = get_PCLK() / (2 * 16 * 100);
+		timer_clk = get_PCLK() / (2 * 16);
 	}
 	/* load value for 10 ms timeout */
-	writel(gd->arch.tbu, &timers->tcntb4);
+	lastdec = timer_load_val;
+	writel(timer_load_val, &timers->tcntb4);
 	/* auto load, manual update of timer 4 */
 	tmr = (readl(&timers->tcon) & ~0x0700000) | 0x0600000;
 	writel(tmr, &timers->tcon);
 	/* auto load, start timer 4 */
 	tmr = (tmr & ~0x0700000) | 0x0500000;
 	writel(tmr, &timers->tcon);
-	gd->arch.lastinc = 0;
-	gd->arch.tbl = 0;
+	timestamp = 0;
 
-	return 0;
+	return (0);
 }
 
 /*
@@ -66,7 +94,7 @@ void __udelay (unsigned long usec)
 	ulong start = get_ticks();
 
 	tmo = usec / 1000;
-	tmo *= (gd->arch.tbu * 100);
+	tmo *= (timer_load_val * 100);
 	tmo /= 1000;
 
 	while ((ulong) (get_ticks() - start) < tmo)
@@ -77,7 +105,7 @@ ulong get_timer_masked(void)
 {
 	ulong tmr = get_ticks();
 
-	return tmr / (gd->arch.timer_rate_hz / CONFIG_SYS_HZ);
+	return tmr / (timer_clk / CONFIG_SYS_HZ);
 }
 
 void udelay_masked(unsigned long usec)
@@ -88,10 +116,10 @@ void udelay_masked(unsigned long usec)
 
 	if (usec >= 1000) {
 		tmo = usec / 1000;
-		tmo *= (gd->arch.tbu * 100);
+		tmo *= (timer_load_val * 100);
 		tmo /= 1000;
 	} else {
-		tmo = usec * (gd->arch.tbu * 100);
+		tmo = usec * (timer_load_val * 100);
 		tmo /= (1000 * 1000);
 	}
 
@@ -109,19 +137,18 @@ void udelay_masked(unsigned long usec)
  */
 unsigned long long get_ticks(void)
 {
-	struct s3c24x0_timers *timers = s3c24x0_get_base_timers();
-	ulong now = readl(&timers->tcnto4) & 0xffff;
+	ulong now = READ_TIMER();
 
-	if (gd->arch.lastinc >= now) {
+	if (lastdec >= now) {
 		/* normal mode */
-		gd->arch.tbl += gd->arch.lastinc - now;
+		timestamp += lastdec - now;
 	} else {
 		/* we have an overflow ... */
-		gd->arch.tbl += gd->arch.lastinc + gd->arch.tbu - now;
+		timestamp += lastdec + timer_load_val - now;
 	}
-	gd->arch.lastinc = now;
+	lastdec = now;
 
-	return gd->arch.tbl;
+	return timestamp;
 }
 
 /*
@@ -130,7 +157,20 @@ unsigned long long get_ticks(void)
  */
 ulong get_tbclk(void)
 {
-	return CONFIG_SYS_HZ;
+	ulong tbclk;
+
+#if defined(CONFIG_SMDK2400)
+	tbclk = timer_load_val * 100;
+#elif defined(CONFIG_SBC2410X) || \
+      defined(CONFIG_SMDK2410) || \
+	defined(CONFIG_S3C2440) || \
+      defined(CONFIG_VCMA9)
+	tbclk = CONFIG_SYS_HZ;
+#else
+#	error "tbclk not configured"
+#endif
+
+	return tbclk;
 }
 
 /*

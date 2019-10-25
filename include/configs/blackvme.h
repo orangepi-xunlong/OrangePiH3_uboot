@@ -1,4 +1,4 @@
-/* U-Boot for BlackVME. (C) Wojtek Skulski 2010.
+/* U-boot for BlackVME. (C) Wojtek Skulski 2010.
  * The board includes ADSP-BF561 rev. 0.5,
  * 32-bit SDRAM (2 * MT48LC16M16A2TG or MT48LC32M16A2TG),
  * Gigabit Ether AX88180 (ASIX) + 88E1111 rev. B2 (Marvell),
@@ -72,16 +72,26 @@
  * Then use the dedicated card IP + 1 for the board
  * http://docs.blackfin.uclinux.org/doku.php?id=setting_up_the_network
  */
+#define CONFIG_NET_MULTI
+
 #define CONFIG_DRIVER_AX88180	1
 #define AX88180_BASE		0x2c000000
+#define CONFIG_CMD_MII		/* enable probing PHY */
 
-#define CONFIG_HOSTNAME	blackvme	/* Bfin board  */
-#define CONFIG_IPADDR		169.254.144.145	/* Bfin board  */
-#define CONFIG_GATEWAYIP	169.254.144.144	/* dedic card  */
-#define CONFIG_SERVERIP	169.254.144.144	/* tftp server */
-#define CONFIG_NETMASK		255.255.255.0
-#define CONFIG_ROOTPATH		"/export/uClinux-dist/romfs"	/*NFS*/
-#define CFG_AUTOLOAD		"no"
+#ifdef CONFIG_NET_MULTI		/* also used as the network enabler */
+# define CONFIG_HOSTNAME	blackvme	/* Bfin board  */
+# define CONFIG_IPADDR		169.254.144.145	/* Bfin board  */
+# define CONFIG_GATEWAYIP	169.254.144.144	/* dedic card  */
+# define CONFIG_SERVERIP	169.254.144.144	/* tftp server */
+# define CONFIG_NETMASK		255.255.255.0
+# define CONFIG_ROOTPATH	/export/uClinux-dist/romfs	/*NFS*/
+# define CFG_AUTOLOAD		"no"
+# define CONFIG_CMD_DHCP
+# define CONFIG_CMD_PING
+# define CONFIG_ENV_OVERWRITE	1	/* enable changing MAC at runtime */
+/* Comment out hardcoded MAC to enable MAC storage in EEPROM */
+/* # define CONFIG_ETHADDR	ff:ee:dd:cc:bb:aa */
+#endif
 
 /*
  * SDRAM settings & memory map
@@ -139,6 +149,8 @@
 
 #define CONFIG_ENV_SPI_MAX_HZ	15000000
 #define CONFIG_SF_DEFAULT_SPEED	15000000
+#define CONFIG_SPI_FLASH
+#define CONFIG_SPI_FLASH_STMICRO
 
 /*
  * Interactive command settings
@@ -148,13 +160,19 @@
 #define CONFIG_CMDLINE_EDITING	1
 #define CONFIG_AUTO_COMPLETE	1
 
+#include <config_cmd_default.h>
+
 #define CONFIG_CMD_BOOTLDR
+#define CONFIG_CMD_CACHE
 #define CONFIG_CMD_CPLBINFO
+#define CONFIG_CMD_SF
+#define CONFIG_CMD_ELF
 
 /*
  * Default: boot from SPI flash.
  * "sfboot" is a composite command defined in extra settings
  */
+#define CONFIG_BOOTDELAY	5
 #define CONFIG_BOOTCOMMAND	"run sfboot"
 
 /*
@@ -163,7 +181,6 @@
 #define CONFIG_BAUDRATE		57600
 #define CONFIG_LOADS_ECHO	1
 #define CONFIG_UART_CONSOLE	0
-#define CONFIG_BFIN_SERIAL
 
 /*
  * U-Boot environment variables. Use "printenv" to examine.
@@ -171,10 +188,10 @@
  */
 #define CONFIG_BOOTARGS \
 	"root=/dev/mtdblock0 rw " \
-	"clkin_hz=" __stringify(CONFIG_CLKIN_HZ) " " \
+	"clkin_hz=" MK_STR(CONFIG_CLKIN_HZ) " " \
 	"earlyprintk=serial,uart0," \
-	__stringify(CONFIG_BAUDRATE) " " \
-	"console=ttyBF0," __stringify(CONFIG_BAUDRATE) " "
+	MK_STR(CONFIG_BAUDRATE) " " \
+	"console=ttyBF0," MK_STR(CONFIG_BAUDRATE) " "
 
 /* Convenience env variables & commands.
  * Reserve kernstart = 0x20000  = 128 kB for U-Boot.
@@ -211,7 +228,8 @@
  * Soft I2C settings (BF561 does not have hard I2C)
  * PF12,13 on SPI connector 0.
  */
-#ifdef CONFIG_SYS_I2C_SOFT
+#ifdef CONFIG_SOFT_I2C
+# define CONFIG_CMD_I2C
 # define CONFIG_SOFT_I2C_GPIO_SCL	GPIO_PF12
 # define CONFIG_SOFT_I2C_GPIO_SDA	GPIO_PF13
 # define CONFIG_SYS_I2C_SPEED		50000
@@ -222,6 +240,8 @@
  * No Parallel Flash on this board
  */
 #define CONFIG_SYS_NO_FLASH
+#undef CONFIG_CMD_IMLS
 #undef CONFIG_CMD_JFFS2
+#undef CONFIG_CMD_FLASH
 
 #endif
