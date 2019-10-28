@@ -128,3 +128,7 @@ OrangePi-BuildLinux/linux-trusty/
 update.sh
 download.sh
 vmlinux
+u-boot
+u-boot.lds
+u-boot.map
+u-boot.srec

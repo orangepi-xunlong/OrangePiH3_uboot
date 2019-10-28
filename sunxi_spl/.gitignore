@@ -10,7 +10,9 @@
 *.axf
 *.map
 *.bin
-*.lds
+boot0/boot0.lds
+fes_init/fes_init.lds
+
 #
 # Generated files
 #
