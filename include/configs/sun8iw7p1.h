@@ -320,13 +320,13 @@
 #define CONFIG_CMD_SAVEENV
 
 #define CONFIG_EXTRA_ENV_SETTINGS \
-	"bootdelay=3\0" \
+	"bootdelay=1\0" \
 	"bootcmd=run setargs_mmc boot_normal\0" \
 	"console=ttyS0,115200\0" \
 	"nand_root=/dev/nandd\0" \
 	"mmc_root=/dev/mmcblk0p2\0" \
 	"init=/init\0" \
-	"loglevel=8\0" \
+	"loglevel=2\0" \
 	"setargs_nand=setenv bootargs console=${console} root=${nand_root}" \
 	"init=${init} loglevel=${loglevel} partitions=${partitions}\0" \
 	"setargs_mmc=setenv bootargs console=${console} root=${mmc_root} " \
